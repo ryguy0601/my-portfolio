@@ -1,0 +1,5 @@
+---
+// src/pages/admin/logout.astro
+Astro.cookies.delete('admin_session', { path: '/' });
+return Astro.redirect('/admin/login');
+---

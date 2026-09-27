@@ -83,7 +83,7 @@ $text-accent: #00f0ff;
 // ==========================================
 .navbar-glass {
   background-color: rgba(24, 24, 27, 0.85) !important; // Semi-transparent dark background
-  backdrop-filter: blur(12px);                  // Modern frosted glass effect
+  backdrop-filter: blur(12px);      // Modern frosted glass effect
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid rgba(39, 39, 42, 0.8) !important;
   transition: background-color 0.3s ease;
@@ -113,6 +113,74 @@ $text-accent: #00f0ff;
     width: 80%; // Expands a glowing underline accent when hovered
   }
 }
+
+
+// ==========================================
+// Featured Showcase & Fluid Card Layouts
+// ==========================================
+.project-card-dimension {
+  width: 100%;
+  max-width: 580px;
+  aspect-ratio: 4 / 3.2; // Locks the responsive width-to-height ratio dynamically
+  height: auto !important;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease, border-color 0.3s ease;
+  
+  .carousel-control-prev,
+  .carousel-control-next {
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+
+  &:hover {
+    transform: translateY(-6px) scale(1.01);
+    border-color: #00f0ff !important;
+    box-shadow: 0 16px 35px rgba(0, 240, 255, 0.25) !important;
+
+    .card-overlay {
+      background: linear-gradient(to top, rgba(10, 10, 12, 0.95) 15%, rgba(10, 10, 12, 0.75) 60%, rgba(10, 10, 12, 0.4) 100%);
+    }
+
+    .carousel-control-prev,
+    .carousel-control-next {
+      opacity: 1;
+    }
+  }
+}
+
+.card-overlay {
+  background: linear-gradient(to top, rgba(12, 12, 15, 0.95) 20%, rgba(12, 12, 15, 0.8) 60%, rgba(12, 12, 15, 0.3) 100%);
+  transition: background 0.3s ease;
+  z-index: 1;
+}
+
+.outer-control-btn {
+  width: 5% !important;
+  opacity: 0.8;
+  transition: opacity 0.2s ease;
+  &:hover {
+    opacity: 1;
+  }
+}
+
+.text-shadow {
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+@keyframes slideFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-fade {
+  animation: slideFadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 
 // ==========================================
 // 4. Responsive Multi-Device Adjustments

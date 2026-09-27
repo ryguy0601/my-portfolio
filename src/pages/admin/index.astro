@@ -1,15 +1,251 @@
 ---
 // src/pages/admin/index.astro
+import { createClient } from '@supabase/supabase-js';
+import Layout from '../../layouts/Layout.astro';
+import '../../styles/index.scss';
+
+// 1. SECURE SESSION / MFA CHECK
 const session = Astro.cookies.get('admin_session');
 
-// If the cookie is missing or invalid, bounce them immediately to the login screen
 if (!session || session.value !== 'authenticated_true') {
   return Astro.redirect('/admin/login');
 }
+
+// 2. INITIALIZE SUPABASE
+const supabase = createClient(
+  import.meta.env.PUBLIC_SUPABASE_URL,
+  import.meta.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+let errorMessage = '';
+let successMessage = '';
+
+// Check if we are editing an existing project via URL query parameter (e.g. /admin?edit=ID)
+const url = new URL(Astro.request.url);
+const editId = url.searchParams.get('edit');
+
+let editProject = null;
+if (editId) {
+  const { data } = await supabase.from('projects').select('*').eq('id', editId).single();
+  editProject = data;
+}
+
+// 3. HANDLE FORM SUBMISSION (Add or Update Project)
+if (Astro.request.method === 'POST') {
+  const formData = await Astro.request.formData();
+  const projectId = formData.get('project_id')?.toString();
+  const title = formData.get('title')?.toString();
+  const summary = formData.get('summary')?.toString();
+  const content = formData.get('content')?.toString();
+  const tech_stack = formData.get('tech_stack')?.toString();
+  const live_url = formData.get('live_url')?.toString();
+  const github_url = formData.get('github_url')?.toString();
+  const featured = formData.get('featured') === 'on';
+  
+  const image_folder = formData.get('image_folder')?.toString() || '';
+  const filenamesRaw = formData.get('image_filenames')?.toString() || '';
+
+  const imageFilenamesArray = filenamesRaw
+    .split(',')
+    .map(name => name.trim())
+    .filter(Boolean);
+
+  const formattedImagePaths = imageFilenamesArray.map(file => {
+    const cleanFolder = image_folder.endsWith('/') ? image_folder : `${image_folder}/`;
+    return `${cleanFolder}${file}`;
+  });
+
+  if (!title || !summary || !tech_stack) {
+    errorMessage = 'Please fill out all required fields (Title, Summary, Tech Stack).';
+  } else {
+    const projectPayload = {
+      title,
+      slug: title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      summary,
+      content: content || null,
+      tech_stack,
+      live_url: live_url || null,
+      github_url: github_url || null,
+      featured,
+      image_url: formattedImagePaths.length > 0 ? formattedImagePaths[0] : (editProject?.image_url || null),
+      image_filenames: formattedImagePaths.length > 0 ? formattedImagePaths : (editProject?.image_filenames || null)
+    };
+
+    if (projectId) {
+      // UPDATE EXISTING PROJECT
+      const { error: dbError } = await supabase
+        .from('projects')
+        .update(projectPayload)
+        .eq('id', projectId);
+
+      if (dbError) {
+        errorMessage = `Update error: ${dbError.message}`;
+      } else {
+        return Astro.redirect('/admin');
+      }
+    } else {
+      // INSERT NEW PROJECT
+      const { error: dbError } = await supabase.from('projects').insert([projectPayload]);
+
+      if (dbError) {
+        errorMessage = `Database error: ${dbError.message}`;
+      } else {
+        successMessage = 'Project added successfully!';
+      }
+    }
+  }
+}
+
+// 4. FETCH EXISTING PROJECTS
+const { data: projects } = await supabase.from('projects').select('*').order('id', { ascending: false });
+
+// Helper to extract folder and raw file string from stored image paths for the edit form
+let existingFolder = '';
+let existingFilenames = '';
+if (editProject && editProject.image_filenames) {
+  const firstFile = editProject.image_filenames[0] || '';
+  const lastSlashIndex = firstFile.lastIndexOf('/');
+  if (lastSlashIndex !== -1) {
+    existingFolder = firstFile.substring(0, lastSlashIndex);
+    existingFilenames = editProject.image_filenames.map((p: string) => p.substring(lastSlashIndex + 1)).join(', ');
+  } else {
+    existingFilenames = editProject.image_filenames.join(', ');
+  }
+}
 ---
 
-<div class="container py-5">
-  <h1 class="text-gradient fw-bold">Admin Dashboard</h1>
-  <p class="text-muted">Welcome back, Ryan. Full project database control unlocked.</p>
-  <!-- Your database form controls go here -->
-</div>
+<Layout title="Admin Dashboard — Portfolio">
+  <div class="container py-5 mt-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div>
+        <h1 class="text-gradient fw-bold fs-3">Admin Dashboard</h1>
+        <p class="text-muted small mb-0">Welcome back, Ryan. Full project database control unlocked.</p>
+      </div>
+      <div class="d-flex gap-3 align-items-center">
+        <a href="/" class="btn btn-outline-secondary btn-sm text-accent">View Live Site &rarr;</a>
+        <a href="/admin/logout" class="btn btn-outline-danger btn-sm">Log Out</a>
+      </div>
+    </div>
+
+    {errorMessage && <div class="alert alert-danger border-0 bg-danger bg-opacity-10 text-danger mb-4">{errorMessage}</div>}
+    {successMessage && <div class="alert alert-success border-0 bg-success bg-opacity-10 text-success mb-4">{successMessage}</div>}
+
+    <div class="row g-4">
+      <!-- Dynamic Add / Edit Project Column -->
+      <div class="col-lg-5">
+        <div class="card bg-card border border-secondary p-4 rounded-4 shadow-sm">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3 class="text-gradient h5 mb-0 fw-bold">{editProject ? `Edit Project #${editProject.id}` : 'Add New Project'}</h3>
+            {editProject && (
+              <a href="/admin" class="btn btn-outline-secondary btn-xs px-2 py-1" style="font-size: 0.75rem;">Cancel Edit</a>
+            )}
+          </div>
+
+          <form method="POST">
+            {editProject && <input type="hidden" name="project_id" value={editProject.id} />}
+            
+            <div class="mb-3">
+              <label class="form-label text-light small">Project Title *</label>
+              <input type="text" name="title" value={editProject?.title || ''} class="form-control bg-dark text-light border-secondary shadow-none" placeholder="e.g., Security Visitor Registry" required />
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label text-light small">Summary Description *</label>
+              <textarea name="summary" class="form-control bg-dark text-light border-secondary shadow-none" rows="2" placeholder="Brief overview for cards..." required>{editProject?.summary || ''}</textarea>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label text-light small">Tech Stack *</label>
+              <input type="text" name="tech_stack" value={editProject?.tech_stack || ''} class="form-control bg-dark text-light border-secondary shadow-none" placeholder="e.g., C#, .NET Blazor, Python" required />
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label text-light small">Full Content (Optional)</label>
+              <textarea name="content" class="form-control bg-dark text-light border-secondary shadow-none" rows="3" placeholder="Detailed project breakdown...">{editProject?.content || ''}</textarea>
+            </div>
+
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="form-label text-light small">Live URL</label>
+                <input type="url" name="live_url" value={editProject?.live_url || ''} class="form-control bg-dark text-light border-secondary shadow-none" placeholder="https://..." />
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="form-label text-light small">GitHub URL</label>
+                <input type="url" name="github_url" value={editProject?.github_url || ''} class="form-control bg-dark text-light border-secondary shadow-none" placeholder="https://github.com/..." />
+              </div>
+            </div>
+
+            <!-- Image Folder & File List Mapping Section -->
+            <div class="p-3 bg-dark bg-opacity-50 border border-secondary rounded-3 mb-3">
+              <h6 class="text-accent small fw-bold mb-2"><i class="bi bi-folder2-open me-1"></i> Project Image Assets</h6>
+              
+              <div class="mb-2">
+                <label class="form-label text-light small">Image Folder Path</label>
+                <input type="text" name="image_folder" value={existingFolder} class="form-control bg-dark text-light border-secondary shadow-none" placeholder="/images/projects/registry" />
+              </div>
+
+              <div class="mb-1">
+                <label class="form-label text-light small">File Names (comma separated)</label>
+                <input type="text" name="image_filenames" value={existingFilenames} class="form-control bg-dark text-light border-secondary shadow-none" placeholder="screen1.png, screen2.png" />
+                <div class="form-text text-muted" style="font-size: 0.7rem;">Enter file names separated by commas.</div>
+              </div>
+            </div>
+
+            <div class="mb-3 form-check">
+              <input type="checkbox" name="featured" class="form-check-input bg-dark border-secondary" id="featuredCheck" checked={editProject?.featured} />
+              <label class="form-check-label text-light small" for="featuredCheck">Feature on Homepage</label>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold shadow-sm">
+              {editProject ? 'Update Project' : 'Save to Database'}
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Existing Projects Column (Click to Edit) -->
+      <div class="col-lg-7">
+        <h3 class="text-light h5 mb-3 fw-bold">Existing Projects ({projects?.length || 0})</h3>
+        <p class="text-muted small mb-3">Click on any project card below to load it into the form for editing.</p>
+        <div class="d-flex flex-column gap-3">
+          {projects && projects.length > 0 ? (
+            projects.map((project) => (
+              <a href={`/admin?edit=${project.id}`} class="text-decoration-none">
+                <div class={`card bg-card border ${editId == project.id ? 'border-primary shadow' : 'border-secondary'} p-3 rounded-3 d-flex flex-row align-items-center gap-3 project-list-item`}>
+                  {project.image_url ? (
+                    <img src={project.image_url} alt={project.title} class="rounded object-fit-cover flex-shrink-0" style="width: 80px; height: 60px;" />
+                  ) : (
+                    <div class="rounded bg-dark d-flex align-items-center justify-content-center text-muted small flex-shrink-0" style="width: 80px; height: 60px;">No Img</div>
+                  )}
+                  <div class="flex-grow-1 overflow-hidden">
+                    <div class="d-flex align-items-center gap-2">
+                      <h6 class="text-primary fw-bold mb-1 text-truncate">{project.title}</h6>
+                      {project.featured && <span class="badge bg-primary text-dark" style="font-size: 0.65rem;">Featured</span>}
+                      <span class="ms-auto text-accent small" style="font-size: 0.75rem;">Edit &rarr;</span>
+                    </div>
+                    <p class="text-muted small mb-1 text-truncate">{project.summary}</p>
+                    <span class="text-accent small font-monospace" style="font-size: 0.75rem;">{project.tech_stack}</span>
+                  </div>
+                </div>
+              </a>
+            ))
+          ) : (
+            <div class="card bg-card border border-secondary p-4 text-center">
+              <p class="text-muted mb-0">No projects in the database yet. Use the form to add your first one!</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .project-list-item {
+    transition: all 0.2s ease;
+    &:hover {
+      border-color: #00f0ff !important;
+      transform: translateY(-2px);
+    }
+  }
+</style>

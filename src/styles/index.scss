@@ -1,12 +1,4 @@
 // Lock down global scroll so the viewport acts as a true application frame
-html, body {
-  overflow: hidden !important;
-  height: 100vh !important;
-  width: 100vw !important;
-  margin: 0;
-  padding: 0;
-}
-
 .hero-wrapper {
   width: 100%;
   max-width: 1650px;

@@ -48,13 +48,12 @@ if (Astro.request.method === 'POST') {
     // Verify the 6-digit code
     const result = await verify({ token, secret: activeSecret });
 
-    if (result.valid) {
-      // Grant secure session cookie valid for 7 days
+if (result.valid) {
+      // Grant a pure session cookie (clears automatically when the browser closes)
       Astro.cookies.set('admin_session', 'authenticated_true', {
         httpOnly: true,
         secure: true,
-        path: '/',
-        maxAge: 60 * 60 * 24 * 7
+        path: '/'
       });
       return Astro.redirect('/admin');
     } else {
