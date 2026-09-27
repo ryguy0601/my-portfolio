@@ -1,0 +1,136 @@
+// 1. Include your custom variable overrides FIRST
+$primary: #e60073;           // Vibrant Magenta
+$secondary: #00f0ff;         // Cyan Accent
+$border-radius: 0.5rem;
+$enable-shadows: true;
+
+// Dark mode color overrides for Bootstrap
+$body-bg: #121214;           // Deep charcoal/off-black background
+$body-color: #e4e4e7;        // Soft light gray text for readability
+$card-bg: #18181b;           // Slightly lighter dark for cards/containers
+$card-border-color: #27272a; // Subtle border color for dark mode
+
+// 2. Import Bootstrap's source files from node_modules
+@import "bootstrap/scss/bootstrap";
+
+// 3. Custom Gradients & Special Component Styling
+:root {
+  --gradient-primary: linear-gradient(135deg, #e60073 0%, #ff4d94 100%);
+  --gradient-accent: linear-gradient(135deg, #00f0ff 0%, #0077ff 100%);
+  --gradient-hero: linear-gradient(135deg, rgba(230, 0, 115, 0.15) 0%, rgba(0, 240, 255, 0.05) 100%);
+}
+
+body {
+  background-color: $body-bg;
+  color: $body-color;
+  overflow-x: hidden;
+}
+
+// Ensure Bootstrap cards look great with subtle gradient accents in dark mode
+.card {
+  background-color: $card-bg;
+  color: $body-color;
+  border-color: $card-border-color;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+  overflow-x: auto; // Prevents code blocks or content from blowing out card boundaries on small screens
+
+  &:hover {
+    border-color: $primary;
+    transform: translateY(-2px);
+  }
+}
+
+.admin-card {
+  border-left: 4px solid $primary;
+  background: linear-gradient(180deg, rgba(24, 24, 27, 1) 0%, rgba(30, 18, 30, 0.6) 100%);
+}
+
+// Gradient Text Utility
+.text-gradient {
+  background: linear-gradient(135deg, #e60073 0%, #00f0ff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: inline-block; // Prevents clipping bugs on certain mobile browsers
+}
+
+// Gradient Buttons
+.btn-primary {
+  background: var(--gradient-primary) !important;
+  border: none !important;
+  box-shadow: 0 4px 15px rgba(230, 0, 115, 0.3);
+
+  &:hover {
+    opacity: 0.9;
+    box-shadow: 0 6px 20px rgba(230, 0, 115, 0.5);
+  }
+}
+
+// Hero background wrapper styling helper
+.hero-gradient-bg {
+  background: var(--gradient-hero);
+  border-bottom: 1px solid $card-border-color;
+}
+
+// Accent utility helper
+$text-accent: #00f0ff;
+.text-accent {
+  color: $secondary !important;
+}
+
+
+// ==========================================
+// Upgraded Navbar Styling
+// ==========================================
+.navbar-glass {
+  background-color: rgba(24, 24, 27, 0.85) !important; // Semi-transparent dark background
+  backdrop-filter: blur(12px);                  // Modern frosted glass effect
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(39, 39, 42, 0.8) !important;
+  transition: background-color 0.3s ease;
+}
+
+.custom-nav-link {
+  position: relative;
+  transition: color 0.2s ease;
+
+  &:hover {
+    color: #00f0ff !important; // Highlights to your cyan accent on hover
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    width: 0;
+    height: 2px;
+    bottom: 0;
+    left: 50%;
+    background: var(--gradient-primary);
+    transition: all 0.3s ease;
+    transform: translateX(-50%);
+  }
+
+  &:hover::after {
+    width: 80%; // Expands a glowing underline accent when hovered
+  }
+}
+
+// ==========================================
+// 4. Responsive Multi-Device Adjustments
+// ==========================================
+@media (max-width: 991.98px) {
+  .hero-gradient-bg {
+    text-align: center;
+  }
+  
+  // Center CTA buttons nicely on mobile/tablet viewports
+  .hero-gradient-bg .d-flex {
+    justify-content: center !important;
+  }
+}
+
+@media (max-width: 575.98px) {
+  // Tighten font scaling or padding adjustments for very small phones if needed
+  body {
+    font-size: 0.95rem;
+  }
+}

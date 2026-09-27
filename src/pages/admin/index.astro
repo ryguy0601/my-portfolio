@@ -1,0 +1,15 @@
+---
+// src/pages/admin/index.astro
+const session = Astro.cookies.get('admin_session');
+
+// If the cookie is missing or invalid, bounce them immediately to the login screen
+if (!session || session.value !== 'authenticated_true') {
+  return Astro.redirect('/admin/login');
+}
+---
+
+<div class="container py-5">
+  <h1 class="text-gradient fw-bold">Admin Dashboard</h1>
+  <p class="text-muted">Welcome back, Ryan. Full project database control unlocked.</p>
+  <!-- Your database form controls go here -->
+</div>

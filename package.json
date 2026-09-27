@@ -12,9 +12,18 @@
     "astro": "astro"
   },
   "dependencies": {
-    "astro": "^7.3.5"
+    "@astrojs/node": "^11.1.6",
+    "@popperjs/core": "^2.11.8",
+    "astro": "^7.3.5",
+    "bootstrap": "^5.3.8",
+    "otplib": "^13.5.0",
+    "qrcode": "^1.5.4",
+    "sass": "^1.105.0"
   },
   "allowScripts": {
     "esbuild": true
+  },
+  "devDependencies": {
+    "@types/qrcode": "^1.5.6"
   }
 }

@@ -1,11 +1,278 @@
 ---
-import Welcome from '../components/Welcome.astro';
+// src/pages/index.astro
 import Layout from '../layouts/Layout.astro';
-
-// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
-// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
+import '../styles/index.scss';
 ---
 
-<Layout>
-	<Welcome />
+<Layout title="Ryan Cuccurullo — Software Engineer Portfolio">
+  <!-- Interactive Mouse-Tracking Background Canvas (Fullscreen Layer) -->
+  <canvas id="hero-canvas" class="position-fixed top-0 start-0 w-100 h-100 pointer-events-none" style="z-index: 0; opacity: 0.85;"></canvas>
+
+  <!-- Professional Full-Height Hero Banner Section -->
+  <section class="hero-gradient-bg position-relative overflow-hidden w-100 vh-100 d-flex align-items-center py-3" style="z-index: 1;">
+    <!-- Responsive Fluid Ambient Background Glow Accents -->
+    <div class="position-absolute top-0 start-0 translate-middle-y rounded-circle bg-primary opacity-10 pointer-events-none animate-pulse-slow" style="width: clamp(300px, 40vw, 650px); height: clamp(300px, 40vw, 650px); z-index: -1; filter: blur(clamp(50px, 8vw, 100px));"></div>
+    <div class="position-absolute bottom-0 end-0 translate-middle-y rounded-circle bg-secondary opacity-10 pointer-events-none animate-pulse-slow" style="width: clamp(300px, 40vw, 650px); height: clamp(300px, 40vw, 650px); z-index: -1; filter: blur(clamp(50px, 8vw, 100px)); animation-delay: 2s;"></div>
+    
+    <div class="container hero-wrapper py-2">
+      <div class="row align-items-center justify-content-between g-4 g-lg-5">
+        
+        <!-- Left Column: Text Content -->
+        <div class="col-lg-6 text-center text-lg-start">
+          <div class="mb-2 mb-lg-3">
+            <span class="badge rounded-pill px-3 py-2 bg-dark border border-secondary text-accent fw-normal text-wrap shadow-sm" style="font-size: clamp(0.8rem, 1.1vw, 0.95rem);">
+              <i class="bi bi-code-slash me-1"></i> Software Engineer &bull; Full-Stack & AI
+            </span>
+          </div>
+
+          <h1 class="fw-bold mb-3 tracking-tight" style="font-size: clamp(2.2rem, 4.5vw, 4rem);">
+            Hi, I'm <span class="text-gradient">Ryan Cuccurullo</span>.
+          </h1>
+
+          <p class="lead text-muted mb-4 mx-auto mx-lg-0" style="font-size: clamp(0.95rem, 1.3vw, 1.2rem); max-width: 580px;">
+            Computer Programming graduate from Farmingdale State College specializing in scalable web applications, 
+            enterprise automation, and AI-powered solutions.
+          </p>
+
+          <!-- Upgraded Cool Interactive Buttons -->
+          <div class="d-flex flex-column flex-sm-row justify-content-center justify-content-lg-start gap-3">
+            <a href="/projects" class="btn btn-primary btn-lg px-4 shadow-sm custom-btn-primary" style="font-size: clamp(0.95rem, 1.2vw, 1.05rem);">
+              <span>View All Projects</span> 
+              <span class="arrow-icon ms-1">&rarr;</span>
+            </a>
+            <a href="https://github.com/ryguy0601" target="_blank" class="btn btn-outline-secondary btn-lg px-4 shadow-sm custom-btn-github d-inline-flex align-items-center justify-content-center gap-2" style="font-size: clamp(0.95rem, 1.2vw, 1.05rem);">
+              <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.22 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+              </svg>
+              <span>GitHub Profile</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Right Column: Large-Format Interactive Terminal Workbench -->
+        <div class="col-lg-6 d-flex justify-content-center justify-content-lg-end">
+          <div class="card terminal-card shadow-lg border border-secondary p-3 rounded-4">
+            <div class="card-header bg-transparent border-bottom border-secondary d-flex align-items-center gap-2 pb-2 mb-2">
+              <span class="rounded-circle bg-danger d-inline-block" style="width: 11px; height: 11px;"></span>
+              <span class="rounded-circle bg-warning d-inline-block" style="width: 11px; height: 11px;"></span>
+              <span class="rounded-circle bg-success d-inline-block" style="width: 11px; height: 11px;"></span>
+              <small class="text-muted ms-2 font-monospace" style="font-size: 0.85rem;">ryan@portfolio ~ zsh</small>
+            </div>
+            <div class="card-body terminal-body font-monospace text-muted">
+              <pre class="mb-0 m-0 p-0" style="background: transparent; font-family: inherit;"><span id="terminal-text"></span><span class="terminal-cursor">|</span></pre>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
 </Layout>
+
+<!-- Page-Specific Styling & Micro-Interactions -->
+<style>
+  :global(.navbar) {
+    background-color: rgba(24, 24, 27, 0.35) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+  }
+
+  /* Cool Button Micro-Interactions */
+  .custom-btn-primary {
+    transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+    
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(230, 0, 115, 0.4) !important;
+      
+      .arrow-icon {
+        transform: translateX(4px);
+      }
+    }
+  }
+
+  .arrow-icon {
+    display: inline-block;
+    transition: transform 0.2s ease;
+  }
+
+  .custom-btn-github {
+    background-color: rgba(24, 24, 27, 0.6) !important;
+    border-color: rgba(0, 240, 255, 0.3) !important;
+    color: #e4e4e7 !important;
+    transition: all 0.2s ease !important;
+
+    &:hover {
+      background-color: rgba(0, 240, 255, 0.1) !important;
+      border-color: #00f0ff !important;
+      color: #00f0ff !important;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(0, 240, 255, 0.2) !important;
+    }
+  }
+</style>
+
+<!-- Client-side script handling typing, syntax highlighting, and dynamic resize canvas scaling -->
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    // --- 1. Dynamic Resize Particle Network ---
+    const canvas = document.getElementById("hero-canvas") as HTMLCanvasElement;
+    if (canvas) {
+      const ctx = canvas.getContext("2d");
+      let width = (canvas.width = window.innerWidth);
+      let height = (canvas.height = window.innerHeight);
+
+      interface Particle {
+        x: number;
+        y: number;
+        vx: number;
+        vy: number;
+        size: number;
+      }
+
+      const particles: Particle[] = [];
+      
+      function initParticles() {
+        particles.length = 0; 
+        const particleCount = Math.floor((width * height) / 9000);
+        for (let i = 0; i < particleCount; i++) {
+          particles.push({
+            x: Math.random() * width,
+            y: Math.random() * height,
+            vx: (Math.random() - 0.5) * 1.0,
+            vy: (Math.random() - 0.5) * 1.0,
+            size: Math.random() * 1.8 + 1.2
+          });
+        }
+      }
+
+      initParticles();
+
+      window.addEventListener("resize", () => {
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+        initParticles();
+      });
+
+      const mouse = { x: -1000, y: -1000, radius: 160 };
+
+      window.addEventListener("mousemove", (e) => {
+        mouse.x = e.clientX;
+        mouse.y = e.clientY;
+      });
+
+      window.addEventListener("mouseleave", () => {
+        mouse.x = -1000;
+        mouse.y = -1000;
+      });
+
+      function animateCanvas() {
+        if (!ctx) return;
+        ctx.clearRect(0, 0, width, height);
+
+        for (let i = 0; i < particles.length; i++) {
+          let p = particles[i];
+          p.x += p.vx;
+          p.y += p.vy;
+
+          if (p.x < 0 || p.x > width) p.vx *= -1;
+          if (p.y < 0 || p.y > height) p.vy *= -1;
+
+          let dx = mouse.x - p.x;
+          let dy = mouse.y - p.y;
+          let dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < mouse.radius) {
+            let angle = Math.atan2(dy, dx);
+            let force = (mouse.radius - dist) / mouse.radius;
+            p.x -= Math.cos(angle) * force * 3;
+            p.y -= Math.sin(angle) * force * 3;
+          }
+
+          ctx.fillStyle = "rgba(0, 240, 255, 0.7)";
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fill();
+
+          for (let j = i + 1; j < particles.length; j++) {
+            let p2 = particles[j];
+            let ndx = p.x - p2.x;
+            let ndy = p.y - p2.y;
+            let ndist = Math.sqrt(ndx * ndx + ndy * ndy);
+
+            if (ndist < 130) {
+              ctx.strokeStyle = `rgba(230, 0, 115, ${0.45 * (1 - ndist / 130)})`;
+              ctx.lineWidth = 0.8;
+              ctx.beginPath();
+              ctx.moveTo(p.x, p.y);
+              ctx.lineTo(p2.x, p2.y);
+              ctx.stroke();
+            }
+          }
+        }
+        requestAnimationFrame(animateCanvas);
+      }
+      animateCanvas();
+    }
+
+    // --- 2. Terminal Typing & Highlighting Engine ---
+    const terminal = document.getElementById("terminal-text");
+    if (!terminal) return;
+
+    const steps = [
+      "const profile = {\n",
+      "  name: 'Ryan Cuccurullo',\n",
+      "  role: 'Software Engienr", 
+      { delete: 8 },             
+      " Software Engineer',\n",
+      "  stack: ['.NET', 'Pythn",    
+      { delete: 5 },             
+      "Python', 'React', 'Astro'],\n",
+      "  status: 'Available for Impact'\n",
+      "};"
+    ];
+
+    const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    function highlightCode(code: string) {
+      let safe = code
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+
+      safe = safe.replace(/\b(const)\b/g, '<span class="tok-keyword">$1</span>');
+      safe = safe.replace(/(\b[a-zA-Z_$][a-zA-Z0-9_$]*)(?=\s*:\s*)/g, '<span class="tok-property">$1</span>');
+      safe = safe.replace(/('[^'\n]*('|$))/g, '<span class="tok-string">$1</span>');
+
+      return safe;
+    }
+
+    async function runTerminal() {
+      while (true) {
+        let currentText = "";
+        terminal!.innerHTML = ""; 
+        await wait(700);
+
+        for (let step of steps) {
+          if (typeof step === "string") {
+            for (let char of step) {
+              currentText += char;
+              terminal!.innerHTML = highlightCode(currentText);
+              await wait(25 + Math.random() * 35);
+            }
+          } else if (typeof step === "object" && step.delete) {
+            await wait(450); 
+            for (let i = 0; i < step.delete; i++) {
+              currentText = currentText.slice(0, -1);
+              terminal!.innerHTML = highlightCode(currentText);
+              await wait(40); 
+            }
+            await wait(200);
+          }
+        }
+        await wait(4000);
+      }
+    }
+    runTerminal();
+  });
+</script>

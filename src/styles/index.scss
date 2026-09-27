@@ -1,0 +1,71 @@
+// Lock down global scroll so the viewport acts as a true application frame
+html, body {
+  overflow: hidden !important;
+  height: 100vh !important;
+  width: 100vw !important;
+  margin: 0;
+  padding: 0;
+}
+
+.hero-wrapper {
+  width: 100%;
+  max-width: 1650px;
+  margin: 0 auto;
+}
+
+// --- Rewritten Large-Format Terminal Workbench ---
+.terminal-card {
+  width: 100%;
+  // Scales up massively on desktop/ultra-wides while staying responsive on smaller viewports
+  max-width: clamp(340px, 48vw, 720px); 
+  height: clamp(320px, 46vh, 480px);
+  display: flex;
+  flex-direction: column;
+  background-color: rgba(20, 20, 25, 0.85) !important; // Deep glassmorphism background
+  backdrop-filter: blur(12px);
+}
+
+.terminal-body {
+  // Larger, highly readable code text sizing
+  font-size: clamp(0.85rem, 1.3vw, 1.1rem) !important;
+  line-height: 1.6;
+  flex-grow: 1;
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
+// Terminal Blinking Cursor Animation
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.terminal-cursor {
+  animation: blink 1s infinite;
+  color: #00f0ff;
+  font-weight: bold;
+}
+
+// Ambient Glow Pulse Animation
+@keyframes pulseSlow {
+  0%, 100% { transform: scale(1); opacity: 0.12; }
+  50% { transform: scale(1.18); opacity: 0.22; }
+}
+
+.animate-pulse-slow {
+  animation: pulseSlow 7s ease-in-out infinite;
+}
+
+// Terminal Code Syntax Highlighting Theme Colors
+.tok-keyword {
+  color: #ff4d94 !important; /* Soft Magenta */
+  font-weight: bold;
+}
+
+.tok-property {
+  color: #00f0ff !important; /* Cyan Accent */
+}
+
+.tok-string {
+  color: #a3e635 !important; /* Soft Lime/Green */
+}

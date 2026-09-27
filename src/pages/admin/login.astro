@@ -1,0 +1,113 @@
+---
+// src/pages/admin/login.astro
+import '../../styles/main.scss';
+
+import { generateSecret, verify, generateURI } from 'otplib';
+import QRCode from 'qrcode';
+
+let errorMessage = '';
+let qrCodeUrl = '';
+let tempGeneratedSecret = '';
+
+// Load credentials from environment variables securely
+const MASTER_PASSWORD = import.meta.env.ADMIN_PASSWORD || '';
+const mfaEnvSetting = import.meta.env.ADMIN_MFA_SECRET || ''; 
+
+// ONLY show QR code setup if the environment variable is explicitly set to 'INIT'
+const showQrSetup = mfaEnvSetting === 'INIT';
+
+if (showQrSetup) {
+  tempGeneratedSecret = generateSecret();
+  const otpauth = generateURI({
+    issuer: 'RyanPortfolio',
+    label: 'ryan@portfolio',
+    secret: tempGeneratedSecret,
+  });
+  qrCodeUrl = await QRCode.toDataURL(otpauth);
+}
+
+if (Astro.request.method === 'POST') {
+  const formData = await Astro.request.formData();
+  const password = formData.get('password')?.toString();
+  const token = formData.get('token')?.toString();
+  
+  // If in init mode, use the temporary secret; otherwise, use the actual secret from .env
+  const activeSecret = showQrSetup 
+    ? formData.get('tempSecret')?.toString() || '' 
+    : mfaEnvSetting;
+
+  if (!MASTER_PASSWORD) {
+    errorMessage = 'Configuration error: ADMIN_PASSWORD is not set in your .env file.';
+  } else if (password !== MASTER_PASSWORD) {
+    errorMessage = 'Incorrect password.';
+  } else if (!token) {
+    errorMessage = 'Please enter your 6-digit authenticator code.';
+  } else if (!activeSecret) {
+    errorMessage = 'Configuration error: ADMIN_MFA_SECRET is not set in your .env file.';
+  } else {
+    // Verify the 6-digit code
+    const result = await verify({ token, secret: activeSecret });
+
+    if (result.valid) {
+      // Grant secure session cookie valid for 7 days
+      Astro.cookies.set('admin_session', 'authenticated_true', {
+        httpOnly: true,
+        secure: true,
+        path: '/',
+        maxAge: 60 * 60 * 24 * 7
+      });
+      return Astro.redirect('/admin');
+    } else {
+      errorMessage = 'Invalid authenticator code. Check your app and try again.';
+    }
+  }
+}
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Admin Authentication &bull; Ryan Cuccurullo</title>
+  </head>
+  <body class="bg-body text-light d-flex align-items-center justify-content-center vh-100">
+    <div class="card p-4 shadow-lg border border-secondary" style="width: 420px; background-color: #18181b;">
+      <h3 class="mb-3 text-gradient fw-bold text-center">Restricted Access</h3>
+      <p class="text-muted small text-center mb-4">Personal portfolio administration gatekeeper.</p>
+
+      {errorMessage && <div class="alert alert-danger py-2 small">{errorMessage}</div>}
+
+      <form method="POST">
+        <div class="mb-3">
+          <label class="form-label small text-muted">Master Password</label>
+          <input type="password" name="password" class="form-control bg-dark text-light border-secondary" required />
+        </div>
+
+        {showQrSetup ? (
+          <div class="mb-3 text-center">
+            <p class="small text-accent mb-2">First-Time Setup: Scan this QR code with Google Authenticator or Authy:</p>
+            <img src={qrCodeUrl} alt="MFA QR Code" class="img-fluid mb-3 bg-white p-2 rounded" />
+            <p class="small text-muted mb-2">After scanning, update your <code>.env</code> file with this secret:</p>
+            <code class="text-accent small d-block mb-2">ADMIN_MFA_SECRET="{tempGeneratedSecret}"</code>
+            <!-- Hidden input to pass the setup secret back upon initial submission -->
+            <input type="hidden" name="tempSecret" value={tempGeneratedSecret} />
+          </div>
+        ) : null}
+
+        <div class="mb-4">
+          <label class="form-label small text-muted">6-Digit Authenticator Code</label>
+          <input 
+            type="text" 
+            name="token" 
+            class="form-control bg-dark text-light border-secondary text-center fs-3 tracking-widest font-monospace" 
+            maxlength="6" 
+            placeholder="000000" 
+            autocomplete="one-time-code"
+            required 
+          />
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">Authorize Access</button>
+      </form>
+    </div>
+  </body>
+</html>
