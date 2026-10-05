@@ -10,6 +10,11 @@ const supabase = createClient(
   import.meta.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+const baseUrl = import.meta.env.BASE_URL.endsWith('/')
+  ? import.meta.env.BASE_URL
+  : `${import.meta.env.BASE_URL}/`;
+const adminUrl = import.meta.env.PUBLIC_ADMIN_URL || `${baseUrl}admin`;
+
 let allProjects: any[] = [];
 let dbError = false;
 
@@ -84,7 +89,7 @@ function parseProjectImages(project: any): string[] {
 
             <div class="d-flex flex-wrap justify-content-center align-items-center gap-3">
 
-              <a href="/" class="btn btn-outline-secondary px-4 py-2">
+              <a href={baseUrl} class="btn btn-outline-secondary px-4 py-2">
                 <svg width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16">
                   <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
                 </svg>
@@ -134,7 +139,7 @@ function parseProjectImages(project: any): string[] {
                 <p class="text-secondary mb-4">
                   Unable to retrieve projects from the database at the moment.
                 </p>
-                <a href="/admin" class="btn btn-primary">
+                <a href={adminUrl} class="btn btn-primary">
                   Open Admin Dashboard
                 </a>
               </div>
@@ -151,7 +156,7 @@ function parseProjectImages(project: any): string[] {
         const counterId = `img-counter-${project.id}`;
         const projectNumber = String(index + 1).padStart(2, '0');
         const totalProjects = String(allProjects.length).padStart(2, '0');
-        const projectDetailUrl = `/projects/${project.id}`;
+        const projectDetailUrl = `${baseUrl}projects/${project.id}`;
 
         const summaryPoints = (project.summary || '')
           .split(/\r?\n/)
@@ -420,7 +425,7 @@ function parseProjectImages(project: any): string[] {
                   There aren't any projects in the database yet.
                 </p>
 
-                <a href="/admin" class="btn btn-primary">
+                  <a href={adminUrl} class="btn btn-primary">
                   Open Admin Dashboard
                 </a>
 

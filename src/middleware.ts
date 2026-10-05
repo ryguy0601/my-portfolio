@@ -2,7 +2,7 @@ import { defineMiddleware } from 'astro:middleware';
 
 export const onRequest = defineMiddleware((context, next) => {
   const pathname = new URL(context.request.url).pathname;
-  const isProtectedAdminRoute = pathname.startsWith('/admin/') &&
+  const isProtectedAdminRoute = pathname === '/admin' || pathname.startsWith('/admin/') &&
     pathname !== '/admin/login' &&
     pathname !== '/admin/logout';
 

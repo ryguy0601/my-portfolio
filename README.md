@@ -141,6 +141,42 @@ After successfully logging in, update the administrator password to a password o
 
 > **Note:** Use a strong, unique password for the administrator account.
 
+## Deployment
+
+This repository uses two deployments:
+
+- **GitHub Pages:** public static portfolio at `/`, `/projects`, and `/projects/:slug`.
+- **Vercel:** SSR admin application and database mutations at `/admin`.
+
+### GitHub Pages setup
+
+Enable **Settings > Pages > Source: GitHub Actions** in the repository. Add these repository secrets:
+
+```text
+PUBLIC_SUPABASE_URL
+SUPABASE_SERVICE_ROLE_KEY
+PUBLIC_ADMIN_URL
+```
+
+`PUBLIC_ADMIN_URL` should be the Vercel admin URL, for example `https://my-portfolio-admin.vercel.app/admin`.
+The `Deploy public portfolio to GitHub Pages` workflow publishes the public build and removes server-only admin pages before upload.
+
+### Vercel setup
+
+Import the repository into Vercel and keep the framework as Astro. Add these environment variables in Vercel for **Production**:
+
+```text
+PUBLIC_SUPABASE_URL
+SUPABASE_SERVICE_ROLE_KEY
+ADMIN_PASSWORD
+ADMIN_MFA_SECRET
+PUBLIC_PORTFOLIO_URL
+```
+
+Set `PUBLIC_PORTFOLIO_URL` to the GitHub Pages URL. Do not add the service-role key to browser code or commit any `.env` file.
+
+The public Pages build is a snapshot generated from Supabase when `main` changes. After editing content in the Vercel admin dashboard, trigger the Pages workflow again to publish the updated public portfolio.
+
 ---
 
 ## Supabase Database & Table Setup

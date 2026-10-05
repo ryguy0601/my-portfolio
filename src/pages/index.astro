@@ -26,6 +26,9 @@ const { data: dbProjects } = await supabase
   .limit(5);
 
 const safeProjectsJson = JSON.stringify(dbProjects || []);
+const baseUrl = import.meta.env.BASE_URL.endsWith('/')
+  ? import.meta.env.BASE_URL
+  : `${import.meta.env.BASE_URL}/`;
 ---
 
 <Layout hasHero={true} title="Ryan Cuccurullo — Software Engineer Portfolio">
@@ -60,7 +63,7 @@ const safeProjectsJson = JSON.stringify(dbProjects || []);
 
           <!-- Interactive Action Buttons -->
           <div class="d-flex flex-column flex-sm-row justify-content-center justify-content-lg-start gap-3">
-            <a href="/projects" class="btn btn-primary btn-lg px-4 shadow-sm custom-btn-primary" style="font-size: clamp(0.95rem, 1.2vw, 1.05rem);">
+            <a href={`${baseUrl}projects`} class="btn btn-primary btn-lg px-4 shadow-sm custom-btn-primary" style="font-size: clamp(0.95rem, 1.2vw, 1.05rem);">
               <span>View All Projects</span> 
               <span class="arrow-icon ms-1">&rarr;</span>
             </a>

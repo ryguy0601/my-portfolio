@@ -13,6 +13,11 @@ const {
   hasHero = false 
 } = Astro.props;
 
+const baseUrl = import.meta.env.BASE_URL.endsWith('/')
+  ? import.meta.env.BASE_URL
+  : `${import.meta.env.BASE_URL}/`;
+const adminUrl = import.meta.env.PUBLIC_ADMIN_URL || `${baseUrl}admin`;
+
 let persistedTheme = {};
 try {
   const supabase = createClient(
@@ -36,8 +41,8 @@ try {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="icon" href="/favicon.ico" />
+    <link rel="icon" type="image/svg+xml" href={`${baseUrl}favicon.svg`} />
+    <link rel="icon" href={`${baseUrl}favicon.ico`} />
     <meta name="generator" content={Astro.generator} />
     <title>{title}</title>
     <style set:html={themeStyle(persistedTheme)}></style>
@@ -47,7 +52,7 @@ try {
     <nav class="navbar navbar-expand-lg navbar-dark navbar-glass fixed-top py-3">
       <div class="container">
         <!-- Brand Logo with Gradient Accents -->
-        <a class="navbar-brand fw-bold fs-4 d-flex align-items-center gap-1 text-decoration-none" href="/">
+        <a class="navbar-brand fw-bold fs-4 d-flex align-items-center gap-1 text-decoration-none" href={baseUrl}>
           <span class="text-accent fw-light">&lt;</span>
           <span class="text-gradient px-1">RC</span>
           <span class="text-accent fw-light">&gt;</span>
@@ -71,13 +76,13 @@ try {
           <ul class="navbar-nav align-items-center gap-lg-4 mt-3 mt-lg-0">
             <!-- Dynamic Projects Link -->
             <li class="nav-item">
-              <a class="nav-link text-light px-2 py-1 custom-nav-link" href="/projects" id="projects-nav-link">
+              <a class="nav-link text-light px-2 py-1 custom-nav-link" href={`${baseUrl}projects`} id="projects-nav-link">
                 Projects
               </a>
             </li>
 
             <li class="nav-item mt-2 mt-lg-0">
-              <a class="btn btn-outline-info btn-sm px-3 shadow-sm custom-nav-btn" href="/admin">
+              <a class="btn btn-outline-info btn-sm px-3 shadow-sm custom-nav-btn" href={adminUrl}>
                 Admin Dashboard
               </a>
             </li>

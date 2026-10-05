@@ -7,6 +7,21 @@ import '../../styles/main.scss';
 
 const { slug } = Astro.params;
 
+export async function getStaticPaths() {
+  const pathsClient = createClient(
+    import.meta.env.PUBLIC_SUPABASE_URL,
+    import.meta.env.SUPABASE_SERVICE_ROLE_KEY
+  );
+  const { data } = await pathsClient.from('projects').select('id, slug');
+
+  return (data || []).flatMap((project) => {
+    const slugs = [String(project.id), project.slug].filter(Boolean);
+    return [...new Set(slugs)].map((pathSlug) => ({
+      params: { slug: pathSlug }
+    }));
+  });
+}
+
 const supabase = createClient(
   import.meta.env.PUBLIC_SUPABASE_URL,
   import.meta.env.SUPABASE_SERVICE_ROLE_KEY
@@ -85,6 +100,9 @@ function parseProjectImages(proj: any): string[] {
 }
 
 const images = parseProjectImages(project);
+const baseUrl = import.meta.env.BASE_URL.endsWith('/')
+  ? import.meta.env.BASE_URL
+  : `${import.meta.env.BASE_URL}/`;
 
 // Parse summary: split by newlines into bullet items
 const summaryPoints = (project?.summary || '')
@@ -122,7 +140,7 @@ const techCount = project?.tech_stack
 
           <!-- Top Navigation Strip -->
           <header class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4 pb-3 border-bottom border-secondary border-opacity-25">
-            <a href="/projects" class="btn btn-dark border border-secondary text-accent d-inline-flex align-items-center gap-2 px-3 py-2 rounded-pill shadow-sm nav-back-link">
+            <a href={`${baseUrl}projects`} class="btn btn-dark border border-secondary text-accent d-inline-flex align-items-center gap-2 px-3 py-2 rounded-pill shadow-sm nav-back-link">
               <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                 <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
               </svg>
@@ -151,7 +169,7 @@ const techCount = project?.tech_stack
                   We couldn't locate the project you requested. It may have been archived or removed.
                 </p>
                 <div>
-                  <a href="/projects" class="btn btn-primary px-4 py-2 rounded-pill shadow">
+                  <a href={`${baseUrl}projects`} class="btn btn-primary px-4 py-2 rounded-pill shadow">
                     Browse All Projects
                   </a>
                 </div>

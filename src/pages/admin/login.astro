@@ -53,6 +53,7 @@ if (result.valid) {
       Astro.cookies.set('admin_session', 'authenticated_true', {
         httpOnly: true,
         secure: true,
+        sameSite: 'lax',
         path: '/'
       });
       return Astro.redirect('/admin');
