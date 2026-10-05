@@ -17,6 +17,7 @@
     "@supabase/supabase-js": "^2.117.2",
     "astro": "^7.3.5",
     "bootstrap": "^5.3.8",
+    "docx": "^9.7.2",
     "otplib": "^13.5.0",
     "qrcode": "^1.5.4",
     "sass": "^1.105.0",
@@ -26,6 +27,7 @@
     "esbuild": true
   },
   "devDependencies": {
+    "@types/bootstrap": "^5.2.11",
     "@types/qrcode": "^1.5.6"
   }
 }

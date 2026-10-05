@@ -1,0 +1,548 @@
+---
+// src/pages/admin/skills.astro
+import { createClient } from '@supabase/supabase-js';
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { getTechInfo, techIconMap } from '../../utils/techIcons';
+
+const supabase = createClient(
+  import.meta.env.PUBLIC_SUPABASE_URL,
+  import.meta.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+let errorMessage = '';
+let successMessage = '';
+
+const url = new URL(Astro.request.url);
+const editSkillId = url.searchParams.get('edit_skill');
+
+// 1. HANDLE FORM SUBMISSIONS
+if (Astro.request.method === 'POST') {
+  const formData = await Astro.request.formData();
+  const actionType = formData.get('action_type')?.toString();
+
+  try {
+    if (actionType === 'save_skill') {
+      const skillId = formData.get('skill_id')?.toString();
+      const category = formData.get('category')?.toString()?.trim();
+      const namesRaw = formData.get('name')?.toString()?.trim();
+      const order_index = parseInt(formData.get('order_index')?.toString() || '0', 10);
+
+      if (!category || !namesRaw) {
+        errorMessage = 'Category and Skill Name are required.';
+      } else if (skillId) {
+        const { error } = await supabase
+          .from('skills')
+          .update({ category, name: namesRaw, order_index })
+          .eq('id', skillId);
+        if (error) throw error;
+        return Astro.redirect('/admin/skills');
+      } else {
+        const skillNames = namesRaw.split(',').map(s => s.trim()).filter(Boolean);
+        const records = skillNames.map((name, idx) => ({
+          category,
+          name,
+          order_index: order_index + idx
+        }));
+
+        const { error } = await supabase.from('skills').insert(records);
+        if (error) throw error;
+        successMessage = `Saved ${records.length} skill entry/entries successfully!`;
+      }
+    } else if (actionType === 'delete_skill') {
+      const id = formData.get('id')?.toString();
+      const { error } = await supabase.from('skills').delete().eq('id', id);
+      if (error) throw error;
+      return Astro.redirect('/admin/skills');
+    }
+  } catch (err: any) {
+    if (err.code === '23505') {
+      errorMessage = 'Database unique constraint blocked duplicate. Run "ALTER TABLE skills DROP CONSTRAINT IF EXISTS skills_name_key;" in Supabase SQL editor.';
+    } else {
+      errorMessage = err.message || 'An unexpected error occurred.';
+    }
+  }
+}
+
+// 2. FETCH SKILLS AND TAB COUNTS
+const [{ data: skills }, { count: projCount }, { count: expCount }, { count: linksCount }] = await Promise.all([
+  supabase.from('skills').select('*').order('category', { ascending: true }).order('order_index', { ascending: true }),
+  supabase.from('projects').select('*', { count: 'exact', head: true }),
+  supabase.from('work_experience').select('*', { count: 'exact', head: true }),
+  supabase.from('project_experience').select('*', { count: 'exact', head: true })
+]);
+
+const editSkill = editSkillId ? skills?.find(s => String(s.id) === String(editSkillId)) : null;
+
+// Group skills by category for organized display
+const groupedSkills: Record<string, typeof skills> = {};
+let totalIconsWithSvg = 0;
+
+if (skills) {
+  for (const skill of skills) {
+    if (!groupedSkills[skill.category]) {
+      groupedSkills[skill.category] = [];
+    }
+    groupedSkills[skill.category]!.push(skill);
+    if (getTechInfo(skill.name).hasIcon) {
+      totalIconsWithSvg++;
+    }
+  }
+}
+
+// Extract already-entered categories directly from existing database records
+const enteredCategories = Array.from(new Set(skills?.map(s => s.category?.trim()).filter(Boolean) || [])).sort();
+const defaultCategories = ['Languages', 'Frameworks & Libraries', 'Databases', 'Cloud & DevOps', 'Developer Tools'];
+const allSuggestedCategories = Array.from(new Set([...enteredCategories, ...defaultCategories]));
+const safeIconMapJson = JSON.stringify(techIconMap);
+---
+
+<AdminLayout 
+  activePage="skills" 
+  title="Manage Skills" 
+  errorMessage={errorMessage} 
+  successMessage={successMessage}
+  counts={{ projects: projCount || 0, experience: expCount || 0, skills: skills?.length || 0, links: linksCount || 0 }}
+>
+  <div class="skills-dashboard d-flex flex-column gap-4" data-icon-map={safeIconMapJson}>
+
+    <!-- Top KPI Stat Banner -->
+    <div class="row g-3">
+      <div class="col-sm-6 col-lg-4">
+        <div class="kpi-card p-3 rounded-4 border border-secondary border-opacity-25 d-flex align-items-center gap-3">
+          <div class="kpi-icon-wrap rounded-3 d-flex align-items-center justify-content-center">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5v-3zM2.5 2a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3zm6.5.5A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5v-3zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3zM1 10.5A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5v-3zm1.5-.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 .5.5h3a.5.5 0 0 0 .5-.5v-3a.5.5 0 0 0-.5-.5h-3zm9.793-1.854a.5.5 0 0 0-.707.708l1.646 1.646-1.646 1.647a.5.5 0 0 0 .707.707l2-2a.5.5 0 0 0 0-.708l-2-2z"/>
+            </svg>
+          </div>
+          <div>
+            <div class="text-muted small text-uppercase font-monospace tracking-wide">Total Skills</div>
+            <div class="h4 mb-0 fw-bold text-light">{skills?.length || 0}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-sm-6 col-lg-4">
+        <div class="kpi-card p-3 rounded-4 border border-secondary border-opacity-25 d-flex align-items-center gap-3">
+          <div class="kpi-icon-wrap rounded-3 d-flex align-items-center justify-content-center">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M2 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v13.5a.5.5 0 0 1-.777.416L8 13.101l-5.223 2.815A.5.5 0 0 1 2 15.5V2zm2-1a1 1 0 0 0-1 1v12.566l4.723-2.482a.5.5 0 0 1 .554 0L13 14.566V2a1 1 0 0 0-1-1H4z"/>
+            </svg>
+          </div>
+          <div>
+            <div class="text-muted small text-uppercase font-monospace tracking-wide">Categories</div>
+            <div class="h4 mb-0 fw-bold text-light">{Object.keys(groupedSkills).length}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-sm-12 col-lg-4">
+        <div class="kpi-card p-3 rounded-4 border border-secondary border-opacity-25 d-flex align-items-center gap-3">
+          <div class="kpi-icon-wrap rounded-3 d-flex align-items-center justify-content-center">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+              <path d="M10.97 4.97a.235.235 0 0 0-.02.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-1.071-1.05z"/>
+            </svg>
+          </div>
+          <div>
+            <div class="text-muted small text-uppercase font-monospace tracking-wide">SVG Match Rate</div>
+            <div class="h4 mb-0 fw-bold text-light">
+              {skills && skills.length > 0 ? Math.round((totalIconsWithSvg / skills.length) * 100) : 0}%
+              <span class="small text-muted fw-normal ms-1">({totalIconsWithSvg}/{skills?.length || 0})</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Skill Entry Form Card -->
+    <div class="card glass-panel border border-secondary p-4 rounded-4 shadow-lg position-relative overflow-hidden">
+      <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge rounded-circle p-2 bg-primary bg-opacity-25 text-primary border border-primary border-opacity-50">
+            {editSkill ? '✎' : '+'}
+          </span>
+          <div>
+            <h3 class="h5 mb-0 fw-bold text-light">
+              {editSkill ? `Editing Skill: ${editSkill.name}` : 'Add Portfolio Skills'}
+            </h3>
+            <span class="text-muted small">Single entries or comma-separated batch additions</span>
+          </div>
+        </div>
+
+        {editSkill && (
+          <a href="/admin/skills" class="btn btn-outline-secondary btn-sm px-3 rounded-pill">
+            Cancel Edit
+          </a>
+        )}
+      </div>
+
+      <form method="POST" id="skill-entry-form">
+        <input type="hidden" name="action_type" value="save_skill" />
+        {editSkill && <input type="hidden" name="skill_id" value={editSkill.id} />}
+
+        <div class="row g-3">
+          <!-- Category Input & Quick Chips -->
+          <div class="col-lg-5">
+            <label class="form-label text-light small fw-semibold d-flex justify-content-between align-items-center">
+              <span>Category / Group</span>
+              <span class="text-muted" style="font-size: 0.72rem;">Pick or type new</span>
+            </label>
+            
+            <div class="input-group input-group-sm mb-2">
+              <input 
+                type="text" 
+                id="skill-category-input"
+                name="category" 
+                list="category-suggestions"
+                value={editSkill?.category || ''} 
+                class="form-control bg-dark text-light border-secondary" 
+                placeholder="e.g. Languages, Frameworks" 
+                required 
+              />
+              {enteredCategories.length > 0 && (
+                <select 
+                  id="category-dropdown-picker" 
+                  class="form-select bg-dark text-light border-secondary flex-grow-0" 
+                  style="width: 130px;"
+                >
+                  <option value="" disabled selected>Existing ▾</option>
+                  {enteredCategories.map(cat => (
+                    <option value={cat}>{cat}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            <!-- Quick Pill Chips for 1-Click Category Selection -->
+            {enteredCategories.length > 0 && (
+              <div class="d-flex flex-wrap gap-1 align-items-center">
+                <span class="text-muted small me-1" style="font-size: 0.7rem;">Quick:</span>
+                {enteredCategories.slice(0, 5).map(cat => (
+                  <button 
+                    type="button" 
+                    class="badge rounded-pill bg-dark border border-secondary text-secondary category-chip py-1 px-2"
+                    data-category={cat}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            )}
+            
+            <datalist id="category-suggestions">
+              {allSuggestedCategories.map(cat => <option value={cat} />)}
+            </datalist>
+          </div>
+
+          <!-- Skill Name Input -->
+          <div class="col-lg-5">
+            <label class="form-label text-light small fw-semibold">
+              Skill Name {editSkill ? '' : '(Comma-separated supported)'}
+            </label>
+            <input 
+              type="text" 
+              id="skill-name-input"
+              name="name" 
+              value={editSkill?.name || ''} 
+              class="form-control form-control-sm bg-dark text-light border-secondary" 
+              placeholder={editSkill ? 'e.g. Python' : 'e.g. Python, Bootstrap, C#'} 
+              autocomplete="off"
+              required 
+            />
+
+            <!-- Real-Time Icon Match Live Preview Dock -->
+            <div class="mt-2 p-2 rounded-3 border border-secondary border-opacity-50 bg-black bg-opacity-40 min-preview-box d-flex align-items-center gap-2">
+              <span class="text-muted small font-monospace" style="font-size: 0.72rem;">Detected:</span>
+              <div id="live-icon-preview" class="d-flex flex-wrap gap-1 align-items-center">
+                <span class="text-muted small fst-italic" style="font-size: 0.72rem;">Type above to see icons</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sort Order & Submit -->
+          <div class="col-lg-2 d-flex flex-column justify-content-between">
+            <div>
+              <label class="form-label text-light small fw-semibold">Order Index</label>
+              <input 
+                type="number" 
+                name="order_index" 
+                value={editSkill?.order_index ?? 0} 
+                class="form-control form-control-sm bg-dark text-light border-secondary" 
+                placeholder="0"
+              />
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-sm py-2 px-3 fw-semibold w-100 shadow-sm mt-3 mt-lg-0">
+              {editSkill ? 'Update Skill' : 'Save Skill(s)'}
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <!-- Grouped Skills Inventory -->
+    <div>
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="text-light h6 mb-0 fw-bold d-flex align-items-center gap-2">
+          <span>Active Technical Stack</span>
+          <span class="badge rounded-pill bg-dark border border-secondary text-accent font-monospace" style="font-size: 0.75rem;">
+            {skills?.length || 0} items
+          </span>
+        </h4>
+      </div>
+
+      {Object.keys(groupedSkills).length > 0 ? (
+        <div class="d-flex flex-column gap-3">
+          {Object.entries(groupedSkills).map(([category, items]) => (
+            <div class="card glass-panel border border-secondary rounded-4 shadow-sm p-3">
+              <!-- Category Header Bar -->
+              <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom border-secondary border-opacity-25">
+                <div class="d-flex align-items-center gap-2">
+                  <span class="category-indicator"></span>
+                  <h5 class="h6 text-accent fw-bold font-monospace mb-0 text-uppercase tracking-wider">
+                    {category}
+                  </h5>
+                </div>
+                <span class="badge bg-dark border border-secondary text-muted font-monospace" style="font-size: 0.7rem;">
+                  {items?.length || 0} {items?.length === 1 ? 'skill' : 'skills'}
+                </span>
+              </div>
+
+              <!-- Skills Grid -->
+              <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-xl-4 g-2">
+                {items?.map(skill => {
+                  const techInfo = getTechInfo(skill.name);
+                  return (
+                    <div class="col">
+                      <div class="skill-tile p-2 rounded-3 border border-secondary border-opacity-50 d-flex align-items-center justify-content-between gap-2">
+                        
+                        <div class="d-flex align-items-center gap-2 text-truncate">
+                          <div class="skill-icon-wrap d-flex align-items-center justify-content-center rounded-2 flex-shrink-0">
+                            {techInfo.hasIcon ? (
+                              <img 
+                                src={techInfo.iconUrl} 
+                                alt={skill.name} 
+                                class="tech-icon-img"
+                                loading="lazy" 
+                              />
+                            ) : (
+                              <span class="text-muted font-monospace small" style="font-size: 0.65rem;">txt</span>
+                            )}
+                          </div>
+                          
+                          <div class="text-truncate">
+                            <span class="text-light small text-truncate fw-medium d-block" title={skill.name}>
+                              {skill.name}
+                            </span>
+                          </div>
+                        </div>
+
+                        <!-- Action Triggers -->
+                        <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                          <a 
+                            href={`/admin/skills?edit_skill=${skill.id}`} 
+                            class="action-btn text-muted hover-primary"
+                            title="Edit"
+                          >
+                            <svg width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
+                              <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.5-.5V10h-.5a.499.499 0 0 1-.174-.032z"/>
+                            </svg>
+                          </a>
+                          
+                          <form method="POST" onsubmit="return confirm('Delete this skill?');" class="m-0">
+                            <input type="hidden" name="action_type" value="delete_skill" />
+                            <input type="hidden" name="id" value={skill.id} />
+                            <button 
+                              type="submit" 
+                              class="action-btn text-muted hover-danger border-0 bg-transparent p-0" 
+                              title="Delete"
+                            >
+                              <svg width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                                <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                              </svg>
+                            </button>
+                          </form>
+                        </div>
+
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div class="card glass-panel border border-secondary text-center p-5 rounded-4 text-muted">
+          <div class="mb-2">⚡</div>
+          <div class="fw-semibold text-light mb-1">No skills added yet</div>
+          <div class="small">Add your languages, libraries, and frameworks using the panel above.</div>
+        </div>
+      )}
+    </div>
+
+  </div>
+</AdminLayout>
+
+<style>
+  .glass-panel {
+    background: rgba(var(--card-bg-rgb), 0.75) !important;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+
+  .kpi-card {
+    background: rgba(var(--card-bg-rgb), 0.65);
+    backdrop-filter: blur(10px);
+  }
+
+  .kpi-icon-wrap {
+    width: 44px;
+    height: 44px;
+    background: rgba(var(--color-secondary-rgb), 0.1);
+    color: var(--color-secondary);
+    border: 1px solid rgba(var(--color-secondary-rgb), 0.25);
+  }
+
+  .category-indicator {
+    width: 6px;
+    height: 14px;
+    background: var(--color-secondary);
+    border-radius: 99px;
+    box-shadow: 0 0 8px rgba(var(--color-secondary-rgb), 0.6);
+  }
+
+  .category-chip {
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .category-chip:hover {
+    color: var(--color-secondary) !important;
+    border-color: var(--color-secondary) !important;
+    background: rgba(var(--color-secondary-rgb), 0.1) !important;
+  }
+
+  .skill-tile {
+    background: color-mix(in srgb, var(--projects-gradient-base) 65%, transparent);
+    transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  }
+  .skill-tile:hover {
+    background: rgba(var(--card-bg-rgb), 0.9);
+    border-color: rgba(var(--color-secondary-rgb), 0.35) !important;
+    transform: translateY(-1px);
+  }
+
+  .skill-icon-wrap {
+    width: 28px;
+    height: 28px;
+    background: var(--border-glass-minimal);
+    border: 1px solid var(--border-glass-subtle);
+  }
+
+  .tech-icon-img {
+    width: 16px;
+    height: 16px;
+    filter: brightness(0) invert(1);
+    opacity: 0.9;
+  }
+
+  .action-btn {
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    transition: var(--transition-fast);
+    text-decoration: none;
+  }
+  .action-btn:hover.hover-primary {
+    color: var(--color-secondary) !important;
+    background: rgba(var(--color-secondary-rgb), 0.15);
+  }
+  .action-btn:hover.hover-danger {
+    color: var(--color-danger-action) !important;
+    background: rgba(var(--color-danger-rgb), 0.15);
+  }
+
+  .min-preview-box {
+    min-height: 38px;
+  }
+</style>
+
+<script>
+  const dashboardRoot = document.querySelector('.skills-dashboard') as HTMLElement | null;
+  const iconMap: Record<string, string> = JSON.parse(dashboardRoot?.getAttribute('data-icon-map') || '{}');
+
+  const picker = document.getElementById('category-dropdown-picker') as HTMLSelectElement | null;
+  const catInput = document.getElementById('skill-category-input') as HTMLInputElement | null;
+  const nameInput = document.getElementById('skill-name-input') as HTMLInputElement | null;
+  const previewBox = document.getElementById('live-icon-preview');
+
+  if (picker && catInput) {
+    picker.addEventListener('change', () => {
+      if (picker.value) {
+        catInput.value = picker.value;
+        catInput.focus();
+      }
+    });
+  }
+
+  document.querySelectorAll<HTMLButtonElement>('.category-chip').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const cat = btn.getAttribute('data-category');
+      if (cat && catInput) {
+        catInput.value = cat;
+        nameInput?.focus();
+      }
+    });
+  });
+
+  function resolveIconUrl(name: string): { hasIcon: boolean; url: string } {
+    const clean = name.trim().toLowerCase();
+    const entry = iconMap[clean];
+    if (!entry) return { hasIcon: false, url: '' };
+
+    if (entry.startsWith('bi:')) {
+      return { hasIcon: true, url: `https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/icons/${entry.replace('bi:', '')}.svg` };
+    }
+    if (entry.startsWith('devicon:')) {
+      return { hasIcon: true, url: `https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/${entry.replace('devicon:', '')}.svg` };
+    }
+    return { hasIcon: true, url: `https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/${entry.replace('si:', '')}.svg` };
+  }
+
+  function updateLivePreview() {
+    if (!previewBox || !nameInput) return;
+    const items = nameInput.value.split(',').map(s => s.trim()).filter(Boolean);
+
+    if (items.length === 0) {
+      previewBox.innerHTML = '<span class="text-muted small fst-italic" style="font-size: 0.72rem;">Type above to preview icon matches</span>';
+      return;
+    }
+
+    previewBox.innerHTML = items.map(item => {
+      const { hasIcon, url } = resolveIconUrl(item);
+      if (hasIcon) {
+        return `
+          <span class="badge bg-dark border border-secondary text-light d-inline-flex align-items-center gap-1 py-1 px-2" style="font-size: 0.72rem;">
+            <img src="${url}" style="width: 13px; height: 13px; filter: brightness(0) invert(1);" alt="" />
+            <span>${item}</span>
+          </span>
+        `;
+      }
+      return `
+        <span class="badge bg-dark border border-secondary border-opacity-50 text-muted d-inline-flex align-items-center gap-1 py-1 px-2" style="font-size: 0.72rem;">
+          <span style="font-size: 0.65rem;">●</span>
+          <span>${item}</span>
+        </span>
+      `;
+    }).join('');
+  }
+
+  nameInput?.addEventListener('input', updateLivePreview);
+  if (nameInput && nameInput.value) {
+    updateLivePreview();
+  }
+</script>

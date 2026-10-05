@@ -1,0 +1,408 @@
+---
+import { createClient } from '@supabase/supabase-js';
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { DEFAULT_THEME, THEME_FIELDS, sanitizeTheme } from '../../utils/theme';
+import '../../styles/theme.scss';
+
+const supabase = createClient(import.meta.env.PUBLIC_SUPABASE_URL, import.meta.env.SUPABASE_SERVICE_ROLE_KEY);
+let errorMessage = '';
+let successMessage = '';
+let theme = { ...DEFAULT_THEME };
+
+try {
+  if (Astro.request.method === 'POST') {
+    const formData = await Astro.request.formData();
+    const actionType = formData.get('action_type')?.toString();
+    if (actionType === 'reset_theme') {
+      const { error } = await supabase.from('site_theme').upsert({ id: 'default', variables: DEFAULT_THEME, updated_at: new Date().toISOString() });
+      if (error) throw error;
+      theme = { ...DEFAULT_THEME };
+      successMessage = 'Theme reset to defaults.';
+    }
+    if (actionType === 'save_theme') {
+      const submittedTheme = Object.fromEntries(THEME_FIELDS.map((field) => [field.key, formData.get(field.key)?.toString() || '']));
+      const safeTheme = sanitizeTheme(submittedTheme);
+      const { error } = await supabase.from('site_theme').upsert({ id: 'default', variables: safeTheme, updated_at: new Date().toISOString() });
+      if (error) throw error;
+      theme = safeTheme;
+      successMessage = 'Theme saved successfully.';
+    }
+  } else {
+    const { data, error } = await supabase.from('site_theme').select('variables').eq('id', 'default').maybeSingle();
+    if (error) throw error;
+    theme = sanitizeTheme(data?.variables);
+  }
+} catch (error) {
+  console.error('Theme settings request failed:', error);
+  errorMessage = 'Theme settings could not be loaded. Run the database setup migration, then try again.';
+}
+
+const groups = [...new Set(THEME_FIELDS.map((field) => field.group))];
+const gradientParts = (value: string) => {
+  const match = value.match(/linear-gradient\(\s*(\d+)deg,\s*(#[0-9a-f]{3,8})\s*(\d+)%?[^,]*,\s*(#[0-9a-f]{3,8})\s*(\d+)%?[^)]*\)/i);
+  return { angle: match?.[1] || '135', start: match?.[2] || '#e83e9f', startPercent: match?.[3] || '0', end: match?.[4] || '#9b5de5', endPercent: match?.[5] || '100' };
+};
+const mixHex = (foreground: string, background: string, weight: number) => {
+  const parse = (value: string) => value.replace('#', '').match(/^[0-9a-f]{6}$/i)?.[0] || '000000';
+  const foregroundHex = parse(foreground);
+  const backgroundHex = parse(background);
+  return `#${[0, 2, 4].map((offset) => Math.round(parseInt(foregroundHex.slice(offset, offset + 2), 16) * weight + parseInt(backgroundHex.slice(offset, offset + 2), 16) * (1 - weight)).toString(16).padStart(2, '0')).join('')}`;
+};
+const createPreset = (id: string, label: string, accent: string, secondary: string, background: string, surface: string, text: string) => ({
+  id,
+  label,
+  accent,
+  secondary,
+  background,
+  theme: {
+    ...DEFAULT_THEME,
+    '--color-primary': accent,
+    '--color-primary-light': accent,
+    '--color-secondary': secondary,
+    '--color-info': accent,
+    '--nav-bg': surface,
+    '--nav-color': text,
+    '--nav-hover-color': accent,
+    '--nav-active-color': secondary,
+    '--nav-border-color': `color-mix(in srgb, ${secondary} 45%, transparent)`,
+    '--button-primary-hover-bg': accent,
+    '--button-primary-hover-color': background,
+    '--button-secondary-hover-bg': secondary,
+    '--button-secondary-hover-color': background,
+    '--body-bg': background,
+    '--body-color': text,
+    '--card-bg': surface,
+    '--card-border-color': mixHex(accent, background, 0.35),
+    '--projects-bg': background,
+    '--projects-empty-bg': surface,
+    '--projects-control-bg': surface,
+    '--projects-gradient-base': background,
+    '--home-background': 'var(--body-bg)',
+    '--canvas-particle-primary': accent,
+    '--canvas-particle-secondary': secondary,
+    '--canvas-grid-color': accent,
+    '--color-text-muted-light': text,
+    '--color-text-muted-mid': mixHex(text, background, 0.65),
+    '--color-text-muted-dark': mixHex(text, background, 0.35),
+    '--color-icon-muted': secondary,
+    '--gradient-primary': `linear-gradient(135deg, ${accent} 0%, ${accent} 100%)`,
+    '--gradient-accent': `linear-gradient(135deg, ${accent} 0%, ${secondary} 100%)`,
+    '--gradient-text': `linear-gradient(135deg, ${accent} 10%, ${secondary} 90%)`,
+    '--border-glass-card': `color-mix(in srgb, ${accent} 28%, transparent)`,
+    '--border-glass-divider': `color-mix(in srgb, ${accent} 35%, transparent)`,
+    '--color-syntax-string': accent,
+    '--color-badge-amber': secondary,
+    '--color-github-glow': accent,
+    '--shadow-primary-button': `0 4px 15px color-mix(in srgb, ${accent} 30%, transparent)`,
+    '--shadow-primary-button-hover': `0 6px 20px color-mix(in srgb, ${accent} 50%, transparent)`,
+    '--shadow-secondary-hover': `0 8px 25px color-mix(in srgb, ${secondary} 28%, transparent)`
+  }
+});
+const themePresets = [
+  createPreset('neon-night', 'Neon night', '#e83e9f', '#9b5de5', '#0d0712', '#1a0d24', '#fff5fc'),
+  createPreset('ocean-blue', 'Ocean blue', '#22d3ee', '#3b82f6', '#07111f', '#0d2035', '#effaff'),
+  createPreset('forest-green', 'Forest green', '#34d399', '#14b8a6', '#07130f', '#10251c', '#f0fdf4'),
+  createPreset('sunset-orange', 'Sunset orange', '#fb7185', '#f97316', '#1a0c0b', '#321713', '#fff7ed'),
+  createPreset('mono-slate', 'Monochrome slate', '#e2e8f0', '#94a3b8', '#0f172a', '#1e293b', '#f8fafc')
+];
+const previewThemeStyle = Object.entries(theme).map(([key, value]) => `${key}: ${value}`).join('; ');
+---
+
+<AdminLayout activePage="theme" title="Theme Settings" errorMessage={errorMessage} successMessage={successMessage}>
+  <main class="theme-page">
+    <header class="theme-header">
+      <div><p class="theme-eyebrow">Design system / live controls</p><h2>Shape the portfolio's atmosphere.</h2><p class="theme-intro">Tune the palette, surfaces, motion, and texture that visitors experience across the site.</p></div>
+      <div class="theme-header-actions"><span class="theme-save-state" data-save-state>Unsaved changes</span><form method="POST"><input type="hidden" name="action_type" value="reset_theme" /><button class="btn btn-outline-warning" type="submit">Reset defaults</button></form></div>
+    </header>
+
+    <div class="theme-layout">
+      <section class="theme-workspace">
+        <div class="theme-section-heading"><div><p class="theme-kicker">Start with a direction</p><h3>Presets</h3></div><span class="theme-section-note">Choose a base, then refine every token.</span></div>
+        <div class="theme-presets" id="theme-presets">
+          {themePresets.map((preset) => <button class="theme-preset" type="button" data-theme-preset={preset.id} data-theme-values={JSON.stringify(preset.theme)}><span class="theme-preset-swatch" style={`--preset-accent: ${preset.accent}; --preset-secondary: ${preset.secondary}`}></span><span>{preset.label}</span></button>)}
+        </div>
+
+        <form method="POST" id="theme-form" class="theme-form">
+          <input type="hidden" name="action_type" value="save_theme" />
+          {groups.map((group) => <fieldset class="theme-group"><legend><span>{group}</span><small>{THEME_FIELDS.filter((field) => field.group === group).length} tokens</small></legend><div class="theme-fields">
+            {THEME_FIELDS.filter((field) => field.group === group).map((field) => {
+              const gradient = field.type === 'gradient' ? gradientParts(theme[field.key]) : null;
+              return <div class={`theme-field theme-field-${field.type}`}>
+                <label class="theme-field-label" for={`theme-${field.key}`}><span>{field.label}</span><code>{field.key}</code></label>
+                {field.type === 'color' ? <div class="theme-control-row"><div class="theme-custom-picker" data-custom-picker data-custom-key={field.key}><button class="theme-control-preview theme-color-preview" type="button" style={`--preview-color: ${theme[field.key]}`} data-color-preview={field.key} data-color-trigger={field.key} aria-label={`Choose ${field.label}`} aria-expanded="false"></button><div class="theme-color-popover" hidden><div class="theme-saturation" data-custom-saturation><span class="theme-picker-marker" data-custom-marker></span></div><div class="theme-hue" data-custom-hue><span class="theme-hue-marker" data-custom-hue-marker></span></div><label class="theme-opacity-control"><span>Opacity <output data-custom-opacity-output>100%</output></span><input class="form-range" type="range" min="0" max="100" value="100" data-custom-opacity aria-label={`${field.label} opacity`} /></label><div class="theme-popover-value"><span>#</span><input value={theme[field.key].replace('#', '')} maxlength="8" data-custom-hex aria-label={`${field.label} hex value`} /></div></div></div><div class="theme-color-input"><input class="theme-hidden-color-input" type="color" id={`theme-${field.key}`} value={theme[field.key].slice(0, 7)} data-theme-key={field.key} data-color-input /><input class="form-control theme-value" name={field.key} value={theme[field.key]} data-theme-key={field.key} aria-label={`${field.label} value`} /></div></div>
+                  : field.type === 'gradient' && gradient ? <div class="theme-gradient-input"><div class="theme-gradient-preview" style={`background: ${theme[field.key]}`} data-gradient-preview={field.key}></div><span class="theme-gradient-text-sample" style={`--sample-gradient: ${theme[field.key]}`} data-gradient-text-sample={field.key}>Aa</span><div class="theme-gradient-pickers"><label><span>Start color</span><div class="theme-custom-picker" data-custom-picker data-custom-gradient-key={field.key} data-custom-gradient-part="start"><button class="theme-gradient-swatch" type="button" style={`--preview-color: ${gradient.start}`} data-gradient-preview-swatch={field.key} data-gradient-preview-part="start" data-gradient-trigger={field.key} aria-label={`${field.label} start color`} aria-expanded="false"></button><div class="theme-color-popover" hidden><div class="theme-saturation" data-custom-saturation><span class="theme-picker-marker" data-custom-marker></span></div><div class="theme-hue" data-custom-hue><span class="theme-hue-marker" data-custom-hue-marker></span></div><div class="theme-popover-value"><span>#</span><input value={gradient.start.replace('#', '')} maxlength="8" data-custom-hex aria-label={`${field.label} start hex value`} /></div></div></div><input class="theme-hidden-color-input" type="color" value={gradient.start.slice(0, 7)} data-gradient-part="start" data-gradient-key={field.key} aria-label={`${field.label} start color`} /><input class="form-range" type="range" min="0" max="100" value={gradient.startPercent} data-gradient-percent="start" data-gradient-key={field.key} aria-label={`${field.label} start position`} /><output data-gradient-output="start">{gradient.startPercent}%</output></label><label><span>End color</span><div class="theme-custom-picker" data-custom-picker data-custom-gradient-key={field.key} data-custom-gradient-part="end"><button class="theme-gradient-swatch" type="button" style={`--preview-color: ${gradient.end}`} data-gradient-preview-swatch={field.key} data-gradient-preview-part="end" data-gradient-trigger={field.key} aria-label={`${field.label} end color`} aria-expanded="false"></button><div class="theme-color-popover" hidden><div class="theme-saturation" data-custom-saturation><span class="theme-picker-marker" data-custom-marker></span></div><div class="theme-hue" data-custom-hue><span class="theme-hue-marker" data-custom-hue-marker></span></div><div class="theme-popover-value"><span>#</span><input value={gradient.end.replace('#', '')} maxlength="8" data-custom-hex aria-label={`${field.label} end hex value`} /></div></div></div><input class="theme-hidden-color-input" type="color" value={gradient.end.slice(0, 7)} data-gradient-part="end" data-gradient-key={field.key} aria-label={`${field.label} end color`} /><input class="form-range" type="range" min="0" max="100" value={gradient.endPercent} data-gradient-percent="end" data-gradient-key={field.key} aria-label={`${field.label} end position`} /><output data-gradient-output="end">{gradient.endPercent}%</output></label></div><label class="theme-gradient-angle-control"><span>Angle <output data-gradient-angle-output>{gradient.angle}°</output></span><input class="form-range" type="range" min="0" max="360" value={gradient.angle} data-gradient-angle={field.key} aria-label={`${field.label} angle`} /></label><input type="hidden" name={field.key} value={theme[field.key]} data-gradient-value={field.key} /></div>
+                  : field.type === 'range' ? <div class="theme-control-row"><span class="theme-control-preview theme-radius-preview" style={`--preview-radius: ${theme[field.key]}`} data-radius-preview={field.key}></span><div class="theme-range-input"><input class="form-range" type="range" min={field.min ?? 0} max={field.max ?? 100} value={parseFloat(theme[field.key]) || 0} data-range-key={field.key} /><input class="form-control theme-value" name={field.key} value={theme[field.key]} data-range-value={field.key} /></div></div>
+                  : field.type === 'select' ? <div class="theme-control-row"><span class="theme-control-preview theme-token-preview">Aa</span><select class="form-select theme-value" id={`theme-${field.key}`} name={field.key} data-theme-key={field.key}>{(field.key === '--canvas-style' ? ['particles', 'dots', 'bubbles', 'grid', 'none'] : field.key === '--home-background' ? ['var(--body-bg)', 'linear-gradient(135deg, rgba(13, 7, 18, 0.88) 0%, rgba(26, 13, 36, 0.88) 52%, rgba(18, 9, 29, 0.88) 100%)', 'linear-gradient(135deg, rgba(11, 16, 32, 0.88) 0%, rgba(23, 16, 43, 0.88) 50%, rgba(38, 16, 58, 0.88) 100%)'] : ['lift', 'scale', 'glow', 'none', 'custom']).map((value) => <option value={value} selected={theme[field.key] === value}>{value === 'var(--body-bg)' ? 'Solid page background' : value.startsWith('linear-gradient') ? 'Gradient background' : value[0].toUpperCase() + value.slice(1)}</option>)}</select></div>
+                  : <div class="theme-control-row"><span class="theme-control-preview theme-token-preview">Aa</span><input class="form-control theme-value" id={`theme-${field.key}`} name={field.key} value={theme[field.key]} data-theme-key={field.key} /></div>}
+              </div>;
+            })}
+          </div></fieldset>)}
+          <div class="theme-form-footer"><span>Changes apply to the public portfolio after saving.</span><button class="btn btn-primary" type="submit">Save theme</button></div>
+        </form>
+      </section>
+
+      <aside class="theme-preview-panel"><div class="theme-preview-toolbar"><div><p class="theme-kicker">Canvas</p><h3>Live preview</h3></div><div class="theme-preview-actions"><span class="theme-live-dot">Live</span><button class="btn btn-primary btn-sm" type="submit" form="theme-form">Save theme</button></div></div>
+        <div class="theme-preview" id="theme-preview" style={previewThemeStyle}><canvas class="preview-canvas" id="preview-canvas" aria-hidden="true"></canvas><div class="preview-grid"></div><nav class="preview-nav"><strong>RC<span>.</span></strong><div><span>About</span><span class="preview-active">Work</span><span>Contact</span></div></nav><div class="preview-content"><span class="preview-label">Software engineer</span><h4>Build something <em class="preview-gradient-text">meaningful.</em></h4><p>A small window into your portfolio's visual language.</p><div class="preview-actions"><button class="preview-button preview-button-primary">View projects</button><button class="preview-button preview-button-secondary">Get in touch</button></div></div><div class="preview-card"><div class="preview-card-top"><span class="preview-dots">● ● ●</span><span>featured-project.ts</span></div><div><span class="preview-code">const</span> project = <span class="preview-string">'in progress'</span>;</div></div><div class="preview-tags"><span>Available</span><span>Astro</span><span>Supabase</span></div></div>
+        <div class="preview-muted-samples" aria-label="Muted text preview"><span class="preview-muted-light">Light muted text</span><span class="preview-muted-mid">Mid muted text</span><span class="preview-muted-dark">Dark muted text</span></div>
+      </aside>
+    </div>
+  </main>
+</AdminLayout>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>('#theme-form');
+  const preview = document.querySelector<HTMLElement>('#theme-preview');
+  const mutedSamples = document.querySelector<HTMLElement>('.preview-muted-samples');
+  const canvas = document.querySelector<HTMLCanvasElement>('#preview-canvas');
+  const saveState = document.querySelector<HTMLElement>('[data-save-state]');
+  let animationFrame = 0;
+  let canvasMode = 'particles';
+  if (preview && mutedSamples) preview.appendChild(mutedSamples);
+  const setPreviewToken = (key: string, value: string) => preview?.style.setProperty(key, value);
+  const hexToRgb = (value: string, fallback: string) => {
+    const hex = value.replace('#', '').trim();
+    if (!/^[0-9a-f]{6}$/i.test(hex)) return fallback;
+    return `${parseInt(hex.slice(0, 2), 16)}, ${parseInt(hex.slice(2, 4), 16)}, ${parseInt(hex.slice(4, 6), 16)}`;
+  };
+  const startCanvas = () => {
+    if (!canvas || !preview) return;
+    cancelAnimationFrame(animationFrame);
+    const context = canvas.getContext('2d');
+    if (!context) return;
+    canvasMode = readValue('--canvas-style') || 'particles';
+    const width = preview.clientWidth;
+    const height = preview.clientHeight;
+    const ratio = window.devicePixelRatio || 1;
+    canvas.width = width * ratio;
+    canvas.height = height * ratio;
+    canvas.style.display = canvasMode === 'none' ? 'none' : 'block';
+    context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    const primary = hexToRgb(readValue('--canvas-particle-primary'), '232, 62, 159');
+    const secondary = hexToRgb(readValue('--canvas-particle-secondary'), '155, 93, 229');
+    const grid = hexToRgb(readValue('--canvas-grid-color'), primary);
+    const particles = Array.from({ length: 30 }, (_, index) => ({
+      x: Math.random() * width, y: Math.random() * height,
+      vx: (Math.random() - 0.5) * 0.35, vy: (Math.random() - 0.5) * 0.35,
+      radius: canvasMode === 'bubbles' ? 5 + Math.random() * 13 : 1.2 + Math.random() * 2,
+      color: index % 2 ? secondary : primary
+    }));
+    const draw = () => {
+      context.clearRect(0, 0, width, height);
+      if (canvasMode === 'grid') {
+        context.strokeStyle = `rgba(${grid}, 0.18)`;
+        for (let x = 0; x <= width; x += 34) { context.beginPath(); context.moveTo(x, 0); context.lineTo(x, height); context.stroke(); }
+        for (let y = 0; y <= height; y += 34) { context.beginPath(); context.moveTo(0, y); context.lineTo(width, y); context.stroke(); }
+      } else if (canvasMode !== 'none') {
+        particles.forEach((particle) => {
+          particle.x += particle.vx; particle.y += particle.vy;
+          if (particle.x < -20 || particle.x > width + 20) particle.vx *= -1;
+          if (particle.y < -20 || particle.y > height + 20) particle.vy *= -1;
+          context.fillStyle = `rgba(${particle.color}, ${canvasMode === 'bubbles' ? 0.12 : 0.8})`;
+          context.strokeStyle = `rgba(${particle.color}, ${canvasMode === 'bubbles' ? 0.28 : 0.55})`;
+          context.lineWidth = 1;
+          context.beginPath(); context.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
+          canvasMode === 'bubbles' ? context.stroke() : context.fill();
+        });
+        if (canvasMode === 'particles') particles.forEach((particle, index) => particles.slice(index + 1).forEach((other) => {
+          const distance = Math.hypot(particle.x - other.x, particle.y - other.y);
+          if (distance < 105) { context.strokeStyle = `rgba(${particle.color}, ${0.28 * (1 - distance / 105)})`; context.beginPath(); context.moveTo(particle.x, particle.y); context.lineTo(other.x, other.y); context.stroke(); }
+        }));
+      }
+      animationFrame = requestAnimationFrame(draw);
+    };
+    draw();
+  };
+  const readValue = (key: string) => form?.querySelector<HTMLInputElement | HTMLSelectElement>(`[data-theme-key="${key}"]`)?.value || '';
+  const syncGradient = (key: string) => {
+    const control = form?.querySelector<HTMLElement>(`[data-gradient-preview="${key}"]`)?.closest('.theme-gradient-input');
+    const colorWithAlpha = (part: 'start' | 'end', fallback: string) => {
+      const color = control?.querySelector<HTMLInputElement>(`[data-gradient-part="${part}"]`)?.value || fallback;
+      const picker = control?.querySelector<HTMLElement>(`[data-custom-gradient-part="${part}"]`);
+      const alpha = Number(picker?.dataset.customAlpha || 1);
+      return alpha < 1 ? `${color}${Math.round(alpha * 255).toString(16).padStart(2, '0')}` : color;
+    };
+    const start = colorWithAlpha('start', '#e83e9f');
+    const end = colorWithAlpha('end', '#9b5de5');
+    const angle = control?.querySelector<HTMLInputElement>('[data-gradient-angle]')?.value || '135';
+    const startPercent = control?.querySelector<HTMLInputElement>('[data-gradient-percent="start"]')?.value || '0';
+    const endPercent = control?.querySelector<HTMLInputElement>('[data-gradient-percent="end"]')?.value || '100';
+    const gradient = `linear-gradient(${angle}deg, ${start} ${startPercent}%, ${end} ${endPercent}%)`;
+    const value = control?.querySelector<HTMLInputElement>('[data-gradient-value]');
+    if (value) value.value = gradient;
+    control?.querySelector<HTMLElement>('[data-gradient-preview]')?.style.setProperty('background', gradient);
+    control?.querySelector<HTMLElement>('[data-gradient-text-sample]')?.style.setProperty('--sample-gradient', gradient);
+    control?.querySelector<HTMLOutputElement>('[data-gradient-output="start"]')?.replaceChildren(`${startPercent}%`);
+    control?.querySelector<HTMLOutputElement>('[data-gradient-output="end"]')?.replaceChildren(`${endPercent}%`);
+    control?.querySelector<HTMLOutputElement>('[data-gradient-angle-output]')?.replaceChildren(`${angle}°`);
+    setPreviewToken(key, gradient);
+  };
+  const setGradientControls = (key: string, value: string) => {
+    const match = value.match(/linear-gradient\(\s*(\d+)deg,\s*(#[0-9a-f]{3,8})\s*(\d+)%?[^,]*,\s*(#[0-9a-f]{3,8})\s*(\d+)%?[^)]*\)/i);
+    if (!match) return;
+    const control = form?.querySelector<HTMLElement>(`[data-gradient-preview="${key}"]`)?.closest('.theme-gradient-input');
+    const start = control?.querySelector<HTMLInputElement>('[data-gradient-part="start"]');
+    const end = control?.querySelector<HTMLInputElement>('[data-gradient-part="end"]');
+    const startSlider = control?.querySelector<HTMLInputElement>('[data-gradient-percent="start"]');
+    const endSlider = control?.querySelector<HTMLInputElement>('[data-gradient-percent="end"]');
+    const angleSlider = control?.querySelector<HTMLInputElement>('[data-gradient-angle]');
+    if (start) start.value = match[2];
+    if (startSlider) startSlider.value = match[3];
+    if (end) end.value = match[4];
+    if (endSlider) endSlider.value = match[5];
+    if (angleSlider) angleSlider.value = match[1];
+  };
+  const clamp = (value: number, min = 0, max = 1) => Math.min(max, Math.max(min, value));
+  const normalizeHex = (value: string) => {
+    const hex = value.trim().replace(/^#/, '');
+    if (/^[0-9a-f]{3}$/i.test(hex)) return `#${hex.split('').map((part) => `${part}${part}`).join('')}`;
+    if (/^[0-9a-f]{6,8}$/i.test(hex)) return `#${hex}`;
+    return null;
+  };
+  const hexToHsv = (value: string) => {
+    const hex = (normalizeHex(value) || '#e83e9f').slice(1);
+    const red = parseInt(hex.slice(0, 2), 16) / 255;
+    const green = parseInt(hex.slice(2, 4), 16) / 255;
+    const blue = parseInt(hex.slice(4, 6), 16) / 255;
+    const max = Math.max(red, green, blue);
+    const delta = max - Math.min(red, green, blue);
+    let hue = 0;
+    if (delta) {
+      if (max === red) hue = ((green - blue) / delta) % 6;
+      else if (max === green) hue = (blue - red) / delta + 2;
+      else hue = (red - green) / delta + 4;
+      hue = (hue * 60 + 360) % 360;
+    }
+    return { hue, saturation: max ? delta / max : 0, value: max, alpha: hex.length === 8 ? parseInt(hex.slice(6, 8), 16) / 255 : 1 };
+  };
+  const hsvToHex = (hue: number, saturation: number, value: number, alpha = 1) => {
+    const chroma = value * saturation;
+    const second = chroma * (1 - Math.abs(((hue / 60) % 2) - 1));
+    const match = value - chroma;
+    const [red, green, blue] = hue < 60 ? [chroma, second, 0] : hue < 120 ? [second, chroma, 0] : hue < 180 ? [0, chroma, second] : hue < 240 ? [0, second, chroma] : hue < 300 ? [second, 0, chroma] : [chroma, 0, second];
+    const color = [red, green, blue].map((channel) => Math.round((channel + match) * 255).toString(16).padStart(2, '0')).join('');
+    return `#${color}${alpha < 1 ? Math.round(alpha * 255).toString(16).padStart(2, '0') : ''}`;
+  };
+  const setupCustomPicker = (picker: HTMLElement) => {
+    const button = picker.querySelector<HTMLButtonElement>('[data-color-trigger], [data-gradient-trigger]');
+    const popover = picker.querySelector<HTMLElement>('.theme-color-popover');
+    const saturation = picker.querySelector<HTMLElement>('[data-custom-saturation]');
+    const hue = picker.querySelector<HTMLElement>('[data-custom-hue]');
+    const marker = picker.querySelector<HTMLElement>('[data-custom-marker]');
+    const hueMarker = picker.querySelector<HTMLElement>('[data-custom-hue-marker]');
+    const hexInput = picker.querySelector<HTMLInputElement>('[data-custom-hex]');
+    if (!button || !popover || !saturation || !hue || !marker || !hueMarker || !hexInput) return;
+    let opacityInput = popover.querySelector<HTMLInputElement>('[data-custom-opacity]');
+    let opacityOutput = popover.querySelector<HTMLOutputElement>('[data-custom-opacity-output]');
+    if (!opacityInput) {
+      const opacityControl = document.createElement('label');
+      opacityControl.className = 'theme-opacity-control';
+      opacityControl.innerHTML = '<span>Opacity <output data-custom-opacity-output>100%</output></span><input class="form-range" type="range" min="0" max="100" value="100" data-custom-opacity aria-label="Color opacity" />';
+      popover.insertBefore(opacityControl, popover.querySelector('.theme-popover-value'));
+      opacityInput = opacityControl.querySelector<HTMLInputElement>('[data-custom-opacity]');
+      opacityOutput = opacityControl.querySelector<HTMLOutputElement>('[data-custom-opacity-output]');
+    }
+    const readPickerValue = () => picker.dataset.customKey
+      ? form?.querySelector<HTMLInputElement>(`[name="${picker.dataset.customKey}"]`)?.value || '#e83e9f'
+      : form?.querySelector<HTMLInputElement>(`[data-gradient-key="${picker.dataset.customGradientKey}"][data-gradient-part="${picker.dataset.customGradientPart}"]`)?.value || '#e83e9f';
+    const writePickerValue = (value: string) => {
+      const normalized = normalizeHex(value);
+      if (!normalized) return;
+      if (picker.dataset.customKey) {
+        const textInput = form?.querySelector<HTMLInputElement>(`[name="${picker.dataset.customKey}"]`);
+        const nativeInput = form?.querySelector<HTMLInputElement>(`[data-color-input][data-theme-key="${picker.dataset.customKey}"]`);
+        if (textInput) textInput.value = normalized;
+        if (nativeInput) nativeInput.value = normalized.slice(0, 7);
+      } else {
+        const nativeInput = form?.querySelector<HTMLInputElement>(`[data-gradient-key="${picker.dataset.customGradientKey}"][data-gradient-part="${picker.dataset.customGradientPart}"]`);
+        picker.dataset.customAlpha = String(hexToHsv(normalized).alpha);
+        if (nativeInput) nativeInput.value = normalized.slice(0, 7);
+        syncGradient(picker.dataset.customGradientKey || '');
+      }
+    };
+    const render = (value: string, commit = false) => {
+      const normalized = normalizeHex(value) || '#e83e9f';
+      const hsv = hexToHsv(normalized);
+      picker.style.setProperty('--preview-color', normalized);
+      button.style.setProperty('--preview-color', normalized);
+      hexInput.value = normalized.slice(1);
+      if (opacityInput) opacityInput.value = String(Math.round(hsv.alpha * 100));
+      if (opacityOutput) opacityOutput.value = `${Math.round(hsv.alpha * 100)}%`;
+      picker.dataset.customAlpha = String(hsv.alpha);
+      saturation.style.setProperty('--picker-hue', `${hsv.hue}`);
+      marker.style.left = `${hsv.saturation * 100}%`;
+      marker.style.top = `${(1 - hsv.value) * 100}%`;
+      hueMarker.style.left = `${(hsv.hue / 360) * 100}%`;
+      if (commit) {
+        writePickerValue(normalized);
+        if (picker.dataset.customKey) setPreviewToken(picker.dataset.customKey, normalized);
+      }
+    };
+    const updateFromPointer = (event: MouseEvent, target: HTMLElement, mode: 'saturation' | 'hue') => {
+      const rect = target.getBoundingClientRect();
+      const horizontal = clamp((event.clientX - rect.left) / rect.width);
+      if (mode === 'hue') { const current = hexToHsv(readPickerValue()); render(hsvToHex(horizontal * 360, current.saturation, current.value, current.alpha), true); }
+      else {
+        const current = hexToHsv(readPickerValue());
+        render(hsvToHex(current.hue, horizontal, 1 - clamp((event.clientY - rect.top) / rect.height), current.alpha), true);
+      }
+    };
+    let dragging: 'saturation' | 'hue' | null = null;
+    const beginDrag = (event: MouseEvent, target: HTMLElement, mode: 'saturation' | 'hue') => { event.preventDefault(); dragging = mode; updateFromPointer(event, target, mode); };
+    saturation.addEventListener('mousedown', (event) => beginDrag(event, saturation, 'saturation'));
+    hue.addEventListener('mousedown', (event) => beginDrag(event, hue, 'hue'));
+    document.addEventListener('mousemove', (event) => { if (dragging === 'saturation') updateFromPointer(event, saturation, 'saturation'); if (dragging === 'hue') updateFromPointer(event, hue, 'hue'); });
+    document.addEventListener('mouseup', () => { dragging = null; });
+    button.addEventListener('click', () => { const open = popover.hidden; document.querySelectorAll<HTMLElement>('.theme-color-popover').forEach((item) => { item.hidden = true; }); popover.hidden = !open; button.setAttribute('aria-expanded', String(!popover.hidden)); if (open) render(readPickerValue()); });
+    hexInput.addEventListener('input', () => { if (normalizeHex(hexInput.value)) render(hexInput.value, true); });
+    opacityInput?.addEventListener('input', () => {
+      const current = hexToHsv(readPickerValue());
+      render(hsvToHex(current.hue, current.saturation, current.value, Number(opacityInput?.value || 100) / 100), true);
+    });
+    render(readPickerValue());
+  };
+  document.querySelectorAll<HTMLElement>('[data-custom-picker]').forEach(setupCustomPicker);
+  document.addEventListener('click', (event) => {
+    const target = event.target;
+    if (!(target instanceof Element) || target.closest('[data-custom-picker]')) return;
+    document.querySelectorAll<HTMLElement>('.theme-color-popover').forEach((popover) => { popover.hidden = true; });
+    document.querySelectorAll<HTMLButtonElement>('[data-color-trigger], [data-gradient-trigger]').forEach((trigger) => trigger.setAttribute('aria-expanded', 'false'));
+  });
+  const syncPreview = () => {
+    form?.querySelectorAll<HTMLInputElement | HTMLSelectElement>('[data-theme-key]').forEach((input) => setPreviewToken(input.dataset.themeKey || '', input.value));
+    form?.querySelectorAll<HTMLElement>('[data-color-preview]').forEach((swatch) => {
+      const value = form?.querySelector<HTMLInputElement>(`[name="${swatch.dataset.colorPreview}"]`)?.value;
+      if (value) swatch.style.setProperty('--preview-color', value);
+    });
+    form?.querySelectorAll<HTMLElement>('[data-gradient-preview-swatch]').forEach((swatch) => {
+      const value = form?.querySelector<HTMLInputElement>(`[data-gradient-key="${swatch.dataset.gradientPreviewSwatch}"][data-gradient-part="${swatch.dataset.gradientPreviewPart}"]`)?.value;
+      if (value) swatch.style.setProperty('--preview-color', value);
+    });
+    form?.querySelectorAll<HTMLInputElement>('[data-gradient-value]').forEach((input) => syncGradient(input.dataset.gradientValue || ''));
+    form?.querySelectorAll<HTMLInputElement>('[data-radius-preview]').forEach((preview) => preview.style.setProperty('--preview-radius', form?.querySelector<HTMLInputElement>(`[data-range-value="${preview.dataset.radiusPreview}"]`)?.value || '0px'));
+    startCanvas();
+  };
+  form?.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input, select').forEach((input) => input.addEventListener('input', () => {
+    if (input.dataset.colorInput) { const valueInput = form.querySelector<HTMLInputElement>(`input[name="${input.dataset.themeKey}"]`); if (valueInput) valueInput.value = input.value; }
+    if (input.dataset.rangeKey) { const valueInput = form.querySelector<HTMLInputElement>(`[data-range-value="${input.dataset.rangeKey}"]`); if (valueInput) valueInput.value = `${input.value}px`; }
+    if (input.dataset.gradientKey) syncGradient(input.dataset.gradientKey);
+    syncPreview();
+    if (saveState) saveState.textContent = 'Unsaved changes';
+  }));
+  document.querySelectorAll<HTMLButtonElement>('[data-theme-preset]').forEach((button) => button.addEventListener('click', () => {
+    let values: Record<string, string> = {};
+    try { values = JSON.parse(button.dataset.themeValues || '{}'); } catch { values = {}; }
+    Object.entries(values).forEach(([key, value]) => {
+      const input = form?.querySelector<HTMLInputElement | HTMLSelectElement>(`[name="${key}"]`);
+      if (input) input.value = value;
+      const color = form?.querySelector<HTMLInputElement>(`[data-color-input][data-theme-key="${key}"]`);
+      if (color && /^#[0-9a-f]{6}$/i.test(value)) color.value = value;
+      const range = form?.querySelector<HTMLInputElement>(`[data-range-key="${key}"]`);
+      if (range) range.value = String(parseFloat(value) || 0);
+      if (key.startsWith('--gradient-')) setGradientControls(key, value);
+    });
+    syncPreview();
+    if (saveState) saveState.textContent = `${button.textContent?.trim()} selected`;
+  }));
+  syncPreview();
+  window.addEventListener('resize', startCanvas);
+</script>

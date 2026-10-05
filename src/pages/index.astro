@@ -11,30 +11,39 @@ const supabase = createClient(
   import.meta.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// Fetch only featured projects from the database
+// Fetch only featured projects from the database (including live_url)
 const { data: featuredProjects, error } = await supabase
   .from('projects')
   .select('*')
   .eq('featured', true)
   .order('id', { ascending: false });
+
+// Fetch real projects from Supabase to feed the terminal
+const { data: dbProjects } = await supabase
+  .from('projects')
+  .select('title, tech_stack, live_url')
+  .order('id', { ascending: false })
+  .limit(5);
+
+const safeProjectsJson = JSON.stringify(dbProjects || []);
 ---
 
-<Layout title="Ryan Cuccurullo — Software Engineer Portfolio">
+<Layout hasHero={true} title="Ryan Cuccurullo — Software Engineer Portfolio">
   <!-- Interactive Mouse-Tracking Background Canvas (Fullscreen Layer) -->
-  <canvas id="hero-canvas" class="position-fixed top-0 start-0 w-100 h-100 pointer-events-none" style="z-index: 0; opacity: 0.85;"></canvas>
+  <canvas id="hero-canvas" class="position-fixed top-0 start-0 w-100 h-100 pointer-events-none" style="z-index: 0; opacity: 0.85;" data-canvas-style="loading"></canvas>
 
   <!-- Professional Full-Height Hero Banner Section -->
-  <section class="hero-section hero-gradient-bg position-relative overflow-hidden w-100 d-flex align-items-center py-3" style="z-index: 1;">
+  <section class="hero-section hero-gradient-bg position-relative overflow-hidden w-100 d-flex align-items-center" style="z-index: 1;">
     <!-- Responsive Fluid Ambient Background Glow Accents -->
     <div class="position-absolute top-0 start-0 translate-middle-y rounded-circle bg-primary opacity-10 pointer-events-none animate-pulse-slow" style="width: clamp(300px, 40vw, 650px); height: clamp(300px, 40vw, 650px); z-index: -1; filter: blur(clamp(50px, 8vw, 100px));"></div>
     <div class="position-absolute bottom-0 end-0 translate-middle-y rounded-circle bg-secondary opacity-10 pointer-events-none animate-pulse-slow" style="width: clamp(300px, 40vw, 650px); height: clamp(300px, 40vw, 650px); z-index: -1; filter: blur(clamp(50px, 8vw, 100px)); animation-delay: 2s;"></div>
     
-    <div class="container hero-wrapper py-2">
+    <div class="container hero-wrapper">
       <div class="row align-items-center justify-content-between g-4 g-lg-5">
         
         <!-- Left Column: Text Content -->
         <div class="col-lg-6 text-center text-lg-start">
-          <div class="mb-2 mb-lg-3">
+          <div class="mb-3">
             <span class="badge rounded-pill px-3 py-2 bg-dark border border-secondary text-accent fw-normal text-wrap shadow-sm" style="font-size: clamp(0.8rem, 1.1vw, 0.95rem);">
               <i class="bi bi-code-slash me-1"></i> Software Engineer &bull; Full-Stack & AI
             </span>
@@ -49,13 +58,13 @@ const { data: featuredProjects, error } = await supabase
             enterprise automation, and AI-powered solutions.
           </p>
 
-          <!-- Upgraded Cool Interactive Buttons -->
+          <!-- Interactive Action Buttons -->
           <div class="d-flex flex-column flex-sm-row justify-content-center justify-content-lg-start gap-3">
             <a href="/projects" class="btn btn-primary btn-lg px-4 shadow-sm custom-btn-primary" style="font-size: clamp(0.95rem, 1.2vw, 1.05rem);">
               <span>View All Projects</span> 
               <span class="arrow-icon ms-1">&rarr;</span>
             </a>
-            <a href="https://github.com/ryguy0601" target="_blank" class="btn btn-outline-secondary btn-lg px-4 shadow-sm custom-btn-github d-inline-flex align-items-center justify-content-center gap-2" style="font-size: clamp(0.95rem, 1.2vw, 1.05rem);">
+            <a href="https://github.com/ryguy0601" target="_blank" rel="noopener noreferrer" class="btn btn-outline-secondary btn-lg px-4 shadow-sm custom-btn-github d-inline-flex align-items-center justify-content-center gap-2" style="font-size: clamp(0.95rem, 1.2vw, 1.05rem);">
               <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
                 <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.22 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
               </svg>
@@ -66,15 +75,20 @@ const { data: featuredProjects, error } = await supabase
 
         <!-- Right Column: Large-Format Interactive Terminal Workbench -->
         <div class="col-lg-6 d-flex justify-content-center justify-content-lg-end">
-          <div class="card terminal-card shadow-lg border border-secondary p-3 rounded-4">
+          <div class="card terminal-card shadow-lg border border-secondary p-3 rounded-4 w-100" style="max-width: 580px;">
             <div class="card-header bg-transparent border-bottom border-secondary d-flex align-items-center gap-2 pb-2 mb-2">
               <span class="rounded-circle bg-danger d-inline-block" style="width: 11px; height: 11px;"></span>
               <span class="rounded-circle bg-warning d-inline-block" style="width: 11px; height: 11px;"></span>
               <span class="rounded-circle bg-success d-inline-block" style="width: 11px; height: 11px;"></span>
               <small class="text-muted ms-2 font-monospace" style="font-size: 0.85rem;">ryan@portfolio ~ zsh</small>
             </div>
-            <div class="card-body terminal-body font-monospace text-muted">
-              <pre class="mb-0 m-0 p-0" style="background: transparent; font-family: inherit;"><span id="terminal-text"></span><span class="terminal-cursor">|</span></pre>
+            <div class="card-body terminal-body font-monospace text-muted p-2">
+              <pre 
+                class="mb-0 m-0 p-0 terminal-pre" 
+                id="terminal-container"
+                data-projects={safeProjectsJson}
+                style="background: transparent; font-family: inherit; white-space: pre-wrap; word-break: break-word; overflow-x: hidden;"
+              ><span id="terminal-text"></span><span class="terminal-cursor">|</span></pre>
             </div>
           </div>
         </div>
@@ -83,7 +97,7 @@ const { data: featuredProjects, error } = await supabase
     </div>
   </section>
 
-  <!-- Render the extracted Featured Projects Component -->
+  <!-- Render Featured Projects Component (passes projects with live_url included) -->
   <FeaturedProjects projects={featuredProjects} />
 </Layout>
 
@@ -97,8 +111,22 @@ const { data: featuredProjects, error } = await supabase
   }
 
   .hero-section {
-    height: 100vh;
-    min-height: 600px;
+    min-height: 100vh;
+    min-height: 100svh;
+    padding-top: 80px;
+    padding-bottom: 2rem;
+    box-sizing: border-box;
+  }
+
+  .hero-wrapper {
+    position: relative;
+    z-index: 2;
+  }
+
+  .terminal-pre {
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+    overflow-x: hidden !important;
   }
 
   .custom-btn-primary {
@@ -106,7 +134,7 @@ const { data: featuredProjects, error } = await supabase
     
     &:hover {
       transform: translateY(-2px);
-      box-shadow: 0 8px 25px rgba(230, 0, 115, 0.4) !important;
+      box-shadow: var(--shadow-primary-button-hover) !important;
       
       .arrow-icon {
         transform: translateX(4px);
@@ -120,18 +148,24 @@ const { data: featuredProjects, error } = await supabase
   }
 
   .custom-btn-github {
-    background-color: rgba(24, 24, 27, 0.6) !important;
-    border-color: rgba(0, 240, 255, 0.3) !important;
-    color: #e4e4e7 !important;
+    background-color: rgba(var(--card-bg-rgb), 0.6) !important;
+    border-color: rgba(var(--color-secondary-rgb), 0.3) !important;
+    color: var(--body-color) !important;
     transition: all 0.2s ease !important;
 
     &:hover {
-      background-color: rgba(0, 240, 255, 0.1) !important;
-      border-color: #00f0ff !important;
-      color: #00f0ff !important;
+      background-color: rgba(var(--color-secondary-rgb), 0.1) !important;
+      border-color: var(--color-secondary) !important;
+      color: var(--color-secondary) !important;
       transform: translateY(-2px);
-      box-shadow: 0 8px 25px rgba(0, 240, 255, 0.2) !important;
+      box-shadow: var(--shadow-secondary-hover) !important;
     }
+  }
+</style>
+
+<style>
+  #hero-canvas[data-canvas-style="none"] {
+    display: none !important;
   }
 </style>
 
@@ -139,119 +173,258 @@ const { data: featuredProjects, error } = await supabase
 <script>
   document.addEventListener("DOMContentLoaded", () => {
     // --- 1. Dynamic Resize Particle Network ---
-    const canvas = document.getElementById("hero-canvas") as HTMLCanvasElement;
-    if (canvas) {
-      const ctx = canvas.getContext("2d");
-      let width = (canvas.width = window.innerWidth);
-      let height = (canvas.height = window.innerHeight);
+// --- 1. Dynamic Resize Particle Network ---
+const canvas = document.getElementById("hero-canvas") as HTMLCanvasElement;
+if (canvas) {
+  const ctx = canvas.getContext("2d");
+  let width = (canvas.width = window.innerWidth);
+  let height = (canvas.height = window.innerHeight);
 
-      interface Particle {
-        x: number;
-        y: number;
-        vx: number;
-        vy: number;
-        size: number;
-      }
+  // Read CSS variables directly from :root
+  const rootStyles = getComputedStyle(document.documentElement);
+  const primaryRgb = rootStyles.getPropertyValue("--canvas-particle-primary-rgb").trim() || "232, 62, 159";
+  const secondaryRgb = rootStyles.getPropertyValue("--canvas-particle-secondary-rgb").trim() || "155, 93, 229";
+  const gridRgb = rootStyles.getPropertyValue("--canvas-grid-color-rgb").trim() || primaryRgb;
+  const canvasStyle = rootStyles.getPropertyValue("--canvas-style").trim() || "particles";
+  const colorPalette = [primaryRgb, secondaryRgb];
+  canvas.dataset.canvasStyle = canvasStyle;
+  canvas.style.display = canvasStyle === "none" ? "none" : "block";
 
-      const particles: Particle[] = [];
-      
-      function initParticles() {
-        particles.length = 0; 
-        const particleCount = Math.floor((width * height) / 9000);
-        for (let i = 0; i < particleCount; i++) {
-          particles.push({
-            x: Math.random() * width,
-            y: Math.random() * height,
-            vx: (Math.random() - 0.5) * 1.0,
-            vy: (Math.random() - 0.5) * 1.0,
-            size: Math.random() * 1.8 + 1.2
-          });
-        }
-      }
+  interface Particle {
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    size: number;
+    color: string;
+  }
 
-      initParticles();
-
-      window.addEventListener("resize", () => {
-        width = canvas.width = window.innerWidth;
-        height = canvas.height = window.innerHeight;
-        initParticles();
+  const particles: Particle[] = [];
+  
+  function initParticles() {
+    particles.length = 0; 
+    const particleCount = Math.floor((width * height) / 9000);
+    for (let i = 0; i < particleCount; i++) {
+      particles.push({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        vx: (Math.random() - 0.5) * 1.0,
+        vy: (Math.random() - 0.5) * 1.0,
+        size: Math.random() * 1.8 + 1.2,
+        color: colorPalette[Math.floor(Math.random() * colorPalette.length)]
       });
+    }
+  }
 
-      const mouse = { x: -1000, y: -1000, radius: 160 };
+  initParticles();
 
-      window.addEventListener("mousemove", (e) => {
-        mouse.x = e.clientX;
-        mouse.y = e.clientY;
-      });
+  window.addEventListener("resize", () => {
+    width = canvas.width = window.innerWidth;
+    height = canvas.height = window.innerHeight;
+    initParticles();
+  });
 
-      window.addEventListener("mouseleave", () => {
-        mouse.x = -1000;
-        mouse.y = -1000;
-      });
+  const mouse = { x: -1000, y: -1000, radius: 160 };
 
-      function animateCanvas() {
-        if (!ctx) return;
-        ctx.clearRect(0, 0, width, height);
+  window.addEventListener("mousemove", (e) => {
+    mouse.x = e.clientX;
+    mouse.y = e.clientY;
+  });
 
-        for (let i = 0; i < particles.length; i++) {
-          let p = particles[i];
-          p.x += p.vx;
-          p.y += p.vy;
+  window.addEventListener("mouseleave", () => {
+    mouse.x = -1000;
+    mouse.y = -1000;
+  });
 
-          if (p.x < 0 || p.x > width) p.vx *= -1;
-          if (p.y < 0 || p.y > height) p.vy *= -1;
+  function animateCanvas() {
+    if (!ctx) return;
+    if (canvasStyle === "none") return;
+    ctx.clearRect(0, 0, width, height);
 
-          let dx = mouse.x - p.x;
-          let dy = mouse.y - p.y;
-          let dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < mouse.radius) {
-            let angle = Math.atan2(dy, dx);
-            let force = (mouse.radius - dist) / mouse.radius;
-            p.x -= Math.cos(angle) * force * 3;
-            p.y -= Math.sin(angle) * force * 3;
-          }
-
-          ctx.fillStyle = "rgba(0, 240, 255, 0.7)";
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-          ctx.fill();
-
-          for (let j = i + 1; j < particles.length; j++) {
-            let p2 = particles[j];
-            let ndx = p.x - p2.x;
-            let ndy = p.y - p2.y;
-            let ndist = Math.sqrt(ndx * ndx + ndy * ndy);
-
-            if (ndist < 130) {
-              ctx.strokeStyle = `rgba(230, 0, 115, ${0.45 * (1 - ndist / 130)})`;
-              ctx.lineWidth = 0.8;
-              ctx.beginPath();
-              ctx.moveTo(p.x, p.y);
-              ctx.lineTo(p2.x, p2.y);
-              ctx.stroke();
-            }
-          }
-        }
-        requestAnimationFrame(animateCanvas);
+    if (canvasStyle === "grid") {
+      ctx.strokeStyle = `rgba(${gridRgb}, 0.18)`;
+      ctx.lineWidth = 1;
+      const gridSize = 48;
+      for (let x = 0; x <= width; x += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+        ctx.stroke();
       }
-      animateCanvas();
+      for (let y = 0; y <= height; y += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+      }
+      requestAnimationFrame(animateCanvas);
+      return;
     }
 
-    // --- 2. Terminal Typing & Highlighting Engine ---
-    const terminal = document.getElementById("terminal-text");
-    if (!terminal) return;
+    for (let i = 0; i < particles.length; i++) {
+      let p = particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
 
-    const steps = [
-      "const profile = {\n",
-      "  name: 'Ryan Cuccurullo',\n",
-      "  role: 'Software Engienr", 
-      { delete: 8 },            
-      " Software Engineer',\n",
-      "  stack: ['.NET', 'Pythn",    
-      { delete: 5 },            
-      "Python', 'React', 'Astro'],\n",
-      "  status: 'Available for Impact'\n",
-      "};"
+      if (p.x < 0 || p.x > width) p.vx *= -1;
+      if (p.y < 0 || p.y > height) p.vy *= -1;
+
+      let dx = mouse.x - p.x;
+      let dy = mouse.y - p.y;
+      let dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < mouse.radius) {
+        let angle = Math.atan2(dy, dx);
+        let force = (mouse.radius - dist) / mouse.radius;
+        p.x -= Math.cos(angle) * force * 3;
+        p.y -= Math.sin(angle) * force * 3;
+      }
+
+      // Draw particle using its assigned CSS variable RGB value
+      ctx.fillStyle = `rgba(${p.color}, 0.85)`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Dynamic two-stop gradient between the two connected particles
+      if (canvasStyle !== "dots") for (let j = i + 1; j < particles.length; j++) {
+        let p2 = particles[j];
+        let ndx = p.x - p2.x;
+        let ndy = p.y - p2.y;
+        let ndist = Math.sqrt(ndx * ndx + ndy * ndy);
+
+        if (ndist < 130) {
+          const alpha = 0.45 * (1 - ndist / 130);
+          
+          const gradient = ctx.createLinearGradient(p.x, p.y, p2.x, p2.y);
+          gradient.addColorStop(0, `rgba(${p.color}, ${alpha})`);
+          gradient.addColorStop(1, `rgba(${p2.color}, ${alpha})`);
+
+          ctx.strokeStyle = gradient;
+          ctx.lineWidth = 0.8;
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.stroke();
+        }
+      }
+    }
+    requestAnimationFrame(animateCanvas);
+  }
+  animateCanvas();
+}
+
+    // --- 2. Terminal Engine (Strictly DB Projects + General Dev Themes with Typos) ---
+    const terminal = document.getElementById("terminal-text");
+    const container = document.getElementById("terminal-container");
+    if (!terminal || !container) return;
+
+    type Step = string | { delete: number };
+
+    let liveDbProjects: { title: string; tech_stack: string; live_url?: string }[] = [];
+    try {
+      liveDbProjects = JSON.parse(container.getAttribute("data-projects") || "[]");
+    } catch (e) {
+      liveDbProjects = [];
+    }
+
+    const dbProjectVariations: Step[][] = liveDbProjects.map((p) => {
+      const formattedStack = p.tech_stack
+        ? p.tech_stack.split(',').map((t) => `'${t.trim()}'`).join(', ')
+        : "'TypeScript', 'Astro'";
+
+      const steps: Step[] = [
+        "const dbProject = {\n",
+        "  sourcce: 'Live Supa",
+        { delete: 14 },
+        "e: 'Live Supabase DB',\n",
+        "  title: '" + p.title + "',\n",
+        "  stack: [" + formattedStack + "],\n"
+      ];
+
+      if (p.live_url) {
+        steps.push(
+          "  demo: 'htt://",
+          { delete: 4 },
+          "ps://live',\n"
+        );
+      }
+
+      steps.push(
+        "  verified: truu",
+        { delete: 2 },
+        "ue,\n",
+        "  status: 'Deployed & Ready'\n",
+        "};"
+      );
+
+      return steps;
+    });
+
+    const generalVariations: Step[][] = [
+      [
+        "const devDay = {\n",
+        "  caffeineLevel: '100%",
+        { delete: 4 },
+        "99.9%',\n",
+        "  dailyGoal: 'Write clean code, crush buggs",
+        { delete: 2 },
+        "s',\n",
+        "  gitCommit: 'git push --focre",
+        { delete: 3 },
+        "rce origin main',\n",
+        "  coffeeToCodeRatio: Infinity,\n",
+        "  status: 'Compiling Solutions'\n",
+        "};"
+      ],
+      [
+        "const philosophy = {\n",
+        "  approach: 'Simplicity over complexx",
+        { delete: 1 },
+        "ity',\n",
+        "  mindset: 'Always be leanring",
+        { delete: 5 },
+        "rning',\n",
+        "  favoriteTool: 'The right one for the jobb",
+        { delete: 1 },
+        "',\n",
+        "  testsPassing: true,\n",
+        "  readyForProd: true\n",
+        "};"
+      ],
+      [
+        "const sysCheck = {\n",
+        "  terminal: 'zsh',\n",
+        "  shellTheme: 'dark-modde",
+        { delete: 2 },
+        "e',\n",
+        "  latency: '12ms',\n",
+        "  uptime: 'All day, evrey",
+        { delete: 3 },
+        "ery day',\n",
+        "  battery: 'Fully charged & ready'\n",
+        "};"
+      ],
+      [
+        "const engineer = {\n",
+        "  name: 'Ryan Cuccurullo',\n",
+        "  role: 'Full-Stack Develpoer",
+        { delete: 4 },
+        "oper',\n",
+        "  focus: ['Full-Stack', 'Automaion",
+        { delete: 4 },
+        "tion', 'AI Solutions'],\n",
+        "  motto: 'Make it work, make it quikc",
+        { delete: 3 },
+        "ick, make it clean',\n",
+        "  openToWork: true,\n",
+        "  status: 'Ready to Build'\n",
+        "};"
+      ]
+    ];
+
+    const terminalVariations: Step[][] = [
+      ...dbProjectVariations,
+      ...generalVariations
     ];
 
     const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -262,37 +435,48 @@ const { data: featuredProjects, error } = await supabase
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;");
 
-      safe = safe.replace(/\b(const)\b/g, '<span class="tok-keyword">$1</span>');
+      safe = safe.replace(/\b(const|true|false)\b/g, '<span class="tok-keyword">$1</span>');
       safe = safe.replace(/(\b[a-zA-Z_$][a-zA-Z0-9_$]*)(?=\s*:\s*)/g, '<span class="tok-property">$1</span>');
       safe = safe.replace(/('[^'\n]*('|$))/g, '<span class="tok-string">$1</span>');
+      safe = safe.replace(/\b([0-9]+|Infinity)\b/g, '<span class="tok-number" style="color: var(--color-badge-amber);">$1</span>');
 
       return safe;
     }
 
     async function runTerminal() {
+      let lastIndex = -1;
+
       while (true) {
+        let nextIndex: number;
+        do {
+          nextIndex = Math.floor(Math.random() * terminalVariations.length);
+        } while (terminalVariations.length > 1 && nextIndex === lastIndex);
+
+        lastIndex = nextIndex;
+        const currentSteps = terminalVariations[nextIndex];
+
         let currentText = "";
         terminal!.innerHTML = ""; 
         await wait(700);
 
-        for (let step of steps) {
+        for (let step of currentSteps) {
           if (typeof step === "string") {
             for (let char of step) {
               currentText += char;
               terminal!.innerHTML = highlightCode(currentText);
-              await wait(25 + Math.random() * 35);
+              await wait(20 + Math.random() * 25);
             }
           } else if (typeof step === "object" && step.delete) {
             await wait(450); 
             for (let i = 0; i < step.delete; i++) {
               currentText = currentText.slice(0, -1);
               terminal!.innerHTML = highlightCode(currentText);
-              await wait(40); 
+              await wait(35); 
             }
             await wait(200);
           }
         }
-        await wait(4000);
+        await wait(4500);
       }
     }
     runTerminal();

@@ -1,0 +1,162 @@
+---
+// src/components/TechBadgeList.astro
+import { parseTechStack, type TechInfo } from '../utils/techIcons';
+
+interface Props {
+  techStack: string | null | undefined;
+  showLabel?: boolean;
+  boxSize?: number;      // Box width/height in px (default: 42)
+  iconSize?: number;     // Inner SVG icon size in px (default: 22)
+  className?: string;
+}
+
+const {
+  techStack,
+  showLabel = false,
+  boxSize = 42,
+  iconSize = 22,
+  className = '',
+} = Astro.props;
+
+const techList: TechInfo[] = parseTechStack(techStack);
+---
+
+{techList.length > 0 && (
+  <div class={`tech-badge-container ${className}`}>
+    {showLabel && (
+      <div class="project-label font-monospace mb-2 text-muted small">
+        TECHNOLOGIES
+      </div>
+    )}
+
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+      {techList.map((tech) =>
+        tech.hasIcon ? (
+          <div
+            class="tech-box position-relative d-flex align-items-center justify-content-center rounded-3"
+            data-tech-tooltip={tech.name}
+            style={`width: ${boxSize}px; height: ${boxSize}px;`}
+            tabindex="0"
+          >
+            <img
+              src={tech.iconUrl}
+              alt={tech.name}
+              class="tech-icon"
+              style={`width: ${iconSize}px; height: ${iconSize}px;`}
+              loading="lazy"
+            />
+          </div>
+        ) : (
+          <div
+            class="tech-text-badge d-flex align-items-center px-3 py-2 rounded-3 font-monospace small"
+          >
+            {tech.name}
+          </div>
+        )
+      )}
+    </div>
+  </div>
+)}
+
+<style>
+  /* Force all icons to pure white */
+  .tech-icon,
+  img.tech-icon {
+    filter: brightness(0) invert(1) !important;
+  }
+
+  .tech-badge-container {
+    position: relative;
+    z-index: 20;
+  }
+
+  .tech-box {
+    background: var(--tech-symbol-bg);
+    border: 1px solid var(--border-glass-card);
+    cursor: default;
+    transition: transform var(--transition-spring),
+                border-color var(--transition-interactive),
+                box-shadow var(--transition-interactive),
+                background-color var(--transition-interactive);
+  }
+
+  .tech-box:hover,
+  .tech-box:focus-visible {
+    z-index: 50;
+    border-color: var(--color-secondary);
+    background: rgba(var(--color-secondary-rgb), 0.12);
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 0 0 16px rgba(var(--color-secondary-rgb), 0.35);
+    outline: none;
+  }
+
+  /* Upgraded Floating Monospace Capsule Tooltip */
+  .tech-box::before {
+    content: attr(data-tech-tooltip);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%) translateY(4px) scale(0.92);
+    transform-origin: bottom center;
+    background: linear-gradient(
+      135deg,
+      rgba(var(--card-bg-rgb), 0.95),
+      rgba(var(--overlay-dark-rgb), 0.98)
+    );
+    color: var(--body-color);
+    border: 1px solid rgba(var(--color-secondary-rgb), 0.45);
+    border-radius: var(--radius-pill);
+    padding: var(--badge-tooltip-padding);
+    font-size: 0.72rem;
+    font-weight: 500;
+    font-family: var(--bs-font-monospace, monospace);
+    white-space: nowrap;
+    letter-spacing: 0.03em;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity var(--transition-emphasis),
+                transform var(--transition-spring),
+                visibility var(--transition-emphasis);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: var(--shadow-tooltip);
+    z-index: 60;
+  }
+
+  /* Micro Arrow Pointing Down to Icon */
+  .tech-box::after {
+    content: "";
+    position: absolute;
+    bottom: calc(100% + 3px);
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    border-width: 5px 4.5px 0 4.5px;
+    border-style: solid;
+    border-color: rgba(var(--color-secondary-rgb), 0.45) transparent transparent transparent;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity var(--transition-emphasis),
+                transform var(--transition-spring),
+                visibility var(--transition-emphasis);
+    z-index: 60;
+  }
+
+  /* Reveal with spring pop on hover & focus */
+  .tech-box:hover::before,
+  .tech-box:hover::after,
+  .tech-box:focus-visible::before,
+  .tech-box:focus-visible::after {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+
+  /* Text Badge Fallback */
+  .tech-text-badge {
+    background: var(--tech-symbol-bg);
+    border: 1px solid rgba(var(--color-secondary-rgb), 0.35);
+    color: var(--color-secondary);
+  }
+</style>

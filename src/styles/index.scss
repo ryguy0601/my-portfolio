@@ -8,17 +8,16 @@
 // --- Rewritten Large-Format Terminal Workbench ---
 .terminal-card {
   width: 100%;
-  // Scales up massively on desktop/ultra-wides while staying responsive on smaller viewports
   max-width: clamp(340px, 48vw, 720px); 
   height: clamp(320px, 46vh, 480px);
   display: flex;
   flex-direction: column;
-  background-color: rgba(20, 20, 25, 0.85) !important; // Deep glassmorphism background
+  background-color: rgba(var(--card-bg-rgb), 0.85) !important;
   backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .terminal-body {
-  // Larger, highly readable code text sizing
   font-size: clamp(0.85rem, 1.3vw, 1.1rem) !important;
   line-height: 1.6;
   flex-grow: 1;
@@ -34,7 +33,7 @@
 
 .terminal-cursor {
   animation: blink 1s infinite;
-  color: #00f0ff;
+  color: var(--color-secondary);
   font-weight: bold;
 }
 
@@ -50,14 +49,14 @@
 
 // Terminal Code Syntax Highlighting Theme Colors
 .tok-keyword {
-  color: #ff4d94 !important; /* Soft Magenta */
+  color: var(--color-primary) !important;
   font-weight: bold;
 }
 
 .tok-property {
-  color: #00f0ff !important; /* Cyan Accent */
+  color: var(--color-secondary) !important;
 }
 
 .tok-string {
-  color: #a3e635 !important; /* Soft Lime/Green */
+  color: var(--color-syntax-string) !important;
 }

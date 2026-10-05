@@ -1,9 +1,9 @@
 ---
 // src/pages/projects.astro
-
 import { createClient } from '@supabase/supabase-js';
 import Layout from '../layouts/Layout.astro';
-import '../styles/index.scss';
+import TechBadgeList from '../components/TechBadgeList.astro';
+import '../styles/projects.scss';
 
 const supabase = createClient(
   import.meta.env.PUBLIC_SUPABASE_URL,
@@ -30,58 +30,30 @@ try {
   dbError = true;
 }
 
-// Helper map to match technology names to their corresponding Simple Icons slug
-const techIconMap: Record<string, string> = {
-  'c#': 'csharp',
-  'csharp': 'csharp',
-  'dotnet': 'dotnet',
-  '.net': 'dotnet',
-  'asp.net': 'dotnet',
-  'blazor': 'blazor',
-  'php': 'php',
-  'mysql': 'mysql',
-  'javascript': 'javascript',
-  'js': 'javascript',
-  'typescript': 'typescript',
-  'ts': 'typescript',
-  'html': 'html5',
-  'html5': 'html5',
-  'css': 'css3',
-  'css3': 'css3',
-  'bootstrap': 'bootstrap',
-  'tailwind': 'tailwindcss',
-  'tailwindcss': 'tailwindcss',
-  'python': 'python',
-  'supabase': 'supabase',
-  'react': 'react',
-  'astro': 'astro',
-  'git': 'git',
-  'github': 'github',
-  'docker': 'docker',
-  'linux': 'linux'
-};
-
-function getTechInfo(techName: string) {
-  const clean = techName.trim().toLowerCase();
-  const slug = techIconMap[clean];
-  
-  if (!slug) {
-    return {
-      name: techName.trim(),
-      hasIcon: false,
-      iconUrl: ''
-    };
+// Robust image parser to guarantee arrays even if stored as strings/JSON in Postgres
+function parseProjectImages(project: any): string[] {
+  if (Array.isArray(project.image_filenames) && project.image_filenames.length > 0) {
+    return project.image_filenames;
   }
-
-  return {
-    name: techName.trim(),
-    hasIcon: true,
-    iconUrl: `https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/${slug}.svg`
-  };
+  if (typeof project.image_filenames === 'string' && project.image_filenames.trim().length > 0) {
+    try {
+      const parsed = JSON.parse(project.image_filenames);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {
+      return project.image_filenames.split(',').map((s: string) => s.trim()).filter(Boolean);
+    }
+  }
+  if (project.image_url) {
+    if (typeof project.image_url === 'string' && project.image_url.includes(',')) {
+      return project.image_url.split(',').map((s: string) => s.trim()).filter(Boolean);
+    }
+    return [project.image_url];
+  }
+  return [];
 }
 ---
 
-<Layout title="Projects — Ryan Cuccurullo">
+<Layout hasHero={true} title="Projects — Ryan Cuccurullo">
 
   <main class="projects-page">
 
@@ -102,8 +74,7 @@ function getTechInfo(techName: string) {
             </div>
 
             <h1 class="fw-bold mb-3 mb-md-4 intro-main-title">
-              Things I've
-              <span class="text-gradient">Built.</span>
+              Things I've&nbsp;<span class="text-gradient">Built.</span>
             </h1>
 
             <p class="lead text-secondary mx-auto intro-description mb-4 mb-md-5">
@@ -114,7 +85,9 @@ function getTechInfo(techName: string) {
             <div class="d-flex flex-wrap justify-content-center align-items-center gap-3">
 
               <a href="/" class="btn btn-outline-secondary px-4 py-2">
-                <i class="bi bi-arrow-left me-2"></i>
+                <svg width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16">
+                  <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
+                </svg>
                 Back Home
               </a>
 
@@ -132,14 +105,15 @@ function getTechInfo(techName: string) {
               <span class="font-monospace text-secondary">
                 SCROLL TO EXPLORE
               </span>
-              <i class="bi bi-chevron-down"></i>
+              <svg width="14" height="14" fill="currentColor" class="mt-1" viewBox="0 0 16 16">
+                <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
+              </svg>
             </div>
 
           </div>
         </div>
       </div>
     </section>
-
 
     <!-- =========================================================
          PROJECT SLIDES
@@ -151,7 +125,10 @@ function getTechInfo(techName: string) {
             <div class="col-12 col-md-7 col-lg-5">
               <div class="empty-card text-center p-4 p-md-5">
                 <div class="empty-icon mb-4">
-                  <i class="bi bi-exclamation-triangle"></i>
+                  <svg width="48" height="48" fill="currentColor" class="text-warning" viewBox="0 0 16 16">
+                    <path d="M7.938 2.016a.13.13 0 0 1 .125 0l6.857 11.667c.036.06.035.124.002.183a.163.163 0 0 1-.127.084H1.205a.163.163 0 0 1-.127-.084.185.185 0 0 1 .002-.183L7.938 2.016zM8 1a1 1 0 0 0-.86.49l-6.857 11.667A1 1 0 0 0 1.205 15h13.59a1 1 0 0 0 .862-1.843L8.86 1.49A1 1 0 0 0 8 1z"/>
+                    <path d="M7.002 12a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 5.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995z"/>
+                  </svg>
                 </div>
                 <h2 class="h3 fw-bold mb-3">Connection Error</h2>
                 <p class="text-secondary mb-4">
@@ -169,28 +146,25 @@ function getTechInfo(techName: string) {
 
       allProjects.map((project, index) => {
 
-        const images =
-          project.image_filenames && project.image_filenames.length > 0
-            ? project.image_filenames
-            : project.image_url
-              ? [project.image_url]
-              : [];
-
+        const images = parseProjectImages(project);
         const carouselId = `project-carousel-${project.id}`;
+        const counterId = `img-counter-${project.id}`;
         const projectNumber = String(index + 1).padStart(2, '0');
         const totalProjects = String(allProjects.length).padStart(2, '0');
+        const projectDetailUrl = `/projects/${project.id}`;
 
-        const techList = project.tech_stack
-          ? project.tech_stack.split(',').map((t: string) => t.trim()).filter(Boolean)
-          : [];
+        const summaryPoints = (project.summary || '')
+          .split(/\r?\n/)
+          .map((line: string) => line.trim())
+          .filter(Boolean);
 
         return (
           <section
-            class="project-slide project-section"
+            class="project-slide project-section position-relative"
             aria-labelledby={`project-title-${project.id}`}
           >
 
-            <!-- Background -->
+            <!-- Background Carousel -->
             <div class="project-background">
 
               {images.length > 0 ? (
@@ -199,8 +173,10 @@ function getTechInfo(techName: string) {
                   id={carouselId}
                   class="carousel slide carousel-fade project-carousel"
                   data-bs-ride="carousel"
-                  data-bs-interval="5500"
+                  data-bs-interval="6000"
                   data-bs-pause="hover"
+                  data-counter-id={counterId}
+                  data-total-images={images.length}
                 >
 
                   <div class="carousel-inner h-100">
@@ -226,56 +202,27 @@ function getTechInfo(techName: string) {
 
                   </div>
 
-                  {images.length > 1 && (
-                    <div class="project-carousel-controls">
-
-                      <button
-                        class="carousel-control-prev project-carousel-button"
-                        type="button"
-                        data-bs-target={`#${carouselId}`}
-                        data-bs-slide="prev"
-                        aria-label="Previous screenshot"
-                      >
-                        <span class="carousel-arrow">
-                          <i class="bi bi-arrow-left"></i>
-                        </span>
-                      </button>
-
-                      <button
-                        class="carousel-control-next project-carousel-button"
-                        type="button"
-                        data-bs-target={`#${carouselId}`}
-                        data-bs-slide="next"
-                        aria-label="Next screenshot"
-                      >
-                        <span class="carousel-arrow">
-                          <i class="bi bi-arrow-right"></i>
-                        </span>
-                      </button>
-
-                    </div>
-                  )}
-
                 </div>
 
               ) : (
 
                 <div class="project-background-empty">
-                  <i class="bi bi-code-slash"></i>
+                  <svg width="48" height="48" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M10.478 1.647a.5.5 0 1 0-.956-.294l-4 13a.5.5 0 0 0 .956.294l4-13zM4.854 4.146a.5.5 0 0 1 0 .708L1.707 8l3.147 3.146a.5.5 0 0 1-.708.708l-3.5-3.5a.5.5 0 0 1 0-.708l3.5-3.5a.5.5 0 0 1 .708 0zm6.292 0a.5.5 0 0 0 0 .708L14.293 8l-3.147 3.146a.5.5 0 0 0 .708.708l3.5-3.5a.5.5 0 0 0 0-.708l-3.5-3.5a.5.5 0 0 0-.708 0z"/>
+                  </svg>
                   <span>No project preview available</span>
                 </div>
 
               )}
 
-              <!-- Image treatment -->
+              <!-- Dark gradient and vignette overlays -->
               <div class="project-vignette"></div>
               <div class="project-gradient-transparent"></div>
 
             </div>
 
-
-            <!-- Project Content -->
-            <div class="container position-relative z-3 h-100 px-3 px-md-4">
+            <!-- Project Content Container -->
+            <div class="container position-relative z-3 h-100 px-3 px-md-4 project-content-wrapper">
 
               <div class="row align-items-center justify-content-center justify-content-lg-start h-100 py-5">
 
@@ -302,83 +249,55 @@ function getTechInfo(techName: string) {
 
                       {project.featured && (
                         <span class="featured-badge">
-                          <i class="bi bi-star-fill me-1"></i>
-                          Featured
+                          ★ Featured
                         </span>
                       )}
 
                     </div>
 
-
                     <!-- Title with Gradient Text -->
                     <h2
                       id={`project-title-${project.id}`}
-                      class="fw-bold project-title mb-3 text-gradient"
+                      class="fw-bold project-title mb-3"
                     >
-                      {project.title}
+                      <a href={projectDetailUrl} class="text-gradient text-decoration-none project-title-link">
+                        {project.title}
+                      </a>
                     </h2>
 
-
-                    <!-- Description -->
-                    {project.summary && (
+                    <!-- Multiline Summary -->
+                    {summaryPoints.length > 1 ? (
+                      <ul class="project-summary text-secondary mb-3 mb-md-4 ps-3">
+                        {summaryPoints.map((point: string) => (
+                          <li class="mb-1">{point}</li>
+                        ))}
+                      </ul>
+                    ) : summaryPoints.length === 1 ? (
                       <p class="project-summary text-secondary mb-3 mb-md-4">
-                        {project.summary}
+                        {summaryPoints[0]}
                       </p>
-                    )}
+                    ) : null}
 
+                    <!-- Technology Badges -->
+                    <div class="mb-3 mb-md-4">
+                      <TechBadgeList techStack={project.tech_stack} showLabel={true} boxSize={42} iconSize={22} />
+                    </div>
 
-                    <!-- Technology Boxes / Fallback Text Badges -->
-                    {techList.length > 0 && (
-                      <div class="mb-3 mb-md-4">
-                        <div class="project-label font-monospace mb-2">
-                          TECHNOLOGIES
-                        </div>
-
-                        <div class="d-flex flex-wrap gap-2">
-                          {techList.map((tech: string) => {
-                            const techInfo = getTechInfo(tech);
-                            return techInfo.hasIcon ? (
-                              <div
-                                class="tech-box d-flex align-items-center justify-content-center p-2 rounded border border-secondary border-opacity-25 bg-dark bg-opacity-50"
-                                title={techInfo.name}
-                                style="width: 42px; height: 42px;"
-                              >
-                                <img
-                                  src={techInfo.iconUrl}
-                                  alt={techInfo.name}
-                                  class="tech-icon"
-                                  style="width: 22px; height: 22px; filter: invert(1) brightness(1.2);"
-                                  loading="lazy"
-                                />
-                              </div>
-                            ) : (
-                              <div
-                                class="tech-text-badge d-flex align-items-center px-3 py-2 rounded border border-accent border-opacity-50 bg-dark bg-opacity-75 font-monospace small text-accent"
-                              >
-                                {techInfo.name}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-
-                    <!-- Actions (GitHub Repo & Live Link) -->
+                    <!-- Actions -->
                     <div class="d-flex flex-wrap align-items-center gap-3">
 
-                      {project.github_url && (
-                        <a
-                          href={project.github_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          class="btn btn-light project-action d-inline-flex align-items-center"
-                        >
-                          <i class="bi bi-github me-2"></i>
-                          View Repository
-                          <i class="bi bi-arrow-up-right ms-2"></i>
-                        </a>
-                      )}
+                      <a
+                        href={projectDetailUrl}
+                        class="btn btn-outline-info project-action d-inline-flex align-items-center"
+                      >
+                        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="me-2" aria-hidden="true">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        View Details
+                        <svg width="12" height="12" fill="currentColor" class="ms-2" viewBox="0 0 16 16">
+                          <path fill-rule="evenodd" d="M14 2.5a.5.5 0 0 0-.5-.5h-6a.5.5 0 0 0 0 1h4.793L2.146 13.146a.5.5 0 0 0 .708.708L13 3.707V8.5a.5.5 0 0 0 1 0v-6z"/>
+                        </svg>
+                      </a>
 
                       {project.live_url && (
                         <a
@@ -387,9 +306,30 @@ function getTechInfo(techName: string) {
                           rel="noopener noreferrer"
                           class="btn btn-primary project-action d-inline-flex align-items-center"
                         >
-                          <i class="bi bi-globe me-2"></i>
+                          <svg width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16">
+                            <path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm7.5-6.923c-.67.204-1.335.82-1.887 1.855A7.97 7.97 0 0 0 5.145 4H7.5V1.077zM4.09 4a9.267 9.267 0 0 1 .64-1.539 6.7 6.7 0 0 1 .597-.933A7.025 7.025 0 0 0 2.255 4H4.09zm-.582 3.5c.03-.877.138-1.718.312-2.5H1.67A6.958 6.958 0 0 0 1 7.5h2.508zM1 8.5c0 .368.03.725.088 1.07h2.463c-.114-.34-.194-.698-.236-1.07H1zm2.508 2.5H1.67a6.958 6.958 0 0 0 2.146 2.5c-.174-.782-.282-1.623-.312-2.5zm1.312 2.5a7.025 7.025 0 0 0 3.072 1.462V11H5.145c.108.577.277 1.11.475 1.5zM7.5 14.923V12h2.355c-.204.67-.82 1.335-1.855 1.887-.168.04-.338.072-.5.036zm3.355-3.923H8.5V8.5h3.912c-.042.372-.122.73-.236 1.07h-1.321zm1.321-3.5H8.5V4h2.355c.67.204 1.335.82 1.887 1.855.168.348.307.72.413 1.145h-2.3zm2.146-2.5h-1.835a9.267 9.267 0 0 0-.64-1.539 6.7 6.7 0 0 0-.597-.933A7.025 7.025 0 0 1 14.322 4zm.582 3.5c-.03.877-.138 1.718-.312 2.5h2.15A6.958 6.958 0 0 0 15 7.5h-2.508zm-.312 2.5c.174.782.282 1.623.312 2.5h1.835a7.025 7.025 0 0 1-3.072 1.462 6.7 6.7 0 0 1-.597-.933 9.267 9.267 0 0 1-.64-1.539h2.162z"/>
+                          </svg>
                           Live Site
-                          <i class="bi bi-arrow-up-right ms-2"></i>
+                          <svg width="12" height="12" fill="currentColor" class="ms-2" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd" d="M14 2.5a.5.5 0 0 0-.5-.5h-6a.5.5 0 0 0 0 1h4.793L2.146 13.146a.5.5 0 0 0 .708.708L13 3.707V8.5a.5.5 0 0 0 1 0v-6z"/>
+                          </svg>
+                        </a>
+                      )}
+
+                      {project.github_url && (
+                        <a
+                          href={project.github_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="btn btn-light project-action d-inline-flex align-items-center"
+                        >
+                          <svg width="18" height="18" fill="currentColor" class="me-2" viewBox="0 0 16 16">
+                            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.22 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+                          </svg>
+                          View Repository
+                          <svg width="12" height="12" fill="currentColor" class="ms-2" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd" d="M14 2.5a.5.5 0 0 0-.5-.5h-6a.5.5 0 0 0 0 1h4.793L2.146 13.146a.5.5 0 0 0 .708.708L13 3.707V8.5a.5.5 0 0 0 1 0v-6z"/>
+                          </svg>
                         </a>
                       )}
 
@@ -403,19 +343,51 @@ function getTechInfo(techName: string) {
 
             </div>
 
+            <!-- Carousel Controls -->
+            {images.length > 1 && (
+              <div class="carousel-nav-container">
+
+                <button
+                  class="carousel-nav-btn prev-btn"
+                  type="button"
+                  data-bs-target={`#${carouselId}`}
+                  data-bs-slide="prev"
+                  aria-label="Previous screenshot"
+                >
+                  <svg width="22" height="22" fill="currentColor" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/>
+                  </svg>
+                </button>
+
+                <button
+                  class="carousel-nav-btn next-btn"
+                  type="button"
+                  data-bs-target={`#${carouselId}`}
+                  data-bs-slide="next"
+                  aria-label="Next screenshot"
+                >
+                  <svg width="22" height="22" fill="currentColor" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+                  </svg>
+                </button>
+
+              </div>
+            )}
 
             <!-- Slide footer -->
-            <div class="project-slide-footer">
+            <div class="project-slide-footer d-flex align-items-center justify-content-between">
 
-              {images.length > 1 && (
-                <span class="font-monospace text-secondary d-none d-sm-inline">
-                  {images.length} screenshots
-                </span>
-              )}
+              <div class="footer-left-meta">
+                {images.length > 1 && (
+                  <span id={counterId} class="font-monospace text-secondary">
+                    Picture 1 / {images.length}
+                  </span>
+                )}
+              </div>
 
-              <span class="slide-progress">
-                {projectNumber} / {totalProjects}
-              </span>
+              <div class="footer-right-meta ms-auto font-monospace slide-progress">
+                Project {projectNumber} / {totalProjects}
+              </div>
 
             </div>
 
@@ -435,7 +407,9 @@ function getTechInfo(techName: string) {
               <div class="empty-card text-center p-4 p-md-5">
 
                 <div class="empty-icon mb-4">
-                  <i class="bi bi-folder2-open"></i>
+                  <svg width="48" height="48" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M1 3.5A1.5 1.5 0 0 1 2.5 2h2.764c.958 0 1.76.56 2.311 1.184C7.985 3.648 8.48 4 9 4h4.5A1.5 1.5 0 0 1 15 5.5v7a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 1 12.5v-9zM2.5 3a.5.5 0 0 0-.5.5V6h12v-.5a.5.5 0 0 0-.5-.5H9c-.964 0-1.71-.629-2.174-1.154C6.374 3.334 5.82 3 5.264 3H2.5zM14 7H2v5.5a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 .5-.5V7z"/>
+                  </svg>
                 </div>
 
                 <h2 class="h3 fw-bold mb-3">
@@ -464,367 +438,91 @@ function getTechInfo(techName: string) {
 
 </Layout>
 
-
-<!-- =============================================================
-     RESPONSIVE PAGE STYLES & FLUID UTILITIES
-============================================================== -->
 <style>
-  .project-glass-card {
-    background: rgba(12, 13, 16, 0.65) !important;
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+  .project-title-link {
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    display: inline-block;
   }
 
-  .project-gradient-transparent {
-    position: absolute;
-    inset: 0;
-    z-index: 2;
-    background: linear-gradient(
-      90deg,
-      rgba(7, 8, 10, 0.8) 0%,
-      rgba(7, 8, 10, 0.65) 40%,
-      rgba(7, 8, 10, 0.3) 75%,
-      rgba(7, 8, 10, 0.1) 100%
-    );
-  }
-
-  .tech-box {
-    transition: transform 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
-  }
-
-  .tech-box:hover {
-    transform: translateY(-2px);
-    border-color: var(--bs-primary) !important;
-    background-color: rgba(230, 0, 115, 0.15) !important;
-  }
-
-  .tech-text-badge {
-    transition: transform 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
-    height: 42px;
-  }
-
-  .tech-text-badge:hover {
-    transform: translateY(-2px);
-    border-color: var(--bs-primary) !important;
-    background-color: rgba(0, 240, 255, 0.15) !important;
-  }
-
-  /* Universal layout foundations */
-  html,
-  body {
-    margin: 0;
-    padding: 0;
-    overflow-x: hidden;
-    background: #0c0d0f;
-  }
-
-  .projects-page {
-    width: 100%;
-    height: 100svh;
-    overflow-y: auto;
-    scroll-snap-type: y mandatory;
-    overscroll-behavior-y: contain;
-    background: #0c0d0f;
-  }
-
-  .project-slide {
-    position: relative;
-    width: 100%;
-    min-height: 100svh;
-    scroll-snap-align: start;
-    scroll-snap-stop: always;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-  }
-
-  .intro-main-title {
-    font-size: clamp(2.5rem, 6vw, 4.5rem);
-    line-height: 1.1;
-  }
-
-  .project-title {
-    font-size: clamp(2rem, 4.5vw, 3.25rem);
-    line-height: 1.15;
-    letter-spacing: -0.03em;
-  }
-
-  .intro-slide {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    isolation: isolate;
-    background:
-      radial-gradient(
-        circle at 50% 40%,
-        rgba(90, 100, 255, 0.10),
-        transparent 42%
-      ),
-      #0c0d0f;
-  }
-
-  .intro-background {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    opacity: 0.35;
-    background-image:
-      linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
-    background-size: 45px 45px;
-    mask-image: linear-gradient(to bottom, black, transparent);
-  }
-
-  .intro-eyebrow {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    color: var(--bs-primary);
-    font-size: 0.75rem;
-    letter-spacing: 0.18em;
-  }
-
-  .eyebrow-line {
-    width: 40px;
-    height: 1px;
-    background: currentColor;
-    opacity: .5;
-  }
-
-  .intro-description {
-    max-width: 650px;
-    font-size: clamp(1rem, 1.2vw, 1.15rem);
-    line-height: 1.7;
-  }
-
-  .project-count {
-    color: #8b8f98;
-    font-size: .85rem;
-  }
-
-  .project-count span {
-    color: #fff;
-  }
-
-  .scroll-hint {
-    display: inline-flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-    font-size: .65rem;
-    letter-spacing: .12em;
-  }
-
-  .scroll-hint-line {
-    width: 1px;
-    height: 38px;
-    background: linear-gradient(
-      to bottom,
-      transparent,
-      var(--bs-primary)
-    );
-  }
-
-  .project-background,
-  .project-carousel,
-  .carousel-inner,
-  .carousel-item {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-  }
-
-  .project-background {
-    z-index: 0;
-    background: #111216;
-  }
-
-  .project-background-image {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center;
-    filter: saturate(0.8);
-    transform: scale(1.015);
-  }
-
-  .project-background-empty {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    color: #666a73;
-    font-family: monospace;
-    text-transform: uppercase;
-    letter-spacing: .1em;
-    font-size: .75rem;
-  }
-
-  .project-background-empty i {
-    font-size: 3rem;
-    opacity: .4;
-  }
-
-  .project-card {
-    position: relative;
-    width: 100%;
-    max-width: 660px;
-    padding: clamp(1.5rem, 3.5vw, 2.75rem);
-    border-radius: 1.25rem;
-    box-shadow: 0 25px 80px rgba(0, 0, 0, 0.35), inset 0 1px rgba(255, 255, 255, 0.04);
-  }
-
-  .project-number,
-  .project-total {
-    font-size: .75rem;
-    letter-spacing: .08em;
-  }
-
-  .project-number {
-    color: var(--bs-primary);
-  }
-
-  .project-total {
-    color: #70747e;
-  }
-
-  .project-divider {
-    width: 28px;
-    height: 1px;
-    background: rgba(255, 255, 255, .2);
-  }
-
-  .featured-badge {
-    padding: .35rem .65rem;
-    border: 1px solid rgba(255, 193, 7, .25);
-    border-radius: 999px;
-    background: rgba(255, 193, 7, .08);
-    color: #ffc107;
-    font-family: monospace;
-    font-size: .7rem;
-    letter-spacing: .04em;
-  }
-
-  .project-summary {
-    font-size: clamp(0.92rem, 1.1vw, 1.05rem);
-    line-height: 1.7;
-  }
-
-  .project-label {
-    color: #70747e;
-    font-size: .65rem;
-    letter-spacing: .12em;
-  }
-
-  .project-action {
-    border-radius: .55rem;
-    padding: .65rem 1rem;
-    font-size: .85rem;
-    font-weight: 600;
-  }
-
-  .project-carousel-controls {
-    position: absolute;
-    inset: 0;
-    z-index: 5;
-    pointer-events: none;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0 1rem;
-  }
-
-  .project-carousel-button {
-    width: 48px;
-    height: 48px;
-    background: transparent;
-    border: none;
-    opacity: 1;
-    pointer-events: auto;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .carousel-arrow {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 38px;
-    height: 38px;
-    border: 1px solid rgba(255, 255, 255, .18);
-    border-radius: 50%;
-    background: rgba(10, 11, 13, .55);
-    backdrop-filter: blur(10px);
-    color: white;
-    transition: background .2s ease, border-color .2s ease, transform .2s ease;
-  }
-
-  .project-slide-footer {
-    position: absolute;
-    right: clamp(1rem, 3vw, 3rem);
-    bottom: clamp(1rem, 3vw, 2rem);
-    left: clamp(1rem, 3vw, 3rem);
-    z-index: 5;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    pointer-events: none;
-    font-size: .65rem;
-    letter-spacing: .08em;
-  }
-
-  .empty-card {
-    border: 1px solid rgba(255, 255, 255, .08);
-    border-radius: 1rem;
-    background: rgba(18, 18, 20, 0.75);
-    backdrop-filter: blur(12px);
-  }
-
-  .empty-icon {
-    color: #6c7079;
-    font-size: 3rem;
-  }
-
-  @media (max-width: 991.98px) {
-    .project-gradient-transparent {
-      background: linear-gradient(
-        180deg,
-        rgba(7, 8, 10, 0.25) 0%,
-        rgba(7, 8, 10, 0.7) 50%,
-        rgba(7, 8, 10, 0.95) 100%
-      );
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .projects-page {
-      scroll-behavior: auto;
-    }
-    .carousel-item {
-      transition: none !important;
-    }
+  .project-title-link:hover {
+    opacity: 0.85;
+    transform: translateX(4px);
   }
 </style>
 
-
-<!-- =============================================================
-     BOOTSTRAP CAROUSEL INITIALIZATION
-============================================================== -->
 <script>
+  // @ts-ignore
   import Carousel from 'bootstrap/js/dist/carousel';
 
   document.querySelectorAll<HTMLElement>('.project-carousel').forEach((element) => {
-    Carousel.getOrCreateInstance(element, {
-      interval: 5500,
-      ride: 'carousel',
-      pause: 'hover'
+    const CarouselConstructor = Carousel || (window as any).bootstrap?.Carousel;
+    if (CarouselConstructor) {
+      CarouselConstructor.getOrCreateInstance(element, {
+        interval: 6000,
+        ride: 'carousel',
+        pause: 'hover'
+      });
+    }
+
+    element.addEventListener('slid.bs.carousel', (event: any) => {
+      const counterId = element.dataset.counterId;
+      const total = element.dataset.totalImages;
+      if (counterId && total) {
+        const counterEl = document.getElementById(counterId);
+        if (counterEl) {
+          const currentSlide = (event.to ?? 0) + 1;
+          counterEl.textContent = `Picture ${currentSlide} / ${total}`;
+        }
+      }
     });
   });
+
+  const scrollContainer = document.querySelector<HTMLElement>('.projects-page');
+  const slides = document.querySelectorAll<HTMLElement>('.project-slide');
+
+  if (scrollContainer && slides.length > 0) {
+    let isResetting = false;
+
+    const scrollToTop = () => {
+      if (isResetting) return;
+      isResetting = true;
+      scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+      setTimeout(() => {
+        isResetting = false;
+      }, 1000);
+    };
+
+    const isAtLastSlide = () => {
+      const threshold = 15;
+      return scrollContainer.scrollTop + scrollContainer.clientHeight >= scrollContainer.scrollHeight - threshold;
+    };
+
+    scrollContainer.addEventListener('wheel', (e: WheelEvent) => {
+      if (e.deltaY > 0 && isAtLastSlide()) {
+        e.preventDefault();
+        scrollToTop();
+      }
+    }, { passive: false });
+
+    let touchStartY = 0;
+    scrollContainer.addEventListener('touchstart', (e: TouchEvent) => {
+      touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+
+    scrollContainer.addEventListener('touchmove', (e: TouchEvent) => {
+      const touchCurrentY = e.touches[0].clientY;
+      const swipeDistance = touchStartY - touchCurrentY;
+
+      if (swipeDistance > 40 && isAtLastSlide()) {
+        scrollToTop();
+      }
+    }, { passive: true });
+
+    window.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (['ArrowDown', 'PageDown', ' '].includes(e.key) && isAtLastSlide()) {
+        e.preventDefault();
+        scrollToTop();
+      }
+    });
+  }
 </script>

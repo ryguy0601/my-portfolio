@@ -1,0 +1,147 @@
+:root {
+  /* Brand Core: Neon Magenta & Violet */
+  --color-primary: #e83e9f;
+  --color-primary-rgb: 232, 62, 159;
+  --color-primary-light: #ff79c6;
+  --color-secondary: #9b5de5;
+  --color-secondary-rgb: 155, 93, 229;
+  --button-primary-hover-bg: #f05ab0;
+  --button-primary-hover-color: #ffffff;
+  --button-secondary-hover-bg: #b778f0;
+  --button-secondary-hover-color: #160b20;
+  --button-hover-transform: translateY(-2px);
+  --button-hover-transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+  --button-hover-animation: lift;
+
+  /* Dedicated Canvas Tokens (Inheriting Brand Colors) */
+  --canvas-particle-primary-rgb: var(--color-primary-rgb);
+  --canvas-particle-secondary-rgb: var(--color-secondary-rgb);
+
+  /* Semantic Status Tokens */
+  --color-danger: #ff5252;
+  --color-danger-rgb: 255, 82, 82;
+
+  --color-warning: #ffc107;
+  --color-warning-rgb: 255, 193, 7;
+
+  --color-success: #34d399;
+  --color-success-rgb: 52, 211, 153;
+
+  --color-info: var(--color-primary);
+  --color-info-rgb: var(--color-primary-rgb);
+
+  /* Deep Ember Surfaces */
+  --body-bg: #0d0712;
+  --body-bg-rgb: 13, 7, 18;
+  --body-color: #fff5fc;
+  --card-bg: #1a0d24;
+  --card-bg-rgb: 26, 13, 36;
+  --card-border-color: #4b245f;
+  --card-border-rgb: 75, 36, 95;
+  --home-background: linear-gradient(135deg, rgba(13, 7, 18, 0.88) 0%, rgba(26, 13, 36, 0.88) 52%, rgba(18, 9, 29, 0.88) 100%);
+  --projects-bg: #0a101b;
+  --projects-empty-bg: #111a2a;
+  --projects-control-bg: #111a2a;
+  --projects-gradient-base: #0a101b;
+  --canvas-style: particles;
+  --canvas-particle-primary: #e83e9f;
+  --canvas-particle-primary-rgb: 232, 62, 159;
+  --canvas-particle-secondary: #9b5de5;
+  --canvas-particle-secondary-rgb: 155, 93, 229;
+  --canvas-grid-color: #e83e9f;
+  --canvas-grid-color-rgb: 232, 62, 159;
+
+  /* Overlays, Vignettes & Deep Tints */
+  --admin-card-tint: rgba(var(--color-primary-rgb), 0.08);
+  --overlay-dark-rgb: 10, 5, 4;
+  --overlay-dark-hover-rgb: 5, 2, 2;
+
+  /* Terminal Syntax Highlighting */
+  --color-syntax-string: #ffd166;
+
+  /* Accents & Status Indicators */
+  --color-badge-amber: #ffb000;
+  --color-badge-amber-rgb: 255, 176, 0;
+  --color-glow-blue: rgba(var(--color-primary-rgb), 0.2);
+
+  /* Muted Text & Subtitles */
+  --color-text-muted-light: #d8b9ad;
+  --color-text-muted-mid: #a77b6c;
+  --color-text-muted-dark: #694a40;
+  --color-icon-muted: #a77b6c;
+
+  /* Borders & Dividers */
+  --border-glass-card: rgba(var(--color-primary-rgb), 0.18);
+  --border-glass-subtle: rgba(255, 255, 255, 0.08);
+  --border-glass-minimal: rgba(255, 255, 255, 0.04);
+  --border-glass-divider: rgba(var(--color-primary-rgb), 0.2);
+
+  /* Gradients */
+  --gradient-primary: linear-gradient(135deg, var(--color-primary) 0%, #ff79c6 100%);
+  --gradient-accent: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 100%);
+  --gradient-hero: linear-gradient(180deg, rgba(var(--body-bg-rgb), 0.5) 0%, rgba(var(--body-bg-rgb), 1) 100%);
+  --gradient-text: linear-gradient(135deg, #ff79c6 10%, #b778f0 90%);
+
+  --color-github-glow: var(--color-primary);
+  --color-github-glow-rgb: var(--color-primary-rgb);
+
+  /* Shared Layout Tokens */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 0.5rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-pill: 9999px;
+  --radius-circle: 50%;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+
+  /* Shared Motion Tokens */
+  --ease-standard: ease;
+  --ease-emphasis: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --transition-fast: 0.15s var(--ease-standard);
+  --transition-interactive: 0.2s var(--ease-standard);
+  --transition-emphasis: 0.3s var(--ease-emphasis);
+  --transition-spring: 0.2s var(--ease-spring);
+
+  /* Shared Surfaces and Overlays */
+  --surface-card: rgba(var(--card-bg-rgb), 0.85);
+  --surface-card-subtle: rgba(var(--card-bg-rgb), 0.6);
+  --surface-card-strong: rgba(var(--card-bg-rgb), 0.95);
+  --surface-dark: rgba(var(--overlay-dark-rgb), 0.98);
+  --color-on-accent: #ffffff;
+  --color-grid-line: rgba(255, 255, 255, 0.025);
+  --color-black-rgb: 0, 0, 0;
+
+  /* Shared Shadows */
+  --shadow-primary-button: 0 4px 15px rgba(var(--color-primary-rgb), 0.3);
+  --shadow-primary-button-hover: 0 6px 20px rgba(var(--color-primary-rgb), 0.5);
+  --shadow-secondary-hover: 0 8px 25px rgba(var(--color-secondary-rgb), 0.2);
+  --shadow-project-card: 0 25px 80px rgba(var(--color-black-rgb), 0.35), inset 0 1px var(--border-glass-minimal);
+  --shadow-carousel-button: 0 0 12px rgba(var(--color-secondary-rgb), 0.25), 0 3px 10px rgba(var(--color-black-rgb), 0.7);
+  --shadow-carousel-button-hover: 0 0 18px rgba(var(--color-secondary-rgb), 0.6);
+  --shadow-github-glow: 0 4px 16px rgba(var(--color-github-glow-rgb), 0.25);
+  --shadow-text: 0 2px 4px rgba(var(--color-black-rgb), 0.8);
+  --shadow-tooltip: 0 8px 24px rgba(var(--color-black-rgb), 0.8), 0 0 12px rgba(var(--color-secondary-rgb), 0.25);
+
+  /* Component Tokens */
+  --project-image-overlay: linear-gradient(180deg, rgba(var(--color-black-rgb), 0.3) 0%, rgba(var(--color-black-rgb), 0.95) 70%);
+  --badge-tooltip-padding: 3px 10px;
+  --badge-tooltip-offset: 8px;
+  --badge-arrow-offset: 3px;
+  --status-warning-bg: rgba(var(--color-warning-rgb), 0.12);
+  --status-warning-border: rgba(var(--color-warning-rgb), 0.3);
+  --color-on-danger: #ffffff;
+  --color-danger-action: var(--color-danger);
+  --admin-login-width: 420px;
+  --resume-paper-bg: #ffffff;
+  --resume-paper-color: #000000;
+  --resume-editor-padding: 48px;
+  --resume-print-margin: 0.5in;
+  --shadow-resume-editor: inset 0 2px 10px rgba(var(--color-black-rgb), 0.5);
+}

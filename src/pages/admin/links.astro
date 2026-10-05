@@ -1,0 +1,143 @@
+---
+// src/pages/admin/links.astro
+import { createClient } from '@supabase/supabase-js';
+import AdminLayout from '../../layouts/AdminLayout.astro';
+
+const supabase = createClient(
+  import.meta.env.PUBLIC_SUPABASE_URL,
+  import.meta.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+let errorMessage = '';
+let successMessage = '';
+
+// 1. HANDLE LINK CREATION & DELETION
+if (Astro.request.method === 'POST') {
+  const formData = await Astro.request.formData();
+  const actionType = formData.get('action_type')?.toString();
+
+  try {
+    if (actionType === 'link_project_experience') {
+      const project_id = formData.get('project_id');
+      const experience_id = formData.get('experience_id');
+
+      if (!project_id || !experience_id) {
+        errorMessage = 'Please select both a project and a work experience.';
+      } else {
+        const { error } = await supabase
+          .from('project_experience')
+          .insert([{ project_id, experience_id }]);
+          
+        if (error) {
+          if (error.code === '23505') {
+            errorMessage = 'This association already exists.';
+          } else {
+            throw error;
+          }
+        } else {
+          successMessage = 'Linked project to work experience successfully!';
+        }
+      }
+    } else if (actionType === 'delete_project_experience') {
+      const project_id = formData.get('project_id');
+      const experience_id = formData.get('experience_id');
+
+      const { error } = await supabase
+        .from('project_experience')
+        .delete()
+        .match({ project_id, experience_id });
+
+      if (error) throw error;
+      return Astro.redirect('/admin/links');
+    }
+  } catch (err: any) {
+    errorMessage = err.message || 'An error occurred updating associations.';
+  }
+}
+
+// 2. FETCH DATA & COUNTS FOR TAB BADGES
+const [{ data: projects }, { data: experiences }, { data: links }] = await Promise.all([
+  supabase.from('projects').select('id, title').order('title', { ascending: true }),
+  supabase.from('work_experience').select('id, company, role').order('company', { ascending: true }),
+  supabase.from('project_experience').select('*, projects(title), work_experience(company, role)')
+]);
+---
+
+<AdminLayout 
+  activePage="links" 
+  title="Manage Experience Links" 
+  errorMessage={errorMessage} 
+  successMessage={successMessage}
+  counts={{ projects: projects?.length || 0, experience: experiences?.length || 0, links: links?.length || 0 }}
+>
+  <div class="row g-4">
+    
+    <!-- Link Creation Card -->
+    <div class="col-lg-5">
+      <div class="card bg-card border border-secondary p-4 rounded-4 shadow-sm">
+        <h3 class="text-gradient h5 mb-3 fw-bold">Link Project to Experience</h3>
+        <p class="text-muted small mb-3">Tie specific portfolio items to the workplace where they were engineered.</p>
+        
+        <form method="POST">
+          <input type="hidden" name="action_type" value="link_project_experience" />
+
+          <div class="mb-3">
+            <label class="form-label text-light small">Select Project *</label>
+            <select name="project_id" class="form-select form-select-sm bg-dark text-light border-secondary" required>
+              <option value="">-- Choose Project --</option>
+              {projects?.map(p => (
+                <option value={p.id}>{p.title}</option>
+              ))}
+            </select>
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label text-light small">Select Work Experience *</label>
+            <select name="experience_id" class="form-select form-select-sm bg-dark text-light border-secondary" required>
+              <option value="">-- Choose Work Experience --</option>
+              {experiences?.map(e => (
+                <option value={e.id}>{e.company} ({e.role})</option>
+              ))}
+            </select>
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
+            Create Association
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Active Associations List -->
+    <div class="col-lg-7">
+      <div class="card bg-card border border-secondary p-4 rounded-4 shadow-sm">
+        <h3 class="text-light h5 mb-3 fw-bold">Current Project & Experience Associations ({links?.length || 0})</h3>
+        
+        <div class="d-flex flex-column gap-2" style="max-height: 480px; overflow-y: auto;">
+          {links && links.length > 0 ? (
+            links.map(l => (
+              <div class="p-3 bg-dark bg-opacity-50 border border-secondary rounded-3 d-flex justify-content-between align-items-center">
+                <div class="text-truncate me-2">
+                  <span class="text-primary fw-bold">{l.projects?.title || 'Unknown Project'}</span>
+                  <span class="text-muted mx-2">&harr;</span>
+                  <span class="text-accent">{l.work_experience?.company || 'Unknown Company'}</span>
+                  <small class="text-muted ms-1">({l.work_experience?.role || 'Role'})</small>
+                </div>
+                
+                <form method="POST" onsubmit="return confirm('Remove this link?');" class="m-0 flex-shrink-0">
+                  <input type="hidden" name="action_type" value="delete_project_experience" />
+                  <input type="hidden" name="project_id" value={l.project_id} />
+                  <input type="hidden" name="experience_id" value={l.experience_id} />
+                  <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2" title="Delete connection">&times;</button>
+                </form>
+              </div>
+            ))
+          ) : (
+            <p class="text-muted small mb-0">No project-experience connections defined yet.</p>
+          )}
+        </div>
+      </div>
+    </div>
+
+  </div>
+</AdminLayout>

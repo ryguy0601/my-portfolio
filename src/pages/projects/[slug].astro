@@ -1,0 +1,538 @@
+---
+// src/pages/projects/[slug].astro
+import { createClient } from '@supabase/supabase-js';
+import Layout from '../../layouts/Layout.astro';
+import TechBadgeList from '../../components/TechBadgeList.astro';
+import '../../styles/main.scss';
+
+const { slug } = Astro.params;
+
+const supabase = createClient(
+  import.meta.env.PUBLIC_SUPABASE_URL,
+  import.meta.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+let project: any = null;
+let notFound = false;
+
+if (!slug) {
+  notFound = true;
+} else {
+  const isNumeric = /^\d+$/.test(slug);
+
+  let query = supabase
+    .from('projects')
+    .select(`
+      *,
+      project_experience (
+        work_experience (*)
+      )
+    `);
+
+  if (isNumeric) {
+    query = query.eq('id', parseInt(slug, 10));
+  } else {
+    query = query.eq('slug', slug);
+  }
+
+  const { data, error } = await query.maybeSingle();
+
+  if (error || !data) {
+    const { data: allProjects } = await supabase
+      .from('projects')
+      .select(`
+        *,
+        project_experience (
+          work_experience (*)
+        )
+      `);
+
+    project = allProjects?.find(
+      (p) =>
+        String(p.id) === slug ||
+        p.slug?.toLowerCase() === slug.toLowerCase()
+    );
+
+    if (!project) {
+      notFound = true;
+    }
+  } else {
+    project = data;
+  }
+}
+
+// Parse screenshots array or fallback
+function parseProjectImages(proj: any): string[] {
+  if (!proj) return [];
+  if (Array.isArray(proj.image_filenames) && proj.image_filenames.length > 0) {
+    return proj.image_filenames;
+  }
+  if (typeof proj.image_filenames === 'string' && proj.image_filenames.trim().length > 0) {
+    try {
+      const parsed = JSON.parse(proj.image_filenames);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {
+      return proj.image_filenames.split(',').map((s: string) => s.trim()).filter(Boolean);
+    }
+  }
+  if (proj.image_url) {
+    if (typeof proj.image_url === 'string' && proj.image_url.includes(',')) {
+      return proj.image_url.split(',').map((s: string) => s.trim()).filter(Boolean);
+    }
+    return [proj.image_url];
+  }
+  return [];
+}
+
+const images = parseProjectImages(project);
+
+// Parse summary: split by newlines into bullet items
+const summaryPoints = (project?.summary || '')
+  .split(/\r?\n/)
+  .map((line: string) => line.trim())
+  .filter(Boolean);
+
+// Parse content: split by newlines into bullet items
+const contentPoints = (project?.content || '')
+  .split(/\r?\n/)
+  .map((line: string) => line.trim())
+  .filter(Boolean);
+
+// Extract linked company/internship experience
+const associatedExperiences = (project?.project_experience || [])
+  .map((pe: any) => pe.work_experience)
+  .filter(Boolean);
+
+// Calculate tech stack count
+const techCount = project?.tech_stack
+  ? project.tech_stack.split(',').map((t: string) => t.trim()).filter(Boolean).length
+  : 0;
+---
+
+<Layout hasHero={false} title={project ? `${project.title} — Ryan Cuccurullo` : 'Project Not Found'}>
+  <div class="project-detail-wrapper position-relative overflow-hidden py-4 py-lg-5">
+    
+    <!-- Ambient Fluid Glow Background -->
+    <div class="ambient-glow ambient-glow-1"></div>
+    <div class="ambient-glow ambient-glow-2"></div>
+
+    <div class="container position-relative z-2">
+      <div class="row justify-content-center">
+        <div class="col-12 col-xl-10 single-column-container">
+
+          <!-- Top Navigation Strip -->
+          <header class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4 pb-3 border-bottom border-secondary border-opacity-25">
+            <a href="/projects" class="btn btn-dark border border-secondary text-accent d-inline-flex align-items-center gap-2 px-3 py-2 rounded-pill shadow-sm nav-back-link">
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
+              </svg>
+              <span class="font-monospace small">All Projects</span>
+            </a>
+
+            {project?.featured && (
+              <span class="badge featured-badge-banner px-3 py-2 rounded-pill font-monospace small">
+                ★ Featured Work
+              </span>
+            )}
+          </header>
+
+          {notFound || !project ? (
+            /* 404 Empty State */
+            <div class="my-5 py-5 text-center">
+              <div class="card detail-glass-card p-5 rounded-4 shadow-2xl mx-auto" style="max-width: 580px;">
+                <div class="mb-3 text-warning">
+                  <svg width="48" height="48" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M7.938 2.016a.13.13 0 0 1 .125 0l6.857 11.667c.036.06.035.124.002.183a.163.163 0 0 1-.127.084H1.205a.163.163 0 0 1-.127-.084.185.185 0 0 1 .002-.183L7.938 2.016zM8 1a1 1 0 0 0-.86.49l-6.857 11.667A1 1 0 0 0 1.205 15h13.59a1 1 0 0 0 .862-1.843L8.86 1.49A1 1 0 0 0 8 1z"/>
+                    <path d="M7.002 12a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 5.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995z"/>
+                  </svg>
+                </div>
+                <h1 class="fw-bold mb-3 text-gradient">Project Not Found</h1>
+                <p class="text-secondary mb-4">
+                  We couldn't locate the project you requested. It may have been archived or removed.
+                </p>
+                <div>
+                  <a href="/projects" class="btn btn-primary px-4 py-2 rounded-pill shadow">
+                    Browse All Projects
+                  </a>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* Full Single-Column Project Case Presentation */
+            <article class="project-showcase">
+              
+              <!-- 1. Header & Title -->
+              <div class="project-headline mb-4">
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-2 font-monospace small text-muted">
+                  <span>SELECTED WORK</span>
+                  <span>&bull;</span>
+                  <span>{techCount} TECHNOLOGIES</span>
+                  {images.length > 0 && (
+                    <>
+                      <span>&bull;</span>
+                      <span>{images.length} SCREENSHOT{images.length > 1 ? 'S' : ''}</span>
+                    </>
+                  )}
+                </div>
+
+                <h1 class="display-5 fw-bold text-gradient mb-2 text-break tracking-tight">
+                  {project.title}
+                </h1>
+
+                {associatedExperiences.length > 0 && (
+                  <div class="d-flex flex-wrap gap-2 align-items-center mt-2">
+                    <span class="text-secondary small font-monospace">ENGINEERED AT:</span>
+                    {associatedExperiences.map((exp: any) => (
+                      <span class="badge bg-dark border border-secondary text-accent font-monospace px-3 py-1 rounded-pill small shadow-sm">
+                        {exp.company} &bull; {exp.role}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <!-- 2. Full-Width Media Viewer (App Window) -->
+              <div class="card detail-glass-card rounded-4 overflow-hidden shadow-2xl project-window-frame mb-3">
+                
+                <!-- Window Title Bar -->
+                <div class="window-titlebar px-3 py-2 d-flex align-items-center justify-content-between">
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="window-dot dot-red"></span>
+                    <span class="window-dot dot-yellow"></span>
+                    <span class="window-dot dot-green"></span>
+                  </div>
+                  <span class="window-title font-monospace text-muted small text-truncate">
+                    {project.title.toLowerCase().replace(/\s+/g, '-')}-preview.app
+                  </span>
+                </div>
+
+                <!-- Window Inner Media Surface -->
+                <div class="project-viewport-canvas position-relative">
+                  {images.length > 0 ? (
+                    <div id="projectDetailCarousel" class="carousel slide carousel-fade w-100 h-100" data-bs-ride="carousel" data-bs-interval="6500">
+                      
+                      <div class="carousel-inner h-100">
+                        {images.map((imgPath: string, idx: number) => (
+                          <div class={`carousel-item w-100 h-100 ${idx === 0 ? 'active' : ''}`}>
+                            <div class="h-100 w-100 d-flex align-items-center justify-content-center p-2 p-md-3">
+                              <img 
+                                src={imgPath} 
+                                class="d-block w-100 h-100 object-fit-contain rounded-2" 
+                                alt={`${project.title} screenshot ${idx + 1}`}
+                                loading={idx === 0 ? 'eager' : 'lazy'} 
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {images.length > 1 && (
+                        <>
+                          <button class="carousel-control-prev inner-control-btn" type="button" data-bs-target="#projectDetailCarousel" data-bs-slide="prev" aria-label="Previous screenshot">
+                            <span class="carousel-control-prev-icon rounded-circle p-2 shadow" aria-hidden="true"></span>
+                            <span class="visually-hidden">Previous</span>
+                          </button>
+                          <button class="carousel-control-next inner-control-btn" type="button" data-bs-target="#projectDetailCarousel" data-bs-slide="next" aria-label="Next screenshot">
+                            <span class="carousel-control-next-icon rounded-circle p-2 shadow" aria-hidden="true"></span>
+                            <span class="visually-hidden">Next</span>
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  ) : (
+                    <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted p-5 text-center">
+                      <svg width="40" height="40" fill="currentColor" class="opacity-40 mb-3" viewBox="0 0 16 16">
+                        <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+                        <path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/>
+                      </svg>
+                      <span>No screenshot previews uploaded for this build.</span>
+                    </div>
+                  )}
+                </div>
+
+              </div>
+
+              <!-- Thumbnail Ribbon (if > 1 image) -->
+              {images.length > 1 && (
+                <div class="d-flex flex-wrap gap-2 mb-4 justify-content-center">
+                  {images.map((img: string, idx: number) => (
+                    <button 
+                      type="button" 
+                      data-bs-target="#projectDetailCarousel" 
+                      data-bs-slide-to={idx} 
+                      class={`btn p-1 border rounded-3 overflow-hidden thumbnail-nav-btn ${idx === 0 ? 'active-thumb' : ''}`}
+                      aria-label={`Slide ${idx + 1}`}
+                    >
+                      <img src={img} alt={`Thumbnail ${idx + 1}`} class="d-block object-fit-cover rounded-2" style="width: 72px; height: 46px;" />
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <!-- 3. Half-and-Half Row: Tech Stack (Left) & Action Buttons (Right) -->
+              <div class="row g-3 g-md-4 mb-4 align-items-stretch">
+                
+                <!-- Left Half: Technologies Deployed -->
+                <div class="col-12 col-md-6 d-flex">
+                  <div class="card detail-glass-card p-4 rounded-4 shadow-lg w-100 d-flex flex-column justify-content-center">
+                    <div class="font-monospace text-muted small mb-3 tracking-wider">TECHNOLOGIES DEPLOYED</div>
+                    <TechBadgeList techStack={project.tech_stack} showLabel={false} boxSize={42} iconSize={22} />
+                  </div>
+                </div>
+
+                <!-- Right Half: Action Buttons -->
+                <div class="col-12 col-md-6 d-flex">
+                  <div class="card detail-glass-card p-4 rounded-4 shadow-lg w-100 d-flex flex-column justify-content-center">
+                    <div class="font-monospace text-muted small mb-3 tracking-wider">DEPLOYMENT & REPO</div>
+                    
+                    <div class="d-flex flex-column flex-sm-row gap-2">
+                      {project.live_url ? (
+                        <a 
+                          href={project.live_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          class="btn btn-primary flex-fill d-inline-flex align-items-center justify-content-center gap-2 py-2 px-3 shadow"
+                        >
+                          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                          <span class="fw-semibold">Live Site</span>
+                        </a>
+                      ) : (
+                        <button disabled class="btn btn-outline-secondary opacity-50 flex-fill py-2 font-monospace small">
+                          Offline Build
+                        </button>
+                      )}
+
+                      {project.github_url && (
+                        <a 
+                          href={project.github_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          class="btn btn-outline-secondary flex-fill d-inline-flex align-items-center justify-content-center gap-2 py-2 px-3 custom-github-btn"
+                        >
+                          <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.22 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+                          </svg>
+                          <span>Repository</span>
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+              <!-- 4. Full-Width Executive Summary Card -->
+              {summaryPoints.length > 0 && (
+                <div class="card detail-glass-card p-4 p-md-5 rounded-4 shadow-lg mb-4">
+                  <div class="d-flex align-items-center gap-2 mb-3">
+                    <span class="text-accent fs-5">&bull;</span>
+                    <h2 class="fw-bold text-light mb-0 fs-4">Project Overview</h2>
+                  </div>
+
+                  {summaryPoints.length > 1 ? (
+                    <ul class="bullet-list ps-3 mb-0">
+                      {summaryPoints.map((point: string) => (
+                        <li class="mb-2">{point}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p class="lead fs-6 mb-0">
+                      {summaryPoints[0]}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <!-- 5. Full-Width Deep Architecture & Case Notes -->
+              {contentPoints.length > 0 && (
+                <div class="card detail-glass-card p-4 p-md-5 rounded-4 shadow-lg">
+                  <div class="d-flex align-items-center gap-2 mb-3">
+                    <span class="text-accent fs-5">&#9881;</span>
+                    <h2 class="fw-bold text-light mb-0 fs-4">Architecture & Engineering Notes</h2>
+                  </div>
+
+                  {contentPoints.length > 1 ? (
+                    <ul class="bullet-list notes-list ps-3 mb-0">
+                      {contentPoints.map((point: string) => (
+                        <li class="mb-2">{point}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p class="line-relaxed notes-list mb-0">
+                      {contentPoints[0]}
+                    </p>
+                  )}
+                </div>
+              )}
+
+            </article>
+          )}
+
+        </div>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  :global(body) {
+    background-color: var(--body-bg) !important;
+  }
+
+  .project-detail-wrapper {
+    min-height: calc(100vh - 80px);
+    background-color: var(--body-bg);
+  }
+
+  .single-column-container {
+    max-width: 980px;
+  }
+
+  /* Ambient Fluid Glow Accents */
+  .ambient-glow {
+    position: absolute;
+    border-radius: var(--radius-circle);
+    pointer-events: none;
+    filter: blur(130px);
+    opacity: 0.12;
+    z-index: 1;
+  }
+  .ambient-glow-1 {
+    top: 5%;
+    left: 5%;
+    width: 500px;
+    height: 500px;
+    background: var(--color-secondary);
+  }
+  .ambient-glow-2 {
+    bottom: 10%;
+    right: 5%;
+    width: 500px;
+    height: 500px;
+    background: var(--color-primary);
+  }
+
+  /* Unified Glassmorphism Cards */
+  .detail-glass-card {
+    background-color: rgba(var(--card-bg-rgb), 0.78) !important;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--card-border-color) !important;
+    color: var(--body-color);
+  }
+
+  .project-detail-wrapper .border-secondary {
+    border-color: var(--card-border-color) !important;
+  }
+
+  .featured-badge-banner {
+    background-color: rgba(var(--color-warning-rgb), 0.12);
+    color: var(--color-warning);
+    border: 1px solid rgba(var(--color-warning-rgb), 0.3);
+  }
+
+  .nav-back-link {
+    background-color: rgba(var(--card-bg-rgb), 0.7);
+    border-color: var(--card-border-color);
+    transition: all 0.2s ease;
+  }
+  .nav-back-link:hover {
+    transform: translateX(-3px);
+    border-color: var(--color-secondary) !important;
+    background-color: var(--card-bg);
+  }
+
+  /* Window Box */
+  .window-titlebar {
+    background-color: rgba(var(--overlay-dark-rgb), 0.85);
+    border-bottom: 1px solid var(--card-border-color);
+  }
+
+  .window-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: var(--radius-circle);
+    display: inline-block;
+  }
+  .dot-red { background: var(--color-danger); }
+  .dot-yellow { background: var(--color-warning); }
+  .dot-green { background: var(--color-success); }
+
+  .project-viewport-canvas {
+    width: 100%;
+    min-height: 440px;
+    height: 520px;
+    aspect-ratio: 16 / 10;
+    background-color: var(--body-bg);
+  }
+
+  .inner-control-btn {
+    z-index: 10 !important;
+    width: 48px;
+    height: 100%;
+    opacity: 0.75;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+  .inner-control-btn:hover {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+  .inner-control-btn .carousel-control-prev-icon,
+  .inner-control-btn .carousel-control-next-icon {
+    background-color: rgba(var(--card-bg-rgb), 0.85);
+    border: 1px solid var(--card-border-color);
+  }
+
+  /* Thumbnail buttons */
+  .thumbnail-nav-btn {
+    background: transparent;
+    border-color: var(--card-border-color) !important;
+    opacity: 0.6;
+    transition: all 0.2s ease;
+  }
+  .thumbnail-nav-btn:hover,
+  .thumbnail-nav-btn.active-thumb {
+    opacity: 1;
+    border-color: var(--color-secondary) !important;
+    transform: translateY(-2px);
+  }
+
+  /* Bullet Lists & Prose */
+  .bullet-list {
+    line-height: 1.7;
+    font-size: 0.96rem;
+    color: var(--body-color);
+  }
+  .notes-list {
+    color: var(--color-text-muted-light) !important;
+  }
+  .line-relaxed {
+    line-height: 1.7;
+    font-size: 0.96rem;
+  }
+
+  /* GitHub Action Button */
+  .custom-github-btn {
+    background-color: rgba(var(--card-bg-rgb), 0.6);
+    border-color: var(--border-glass-subtle);
+    color: var(--body-color);
+    transition: all 0.2s ease-in-out;
+  }
+  .custom-github-btn:hover {
+    background-color: rgba(var(--color-secondary-rgb), 0.12);
+    border-color: var(--color-secondary);
+    color: var(--color-secondary);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(var(--color-secondary-rgb), 0.2) !important;
+  }
+
+  @media (max-width: 768px) {
+    .project-viewport-canvas {
+      min-height: 300px;
+      height: 360px;
+      aspect-ratio: 4 / 3;
+    }
+  }
+</style>

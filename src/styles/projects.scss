@@ -1,0 +1,382 @@
+// ============================================================
+// PROJECTS PAGE STYLES & FLUID UTILITIES
+// ============================================================
+
+.project-glass-card {
+  background: color-mix(in srgb, var(--projects-bg) 65%, transparent) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--projects-card-border);
+  pointer-events: auto;
+}
+
+.project-content-wrapper {
+  pointer-events: none;
+}
+
+.project-gradient-transparent {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--projects-gradient-base) 80%, transparent) 0%,
+    color-mix(in srgb, var(--projects-gradient-base) 65%, transparent) 40%,
+    color-mix(in srgb, var(--projects-gradient-base) 30%, transparent) 75%,
+    color-mix(in srgb, var(--projects-gradient-base) 10%, transparent) 100%
+  );
+}
+
+.tech-box {
+  transition: transform var(--transition-interactive), border-color var(--transition-interactive), background-color var(--transition-interactive);
+
+  &:hover {
+    transform: translateY(-2px);
+    border-color: var(--color-primary) !important;
+    background-color: color-mix(in srgb, var(--color-primary) 15%, transparent) !important;
+  }
+}
+
+.tech-text-badge {
+  transition: transform var(--transition-interactive), border-color var(--transition-interactive), background-color var(--transition-interactive);
+  height: 42px;
+
+  &:hover {
+    transform: translateY(-2px);
+    border-color: var(--color-primary) !important;
+    background-color: color-mix(in srgb, var(--color-secondary) 15%, transparent) !important;
+  }
+}
+
+// Universal layout foundations
+html,
+body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  background: #0a101b;
+}
+
+.projects-page {
+  // Keep the gallery surface neutral even when the site accent is customized.
+  --projects-bg: #0a101b;
+  --projects-empty-bg: #111a2a;
+  --projects-control-bg: #111a2a;
+  --projects-gradient-base: #0a101b;
+  width: 100%;
+  height: 100svh;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  overscroll-behavior-y: contain;
+  background: var(--projects-bg);
+}
+
+.project-slide {
+  position: relative;
+  width: 100%;
+  min-height: 100svh;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+
+.intro-main-title {
+  font-size: clamp(2.5rem, 6vw, 4.5rem);
+  line-height: 1.1;
+}
+
+.project-title {
+  font-size: clamp(2rem, 4.5vw, 3.25rem);
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+
+.intro-slide {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  isolation: isolate;
+  background:
+    radial-gradient(
+      circle at 50% 40%,
+      rgba(58, 112, 185, 0.14),
+      transparent 42%
+    ),
+    var(--projects-bg);
+}
+
+.intro-background {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.35;
+  background-image:
+    linear-gradient(var(--color-grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-grid-line) 1px, transparent 1px);
+  background-size: 45px 45px;
+  mask-image: linear-gradient(to bottom, black, transparent);
+}
+
+.intro-eyebrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--color-primary);
+  font-size: 0.75rem;
+  letter-spacing: 0.18em;
+}
+
+.eyebrow-line {
+  width: 40px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.5;
+}
+
+.intro-description {
+  max-width: 650px;
+  font-size: clamp(1rem, 1.2vw, 1.15rem);
+  line-height: 1.7;
+}
+
+.project-count {
+  color: var(--color-text-muted-light);
+  font-size: 0.85rem;
+
+  span {
+    color: var(--body-color);
+  }
+}
+
+.scroll-hint {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+}
+
+.scroll-hint-line {
+  width: 1px;
+  height: 38px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    var(--color-primary)
+  );
+}
+
+.project-background,
+.project-carousel,
+.carousel-inner,
+.carousel-item {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.project-background {
+  z-index: 0;
+  background: var(--projects-empty-bg);
+}
+
+.project-background-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  filter: saturate(0.85);
+  transform: scale(1.015);
+}
+
+.project-background-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--color-text-muted-dark);
+  font-family: monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.75rem;
+
+  svg {
+    opacity: 0.4;
+  }
+}
+
+.project-card {
+  position: relative;
+  width: 100%;
+  max-width: 660px;
+  padding: clamp(1.5rem, 3.5vw, 2.75rem);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-project-card);
+}
+
+.project-number,
+.project-total {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+}
+
+.project-number {
+  color: var(--color-primary);
+}
+
+.project-total {
+  color: var(--color-text-muted-mid);
+}
+
+.project-divider {
+  width: 28px;
+  height: 1px;
+  background: var(--border-glass-divider);
+}
+
+.featured-badge {
+  padding: 0.35rem 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--color-badge-amber) 25%, transparent);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-badge-amber) 8%, transparent);
+  color: var(--color-badge-amber);
+  font-family: monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+}
+
+.project-summary {
+  font-size: clamp(0.92rem, 1.1vw, 1.05rem);
+  line-height: 1.7;
+}
+
+.project-label {
+  color: var(--color-text-muted-mid);
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+}
+
+.project-action {
+  border-radius: var(--radius-md);
+  padding: 0.65rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+// ============================================================
+// CAROUSEL CONTROLS: Compact & Streamlined
+// ============================================================
+.carousel-nav-container {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 1.25rem;
+}
+
+.carousel-nav-btn {
+  pointer-events: auto;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-circle);
+  background: color-mix(in srgb, var(--projects-control-bg) 85%, transparent);
+  border: 1.5px solid rgba(var(--color-secondary-rgb), 0.65);
+  color: var(--color-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-carousel-button);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  cursor: pointer;
+  transition: transform 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+
+  svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  &:hover {
+    transform: scale(1.1);
+    background: var(--color-secondary);
+    border-color: var(--color-secondary);
+    color: var(--projects-bg);
+    box-shadow: var(--shadow-carousel-button-hover);
+  }
+
+  &:active {
+    transform: scale(0.92);
+  }
+}
+
+.project-slide-footer {
+  position: absolute;
+  right: clamp(1rem, 3vw, 3rem);
+  bottom: clamp(1rem, 3vw, 2rem);
+  left: clamp(1rem, 3vw, 3rem);
+  z-index: 10;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: none;
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+}
+
+.empty-card {
+  border: 1px solid var(--border-glass-subtle);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--projects-control-bg) 75%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.empty-icon {
+  color: var(--color-icon-muted);
+}
+
+// Media Queries
+@media (max-width: 991.98px) {
+  .project-gradient-transparent {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--projects-gradient-base) 25%, transparent) 0%,
+      color-mix(in srgb, var(--projects-gradient-base) 70%, transparent) 50%,
+      color-mix(in srgb, var(--projects-gradient-base) 95%, transparent) 100%
+    );
+  }
+
+  .carousel-nav-container {
+    padding: 0 0.5rem;
+  }
+
+  .carousel-nav-btn {
+    width: 32px;
+    height: 32px;
+
+    svg {
+      width: 13px;
+      height: 13px;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .projects-page {
+    scroll-behavior: auto;
+  }
+
+  .carousel-item {
+    transition: none !important;
+  }
+}

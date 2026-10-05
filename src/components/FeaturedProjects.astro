@@ -1,10 +1,13 @@
 ---
 // src/components/FeaturedProjects.astro
+import TechBadgeList from './TechBadgeList.astro';
+
 interface Project {
   id: number;
   title: string;
   summary: string;
   tech_stack: string;
+  live_url?: string;
   github_url?: string;
   image_url?: string;
   image_filenames?: string[];
@@ -12,28 +15,29 @@ interface Project {
 
 interface Props {
   projects: Project[] | null;
-  showArchiveLink?: boolean; // New optional parameter, defaults to true
+  showArchiveLink?: boolean;
 }
 
 const { projects = [], showArchiveLink = true } = Astro.props;
 
-// Helper to chunk featured projects into groups of 3 for the outer carousel slides
+// Group into sets of 2 to give cards substantial horizontal room
+const ITEMS_PER_SLIDE = 2;
 const chunkedProjects: Project[][] = [];
 if (projects) {
-  for (let i = 0; i < projects.length; i += 3) {
-    chunkedProjects.push(projects.slice(i, i + 3));
+  for (let i = 0; i < projects.length; i += ITEMS_PER_SLIDE) {
+    chunkedProjects.push(projects.slice(i, i + ITEMS_PER_SLIDE));
   }
 }
 
-// Check if there are enough projects to require pagination/carousel sliding (> 3 projects)
-const hasMultiplePages = projects && projects.length > 3;
+// Check if pagination/carousel sliding is needed (> 2 projects)
+const hasMultiplePages = Boolean(projects && projects.length > ITEMS_PER_SLIDE);
 ---
 
 <!-- Featured Work Showcase Section -->
 <section class="position-relative py-5 bg-card border-top border-secondary overflow-hidden" style="z-index: 1;">
   <div class="container py-4">
     
-    <!-- Section Header (Archive button conditionally renders based on showArchiveLink prop) -->
+    <!-- Section Header -->
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3 mb-5">
       <div>
         <h2 class="fw-bold text-gradient mb-1">Featured Work Showcase</h2>
@@ -51,7 +55,7 @@ const hasMultiplePages = projects && projects.length > 3;
     {projects && projects.length > 0 ? (
       <div class="container-fluid px-lg-5 position-relative">
         
-        <!-- Outer Carousel (Auto-sliding & arrows rendered ONLY if > 3 projects exist) -->
+        <!-- Outer Carousel -->
         <div id="portfolioOuterCarousel" class={`carousel slide project-carousel-wrapper ${hasMultiplePages ? '' : 'no-carousel'}`} data-bs-ride={hasMultiplePages ? 'carousel' : 'false'}>
           
           <div class="carousel-inner overflow-hidden py-3">
@@ -65,55 +69,124 @@ const hasMultiplePages = projects && projects.length > 3;
                     
                     const innerCarouselId = `projectCardCarousel_${project.id}`;
 
+                    // Split multiline summaries into bullet entries
+                    const summaryPoints = (project.summary || '')
+                      .split(/\r?\n/)
+                      .map((line: string) => line.trim())
+                      .filter(Boolean);
+
                     return (
-                      <div class="col-12 col-md-6 col-lg-4 d-flex justify-content-center">
-                        <div class="card shadow-lg rounded-4 overflow-hidden border border-secondary project-card-dimension animate-slide-fade position-relative" style={`animation-delay: ${index * 0.12}s;`}>
+                      <div class="col-12 col-md-10 col-lg-6 d-flex justify-content-center">
+                        <div class="project-card-unit w-100 d-flex flex-column align-items-center" style={`animation-delay: ${index * 0.12}s;`}>
                           
-                          <!-- Inner Manual Image Carousel -->
-                          {images.length > 0 ? (
-                            <div id={innerCarouselId} class="carousel slide position-absolute top-0 start-0 w-100 h-100" data-bs-interval="false">
-                              <div class="carousel-inner w-100 h-100">
-                                {images.map((imgPath: string, imgIdx: number) => (
-                                  <div class={`carousel-item w-100 h-100 ${imgIdx === 0 ? 'active' : ''}`}>
-                                    <img src={imgPath} class="d-block w-100 h-100 object-fit-cover" alt={`${project.title} screenshot ${imgIdx + 1}`} />
-                                  </div>
-                                ))}
+                          <!-- Centered Title Above Card (Wraps naturally instead of truncating) -->
+                          <div class="project-header w-100 text-center mb-3 px-2 d-flex justify-content-center">
+                            <h3 class="fw-bold text-gradient mb-0 text-center text-wrap text-break">
+                              {project.title}
+                            </h3>
+                          </div>
+
+                          <!-- Interactive Media Card Centered Below Title -->
+                          <div class="card bg-dark shadow-lg rounded-4 overflow-hidden border border-secondary project-card-dimension w-100 mx-auto animate-slide-fade position-relative">
+                            
+                            <!-- Inner Manual Image Carousel with Fade Transition -->
+                            {images.length > 0 ? (
+                              <div id={innerCarouselId} class="carousel slide carousel-fade position-absolute top-0 start-0 w-100 h-100 bg-dark" data-bs-interval="false">
+                                <div class="carousel-inner w-100 h-100">
+                                  {images.map((imgPath: string, imgIdx: number) => (
+                                    <div class={`carousel-item w-100 h-100 d-flex align-items-center justify-content-center bg-black ${imgIdx === 0 ? 'active' : ''}`}>
+                                      <img 
+                                        src={imgPath} 
+                                        class="d-block w-100 h-100 object-fit-contain p-2" 
+                                        alt={`${project.title} screenshot ${imgIdx + 1}`} 
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+
+                                {images.length > 1 && (
+                                  <>
+                                    <button class="carousel-control-prev inner-control-btn" type="button" data-bs-target={`#${innerCarouselId}`} data-bs-slide="prev" aria-label="Previous screenshot">
+                                      <span class="carousel-control-prev-icon bg-dark rounded-circle p-2 border border-secondary shadow" aria-hidden="true"></span>
+                                      <span class="visually-hidden">Previous</span>
+                                    </button>
+                                    <button class="carousel-control-next inner-control-btn" type="button" data-bs-target={`#${innerCarouselId}`} data-bs-slide="next" aria-label="Next screenshot">
+                                      <span class="carousel-control-next-icon bg-dark rounded-circle p-2 border border-secondary shadow" aria-hidden="true"></span>
+                                      <span class="visually-hidden">Next</span>
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            ) : (
+                              <div class="position-absolute top-0 start-0 w-100 h-100 bg-dark d-flex align-items-center justify-content-center text-muted">
+                                <span>No Screenshot Provided</span>
+                              </div>
+                            )}
+
+                            <!-- Hover Overlay: Summary & Tech Stack Badges -->
+                            <div class="card-overlay position-absolute top-0 start-0 w-100 h-100 d-flex flex-column justify-content-end p-4 p-md-5">
+                              
+                              <!-- Multiline summary rendered as bulleted list -->
+                              {summaryPoints.length > 1 ? (
+                                <ul class="text-light mb-3 ps-3 flex-grow-0 text-shadow">
+                                  {summaryPoints.map((point: string) => (
+                                    <li class="mb-1">{point}</li>
+                                  ))}
+                                </ul>
+                              ) : (
+                                <p class="text-light mb-3 flex-grow-0 text-shadow">
+                                  {summaryPoints[0] || ''}
+                                </p>
+                              )}
+
+                              <!-- Universal Technology Icon Badges -->
+                              <div>
+                                <TechBadgeList techStack={project.tech_stack} boxSize={38} iconSize={20} />
                               </div>
 
-                              {images.length > 1 && (
-                                <>
-                                  <button class="carousel-control-prev z-2" type="button" data-bs-target={`#${innerCarouselId}`} data-bs-slide="prev">
-                                    <span class="carousel-control-prev-icon bg-dark rounded-circle p-2 border border-secondary shadow" aria-hidden="true"></span>
-                                    <span class="visually-hidden">Previous</span>
-                                  </button>
-                                  <button class="carousel-control-next z-2" type="button" data-bs-target={`#${innerCarouselId}`} data-bs-slide="next">
-                                    <span class="carousel-control-next-icon bg-dark rounded-circle p-2 border border-secondary shadow" aria-hidden="true"></span>
-                                    <span class="visually-hidden">Next</span>
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          ) : (
-                            <div class="position-absolute top-0 start-0 w-100 h-100 bg-dark d-flex align-items-center justify-content-center text-muted">
-                              <span>No Screenshot Provided</span>
-                            </div>
-                          )}
-
-                          <!-- Dark Gradient Overlay for Readability -->
-                          <div class="card-overlay position-absolute top-0 start-0 w-100 h-100 d-flex flex-column justify-content-end p-4">
-                            <h4 class="text-primary fw-bold mb-2 text-shadow">{project.title}</h4>
-                            <p class="text-light small mb-3 flex-grow-0 text-shadow">{project.summary}</p>
-                            <div class="mb-3">
-                              <span class="badge bg-dark border border-secondary text-accent font-monospace shadow-sm" style="font-size: 0.75rem;">{project.tech_stack}</span>
-                            </div>
-                            {project.github_url && (
-                              <a href={project.github_url} target="_blank" class="btn btn-sm btn-outline-primary align-self-start text-accent bg-dark bg-opacity-75 d-inline-flex align-items-center gap-2 shadow">
-                                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
-                                  <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.22 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+                              <a
+                                href={`/projects/${project.id}`}
+                                class="btn btn-outline-light btn-sm align-self-start mt-3 d-inline-flex align-items-center gap-2 shadow-sm detail-preview-link"
+                              >
+                                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 5h10M9 12h10M9 19h10M5 5h.01M5 12h.01M5 19h.01" />
                                 </svg>
-                                <span>View Repository</span>
+                                <span>View Details</span>
                               </a>
-                            )}
+
+                            </div>
+
+                          </div>
+
+                          <!-- Centered Action Buttons Below Card -->
+                          <div class="project-actions-footer w-100 d-flex flex-wrap align-items-center justify-content-center gap-2 mt-3 px-1">
+                              {project.live_url && (
+                                <a 
+                                  href={project.live_url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer" 
+                                  class="btn btn-primary btn-sm px-3 d-inline-flex align-items-center gap-2 shadow-sm"
+                                >
+                                  <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                  </svg>
+                                  <span>Live Demo</span>
+                                </a>
+                              )}
+
+                              {project.github_url && (
+                                <a 
+                                  href={project.github_url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer" 
+                                  class="btn btn-sm px-3 d-inline-flex align-items-center gap-2 shadow-sm custom-github-btn"
+                                >
+                                  <svg width="15" height="15" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.22 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+                                  </svg>
+                                  <span>View Repository</span>
+                                </a>
+                              )}
                           </div>
 
                         </div>
@@ -125,7 +198,7 @@ const hasMultiplePages = projects && projects.length > 3;
             ))}
           </div>
 
-          <!-- Outer Carousel Arrows & Controls (Rendered ONLY if multiple pages exist) -->
+          <!-- Outer Carousel Arrows & Controls -->
           {hasMultiplePages && (
             <>
               <button class="carousel-control-prev outer-control-btn" type="button" data-bs-target="#portfolioOuterCarousel" data-bs-slide="prev">
@@ -152,3 +225,91 @@ const hasMultiplePages = projects && projects.length > 3;
     )}
   </div>
 </section>
+
+<style>
+  .project-card-unit {
+    max-width: 100%;
+  }
+
+  .project-header h3 {
+    max-width: 100%;
+    line-height: 1.3;
+    white-space: normal;
+    word-wrap: break-word;
+  }
+
+  .project-card-dimension {
+    width: 100%;
+    min-height: 520px;
+    aspect-ratio: 16 / 10;
+  }
+
+  /* Keep inner arrows stacked ABOVE the hover overlay and always clickable */
+  .inner-control-btn {
+    z-index: 10 !important;
+    width: 52px;
+    height: 100%;
+    opacity: 0.7;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+
+  .inner-control-btn:hover {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+
+  /* Overlay starts hidden and slides up on hover */
+  .card-overlay {
+    background: var(--project-image-overlay);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(12px);
+    transition: opacity 0.25s ease, transform 0.25s ease, visibility 0.25s ease;
+    backdrop-filter: blur(4px);
+    z-index: 5;
+    padding-left: clamp(1rem, 4vw, 3.5rem);
+    padding-right: clamp(1rem, 4vw, 3.5rem);
+  }
+
+  /* Reveal description and tech badges strictly on mouse hover */
+  .project-card-dimension:hover .card-overlay {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+  }
+
+  /* Suppress the overlay entirely if any arrow button is actively hovered */
+  .project-card-dimension:has(.inner-control-btn:hover) .card-overlay {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    transform: translateY(12px) !important;
+    pointer-events: none;
+  }
+
+  @media (max-width: 768px) {
+    .project-card-dimension {
+      min-height: 420px;
+      aspect-ratio: 4 / 3;
+    }
+  }
+
+  /* GitHub Button Clean & Glowing Hover State */
+  .custom-github-btn {
+    background-color: var(--surface-card-subtle);
+    border: 1px solid rgba(var(--card-border-rgb), 0.15);
+    color: var(--body-color);
+    transition: all 0.2s ease-in-out;
+  }
+
+  .custom-github-btn:hover {
+    background-color: rgba(var(--color-github-glow-rgb), 0.12);
+    border-color: var(--color-github-glow);
+    color: var(--color-github-glow);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-github-glow) !important;
+  }
+
+  .custom-github-btn:active {
+    transform: translateY(0);
+  }
+</style>

@@ -1,100 +1,273 @@
-// 1. Include your custom variable overrides FIRST
-$primary: #e60073;           // Vibrant Magenta
-$secondary: #00f0ff;         // Cyan Accent
+// ==========================================
+// 1. Central Variables Import
+// ==========================================
+@import "variables";
+
+// Bootstrap Compile-time variable overrides
 $border-radius: 0.5rem;
 $enable-shadows: true;
 
-// Dark mode color overrides for Bootstrap
-$body-bg: #121214;           // Deep charcoal/off-black background
-$body-color: #e4e4e7;        // Soft light gray text for readability
-$card-bg: #18181b;           // Slightly lighter dark for cards/containers
-$card-border-color: #27272a; // Subtle border color for dark mode
-
-// 2. Import Bootstrap's source files from node_modules
+// 2. Import Bootstrap source files from node_modules
 @import "bootstrap/scss/bootstrap";
 
-// 3. Custom Gradients & Special Component Styling
+// ==========================================
+// 3. Connect All Bootstrap Root Tokens to CSS Vars
+// ==========================================
 :root {
-  --gradient-primary: linear-gradient(135deg, #e60073 0%, #ff4d94 100%);
-  --gradient-accent: linear-gradient(135deg, #00f0ff 0%, #0077ff 100%);
-  --gradient-hero: linear-gradient(135deg, rgba(230, 0, 115, 0.15) 0%, rgba(0, 240, 255, 0.05) 100%);
+  /* Brand Accents */
+  --bs-primary: var(--color-primary);
+  --bs-primary-rgb: var(--color-primary-rgb);
+  --bs-secondary: var(--color-secondary);
+  --bs-secondary-rgb: var(--color-secondary-rgb);
+
+  /* Status Colors */
+  --bs-danger: var(--color-danger);
+  --bs-danger-rgb: var(--color-danger-rgb);
+  --bs-warning: var(--color-warning);
+  --bs-warning-rgb: var(--color-warning-rgb);
+  --bs-success: var(--color-success);
+  --bs-success-rgb: var(--color-success-rgb);
+  --bs-info: var(--color-info);
+  --bs-info-rgb: var(--color-info-rgb);
+
+  /* Surfaces, Layout & Light/Dark Bases */
+  --bs-body-bg: var(--body-bg);
+  --bs-body-color: var(--body-color);
+  --bs-card-bg: var(--card-bg);
+  --bs-card-color: var(--body-color);
+  --bs-card-border-color: var(--card-border-color);
+  --bs-border-color: var(--card-border-color);
+
+  --bs-dark: var(--card-bg);
+  --bs-dark-rgb: var(--card-bg-rgb);
+  --bs-light: var(--body-color);
 }
 
-body {
-  background-color: $body-bg;
-  color: $body-color;
+// ==========================================
+// 4. Force Bootstrap Buttons & Components to Use CSS Vars
+// ==========================================
+
+/* --- Info (Cyan / Yellow Accent) --- */
+.btn-info {
+  --bs-btn-color: var(--body-bg);
+  --bs-btn-bg: var(--color-info);
+  --bs-btn-border-color: var(--color-info);
+  --bs-btn-hover-color: var(--body-bg);
+  --bs-btn-hover-bg: rgba(var(--color-info-rgb), 0.85);
+  --bs-btn-hover-border-color: var(--color-info);
+  --bs-btn-focus-shadow-rgb: var(--color-info-rgb);
+  --bs-btn-active-color: var(--body-bg);
+  --bs-btn-active-bg: var(--color-info);
+  --bs-btn-active-border-color: var(--color-info);
+}
+
+.btn-outline-info {
+  --bs-btn-color: var(--color-info);
+  --bs-btn-border-color: var(--color-info);
+  --bs-btn-hover-color: var(--body-bg);
+  --bs-btn-hover-bg: var(--color-info);
+  --bs-btn-hover-border-color: var(--color-info);
+  --bs-btn-focus-shadow-rgb: var(--color-info-rgb);
+  --bs-btn-active-color: var(--body-bg);
+  --bs-btn-active-bg: var(--color-info);
+  --bs-btn-active-border-color: var(--color-info);
+}
+
+/* --- Primary --- */
+.btn-outline-primary {
+  --bs-btn-color: var(--color-primary);
+  --bs-btn-border-color: var(--color-primary);
+  --bs-btn-hover-color: var(--color-on-accent);
+  --bs-btn-hover-bg: var(--color-primary);
+  --bs-btn-hover-border-color: var(--color-primary);
+  --bs-btn-focus-shadow-rgb: var(--color-primary-rgb);
+  --bs-btn-active-color: var(--color-on-accent);
+  --bs-btn-active-bg: var(--color-primary);
+  --bs-btn-active-border-color: var(--color-primary);
+}
+
+/* --- Secondary --- */
+.btn-secondary {
+  --bs-btn-color: var(--body-bg);
+  --bs-btn-bg: var(--color-secondary);
+  --bs-btn-border-color: var(--color-secondary);
+  --bs-btn-hover-color: var(--body-bg);
+  --bs-btn-hover-bg: rgba(var(--color-secondary-rgb), 0.85);
+  --bs-btn-hover-border-color: var(--color-secondary);
+  --bs-btn-focus-shadow-rgb: var(--color-secondary-rgb);
+}
+
+.btn-outline-secondary {
+  --bs-btn-color: var(--color-text-muted-light);
+  --bs-btn-border-color: var(--card-border-color);
+  --bs-btn-hover-color: var(--body-color);
+  --bs-btn-hover-bg: rgba(var(--card-bg-rgb), 0.85);
+  --bs-btn-hover-border-color: var(--color-secondary);
+  --bs-btn-focus-shadow-rgb: var(--color-secondary-rgb);
+}
+
+/* --- Danger --- */
+.btn-danger {
+  --bs-btn-color: var(--color-on-accent);
+  --bs-btn-bg: var(--color-danger);
+  --bs-btn-border-color: var(--color-danger);
+  --bs-btn-hover-color: var(--color-on-accent);
+  --bs-btn-hover-bg: rgba(var(--color-danger-rgb), 0.85);
+  --bs-btn-hover-border-color: var(--color-danger);
+  --bs-btn-focus-shadow-rgb: var(--color-danger-rgb);
+}
+
+.btn-outline-danger {
+  --bs-btn-color: var(--color-danger);
+  --bs-btn-border-color: var(--color-danger);
+  --bs-btn-hover-color: var(--color-on-accent);
+  --bs-btn-hover-bg: var(--color-danger);
+  --bs-btn-hover-border-color: var(--color-danger);
+  --bs-btn-focus-shadow-rgb: var(--color-danger-rgb);
+}
+
+/* --- Warning --- */
+.btn-warning {
+  --bs-btn-color: var(--body-bg);
+  --bs-btn-bg: var(--color-warning);
+  --bs-btn-border-color: var(--color-warning);
+  --bs-btn-hover-color: var(--body-bg);
+  --bs-btn-hover-bg: rgba(var(--color-warning-rgb), 0.85);
+  --bs-btn-hover-border-color: var(--color-warning);
+  --bs-btn-focus-shadow-rgb: var(--color-warning-rgb);
+}
+
+.btn-outline-warning {
+  --bs-btn-color: var(--color-warning);
+  --bs-btn-border-color: var(--color-warning);
+  --bs-btn-hover-color: var(--body-bg);
+  --bs-btn-hover-bg: var(--color-warning);
+  --bs-btn-hover-border-color: var(--color-warning);
+  --bs-btn-focus-shadow-rgb: var(--color-warning-rgb);
+}
+
+/* --- Success --- */
+.btn-success {
+  --bs-btn-color: var(--color-on-accent);
+  --bs-btn-bg: var(--color-success);
+  --bs-btn-border-color: var(--color-success);
+  --bs-btn-hover-color: var(--color-on-accent);
+  --bs-btn-hover-bg: rgba(var(--color-success-rgb), 0.85);
+  --bs-btn-hover-border-color: var(--color-success);
+  --bs-btn-focus-shadow-rgb: var(--color-success-rgb);
+}
+
+.btn-outline-success {
+  --bs-btn-color: var(--color-success);
+  --bs-btn-border-color: var(--color-success);
+  --bs-btn-hover-color: var(--color-on-accent);
+  --bs-btn-hover-bg: var(--color-success);
+  --bs-btn-hover-border-color: var(--color-success);
+  --bs-btn-focus-shadow-rgb: var(--color-success-rgb);
+}
+
+// ==========================================
+// 5. Base Styles & Global Utilities
+// ==========================================
+html,
+body,
+.bg-body {
+  background-color: var(--body-bg);
+  color: var(--body-color);
   overflow-x: hidden;
+}
+
+.text-muted {
+  color: var(--color-text-muted-light) !important;
+}
+
+.bg-body {
+  background-color: var(--body-bg) !important;
 }
 
 // Ensure Bootstrap cards look great with subtle gradient accents in dark mode
 .card {
-  background-color: $card-bg;
-  color: $body-color;
-  border-color: $card-border-color;
-  transition: transform 0.2s ease, border-color 0.2s ease;
-  overflow-x: auto; // Prevents code blocks or content from blowing out card boundaries on small screens
+  background-color: var(--card-bg);
+  color: var(--body-color);
+  border-color: var(--card-border-color);
+  transition: transform var(--transition-interactive), border-color var(--transition-interactive);
+  overflow-x: auto;
 
   &:hover {
-    border-color: $primary;
+    border-color: var(--color-primary);
     transform: translateY(-2px);
   }
 }
 
 .admin-card {
-  border-left: 4px solid $primary;
-  background: linear-gradient(180deg, rgba(24, 24, 27, 1) 0%, rgba(30, 18, 30, 0.6) 100%);
+  border-left: 4px solid var(--color-primary);
+  background: linear-gradient(180deg, var(--card-bg) 0%, var(--admin-card-tint) 100%);
 }
 
 // Gradient Text Utility
 .text-gradient {
-  background: linear-gradient(135deg, #e60073 0%, #00f0ff 100%);
+  background: var(--gradient-text);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  display: inline-block; // Prevents clipping bugs on certain mobile browsers
+  display: inline-block;
 }
 
 // Gradient Buttons
 .btn-primary {
   background: var(--gradient-primary) !important;
   border: none !important;
-  box-shadow: 0 4px 15px rgba(230, 0, 115, 0.3);
+  box-shadow: var(--shadow-primary-button);
+  transition: var(--button-hover-transition);
 
   &:hover {
+    background: var(--button-primary-hover-bg) !important;
+    color: var(--button-primary-hover-color) !important;
     opacity: 0.9;
-    box-shadow: 0 6px 20px rgba(230, 0, 115, 0.5);
+    box-shadow: var(--shadow-primary-button-hover);
+    transform: var(--button-hover-transform);
+  }
+}
+
+.btn-secondary,
+.btn-outline-secondary {
+  transition: var(--button-hover-transition);
+
+  &:hover {
+    background: var(--button-secondary-hover-bg);
+    color: var(--button-secondary-hover-color);
+    transform: var(--button-hover-transform);
   }
 }
 
 // Hero background wrapper styling helper
 .hero-gradient-bg {
-  background: var(--gradient-hero);
-  border-bottom: 1px solid $card-border-color;
+  background: var(--home-background);
+  border-bottom: 1px solid var(--card-border-color);
 }
 
 // Accent utility helper
-$text-accent: #00f0ff;
 .text-accent {
-  color: $secondary !important;
+  color: var(--color-secondary) !important;
 }
 
-
 // ==========================================
-// Upgraded Navbar Styling
+// 6. Navbar Styling
 // ==========================================
 .navbar-glass {
-  background-color: rgba(24, 24, 27, 0.85) !important; // Semi-transparent dark background
-  backdrop-filter: blur(12px);      // Modern frosted glass effect
+  background-color: var(--nav-bg, rgba(var(--card-bg-rgb), 0.85)) !important;
+  backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(39, 39, 42, 0.8) !important;
+  border-bottom: 1px solid var(--nav-border-color, rgba(var(--card-border-rgb), 0.8)) !important;
   transition: background-color 0.3s ease;
 }
 
 .custom-nav-link {
+  color: var(--nav-color, var(--body-color)) !important;
   position: relative;
   transition: color 0.2s ease;
 
   &:hover {
-    color: #00f0ff !important; // Highlights to your cyan accent on hover
+    color: var(--nav-hover-color, var(--color-secondary)) !important;
   }
 
   &::after {
@@ -104,27 +277,26 @@ $text-accent: #00f0ff;
     height: 2px;
     bottom: 0;
     left: 50%;
-    background: var(--gradient-primary);
+    background: var(--nav-active-color, var(--color-primary));
     transition: all 0.3s ease;
     transform: translateX(-50%);
   }
 
   &:hover::after {
-    width: 80%; // Expands a glowing underline accent when hovered
+    width: 80%;
   }
 }
 
-
 // ==========================================
-// Featured Showcase & Fluid Card Layouts
+// 7. Featured Showcase & Fluid Card Layouts
 // ==========================================
 .project-card-dimension {
   width: 100%;
   max-width: 580px;
-  aspect-ratio: 4 / 3.2; // Locks the responsive width-to-height ratio dynamically
+  aspect-ratio: 4 / 3.2;
   height: auto !important;
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease, border-color 0.3s ease;
-  
+
   .carousel-control-prev,
   .carousel-control-next {
     opacity: 0;
@@ -133,11 +305,16 @@ $text-accent: #00f0ff;
 
   &:hover {
     transform: translateY(-6px) scale(1.01);
-    border-color: #00f0ff !important;
-    box-shadow: 0 16px 35px rgba(0, 240, 255, 0.25) !important;
+    border-color: var(--color-secondary) !important;
+    box-shadow: var(--shadow-secondary-hover) !important;
 
     .card-overlay {
-      background: linear-gradient(to top, rgba(10, 10, 12, 0.95) 15%, rgba(10, 10, 12, 0.75) 60%, rgba(10, 10, 12, 0.4) 100%);
+      background: linear-gradient(
+        to top,
+        rgba(var(--overlay-dark-hover-rgb), 0.95) 15%,
+        rgba(var(--overlay-dark-hover-rgb), 0.75) 60%,
+        rgba(var(--overlay-dark-hover-rgb), 0.4) 100%
+      );
     }
 
     .carousel-control-prev,
@@ -148,7 +325,12 @@ $text-accent: #00f0ff;
 }
 
 .card-overlay {
-  background: linear-gradient(to top, rgba(12, 12, 15, 0.95) 20%, rgba(12, 12, 15, 0.8) 60%, rgba(12, 12, 15, 0.3) 100%);
+  background: linear-gradient(
+    to top,
+    rgba(var(--overlay-dark-rgb), 0.95) 20%,
+    rgba(var(--overlay-dark-rgb), 0.8) 60%,
+    rgba(var(--overlay-dark-rgb), 0.3) 100%
+  );
   transition: background 0.3s ease;
   z-index: 1;
 }
@@ -157,13 +339,14 @@ $text-accent: #00f0ff;
   width: 5% !important;
   opacity: 0.8;
   transition: opacity 0.2s ease;
+
   &:hover {
     opacity: 1;
   }
 }
 
 .text-shadow {
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+  text-shadow: var(--shadow-text);
 }
 
 @keyframes slideFadeIn {
@@ -173,7 +356,6 @@ $text-accent: #00f0ff;
   }
   100% {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
@@ -181,23 +363,20 @@ $text-accent: #00f0ff;
   animation: slideFadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-
 // ==========================================
-// 4. Responsive Multi-Device Adjustments
+// 8. Responsive Multi-Device Adjustments
 // ==========================================
 @media (max-width: 991.98px) {
   .hero-gradient-bg {
     text-align: center;
   }
-  
-  // Center CTA buttons nicely on mobile/tablet viewports
+
   .hero-gradient-bg .d-flex {
     justify-content: center !important;
   }
 }
 
 @media (max-width: 575.98px) {
-  // Tighten font scaling or padding adjustments for very small phones if needed
   body {
     font-size: 0.95rem;
   }

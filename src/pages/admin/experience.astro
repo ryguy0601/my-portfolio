@@ -1,0 +1,215 @@
+---
+// src/pages/admin/experience.astro
+import { createClient } from '@supabase/supabase-js';
+import AdminLayout from '../../layouts/AdminLayout.astro';
+
+const supabase = createClient(
+  import.meta.env.PUBLIC_SUPABASE_URL,
+  import.meta.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+let errorMessage = '';
+let successMessage = '';
+
+const url = new URL(Astro.request.url);
+const editExpId = url.searchParams.get('edit_exp');
+
+// 1. HANDLE WORK EXPERIENCE CRUD SUBMISSIONS
+if (Astro.request.method === 'POST') {
+  const formData = await Astro.request.formData();
+  const actionType = formData.get('action_type')?.toString();
+
+  try {
+    if (actionType === 'save_experience') {
+      const expId = formData.get('exp_id')?.toString();
+      const company = formData.get('company')?.toString();
+      const role = formData.get('role')?.toString();
+      const start_date = formData.get('start_date')?.toString();
+      const end_date = formData.get('end_date')?.toString();
+      const description = formData.get('description')?.toString();
+      const order_index = parseInt(formData.get('order_index')?.toString() || '0', 10);
+
+      if (!company || !role || !start_date || !description) {
+        errorMessage = 'Company, Role, Start Date, and Description are required.';
+      } else {
+        const payload = { 
+          company, 
+          role, 
+          start_date, 
+          end_date: end_date || null, 
+          description, 
+          order_index 
+        };
+
+        if (expId) {
+          const { error } = await supabase.from('work_experience').update(payload).eq('id', expId);
+          if (error) throw error;
+          return Astro.redirect('/admin/experience');
+        } else {
+          const { error } = await supabase.from('work_experience').insert([payload]);
+          if (error) throw error;
+          successMessage = 'Work experience added successfully!';
+        }
+      }
+    } else if (actionType === 'delete_experience') {
+      const id = formData.get('id')?.toString();
+      await supabase.from('project_experience').delete().eq('experience_id', id);
+      const { error } = await supabase.from('work_experience').delete().eq('id', id);
+      if (error) throw error;
+      return Astro.redirect('/admin/experience');
+    }
+  } catch (err: any) {
+    errorMessage = err.message || 'An error occurred updating experience.';
+  }
+}
+
+// 2. FETCH EXPERIENCES & COUNTS FOR TAB BADGES
+const [{ count: projCount }, { data: experiences }, { count: linksCount }] = await Promise.all([
+  supabase.from('projects').select('*', { count: 'exact', head: true }),
+  supabase.from('work_experience').select('*').order('order_index', { ascending: true }),
+  supabase.from('project_experience').select('*', { count: 'exact', head: true })
+]);
+
+let editExperience = editExpId ? experiences?.find(e => String(e.id) === String(editExpId)) : null;
+---
+
+<AdminLayout 
+  activePage="experience" 
+  title="Manage Work Experience" 
+  errorMessage={errorMessage} 
+  successMessage={successMessage}
+  counts={{ projects: projCount || 0, experience: experiences?.length || 0, links: linksCount || 0 }}
+>
+  <div class="d-flex flex-column gap-4">
+    
+    <!-- Experience Form Card -->
+    <div class="card bg-card border border-secondary p-4 rounded-4 shadow-sm">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="text-gradient h5 mb-0 fw-bold">
+          {editExperience ? `Editing: ${editExperience.company}` : 'Add Work Experience'}
+        </h3>
+        {editExperience && (
+          <a href="/admin/experience" class="btn btn-outline-secondary btn-sm">Cancel Edit</a>
+        )}
+      </div>
+
+      <form method="POST">
+        <input type="hidden" name="action_type" value="save_experience" />
+        {editExperience && <input type="hidden" name="exp_id" value={editExperience.id} />}
+
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label text-light small">Company / Organization *</label>
+            <input 
+              type="text" 
+              name="company" 
+              value={editExperience?.company || ''} 
+              class="form-control form-control-sm bg-dark text-light border-secondary" 
+              placeholder="e.g. Acme Corporation" 
+              required 
+            />
+          </div>
+          
+          <div class="col-md-4">
+            <label class="form-label text-light small">Role / Job Title *</label>
+            <input 
+              type="text" 
+              name="role" 
+              value={editExperience?.role || ''} 
+              class="form-control form-control-sm bg-dark text-light border-secondary" 
+              placeholder="e.g. Software Engineer" 
+              required 
+            />
+          </div>
+          
+          <div class="col-md-4">
+            <label class="form-label text-light small">Display Order (Ascending)</label>
+            <input 
+              type="number" 
+              name="order_index" 
+              value={editExperience?.order_index ?? 0} 
+              class="form-control form-control-sm bg-dark text-light border-secondary" 
+              placeholder="0"
+            />
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label text-light small">Start Date *</label>
+            <input 
+              type="text" 
+              name="start_date" 
+              value={editExperience?.start_date || ''} 
+              class="form-control form-control-sm bg-dark text-light border-secondary" 
+              placeholder="e.g. June 2024" 
+              required 
+            />
+          </div>
+          
+          <div class="col-md-6">
+            <label class="form-label text-light small">End Date (Leave blank for Present)</label>
+            <input 
+              type="text" 
+              name="end_date" 
+              value={editExperience?.end_date || ''} 
+              class="form-control form-control-sm bg-dark text-light border-secondary" 
+              placeholder="e.g. August 2024 or Present" 
+            />
+          </div>
+
+          <div class="col-12">
+            <label class="form-label text-light small">
+              Role Description & Responsibilities (Enter lines for bullets) *
+            </label>
+            <textarea 
+              name="description" 
+              class="form-control form-control-sm bg-dark text-light border-secondary" 
+              rows="4" 
+              placeholder="Architected RESTful microservices and optimized query latency by 35%&#10;Integrated third-party authentication and automated unit test pipelines&#10;Collaborated in cross-functional agile sprints to deliver core product features" 
+              required
+            >{editExperience?.description || ''}</textarea>
+          </div>
+
+          <div class="col-12 text-end pt-2">
+            <button type="submit" class="btn btn-primary px-4 py-2 fw-semibold">
+              {editExperience ? 'Update Experience' : 'Save Experience'}
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <!-- Recorded Positions Grid -->
+    <div>
+      <h4 class="text-light h6 mb-3 fw-bold">Recorded Work Positions ({experiences?.length || 0})</h4>
+      <div class="scroll-grid-container p-2 border border-secondary border-opacity-25 rounded-4 bg-dark bg-opacity-25">
+        <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
+          {experiences && experiences.map((exp) => (
+            <div class="col">
+              <div class={`card bg-card border ${editExpId == exp.id ? 'border-primary' : 'border-secondary'} p-3 rounded-3 h-100 d-flex flex-column justify-content-between`}>
+                <div>
+                  <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="badge bg-secondary bg-opacity-25 font-monospace text-accent small">Order #{exp.order_index}</span>
+                    <span class="text-muted small">{exp.start_date} &ndash; {exp.end_date || 'Present'}</span>
+                  </div>
+                  <h6 class="text-primary fw-bold mb-0 text-truncate">{exp.role}</h6>
+                  <p class="text-light small mb-2">{exp.company}</p>
+                  <p class="text-muted small line-clamp-3 mb-2">{exp.description}</p>
+                </div>
+                
+                <div class="d-flex justify-content-between align-items-center pt-2 border-top border-secondary border-opacity-25">
+                  <a href={`/admin/experience?edit_exp=${exp.id}`} class="btn btn-outline-primary btn-sm py-0 px-2">Edit</a>
+                  <form method="POST" onsubmit="return confirm('Delete this experience?');" class="m-0">
+                    <input type="hidden" name="action_type" value="delete_experience" />
+                    <input type="hidden" name="id" value={exp.id} />
+                    <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2">Delete</button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+
+  </div>
+</AdminLayout>
