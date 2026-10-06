@@ -1,7 +1,7 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { supabase, getAdminCounts } from '../../utils/supabase';
-import { DEFAULT_THEME, THEME_FIELDS, sanitizeTheme, getPersistedTheme } from '../../utils/theme';
+import { DEFAULT_THEME, THEME_FIELDS, sanitizeTheme, ThemeService } from '../../utils/theme';
 import '../../styles/theme.scss';
 
 let errorMessage = '';
@@ -15,21 +15,20 @@ try {
     const formData = await Astro.request.formData();
     const actionType = formData.get('action_type')?.toString();
     if (actionType === 'reset_theme') {
-      const { error } = await supabase.from('site_theme').upsert({ id: 'default', variables: DEFAULT_THEME, updated_at: new Date().toISOString() });
-      if (error) throw error;
-      theme = { ...DEFAULT_THEME };
+      const result = await ThemeService.resetTheme(supabase);
+      if (result.error) throw result.error;
+      theme = result.theme;
       successMessage = 'Theme reset to defaults.';
     }
     if (actionType === 'save_theme') {
       const submittedTheme = Object.fromEntries(THEME_FIELDS.map((field) => [field.key, formData.get(field.key)?.toString() || '']));
-      const safeTheme = sanitizeTheme(submittedTheme);
-      const { error } = await supabase.from('site_theme').upsert({ id: 'default', variables: safeTheme, updated_at: new Date().toISOString() });
-      if (error) throw error;
-      theme = safeTheme;
+      const result = await ThemeService.saveTheme(supabase, submittedTheme);
+      if (result.error) throw result.error;
+      theme = result.theme;
       successMessage = 'Theme saved successfully.';
     }
   } else {
-    theme = await getPersistedTheme(supabase);
+    theme = await ThemeService.getTheme(supabase);
   }
 } catch (error) {
   console.error('Theme settings request failed:', error);

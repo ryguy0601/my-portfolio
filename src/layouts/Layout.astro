@@ -1,7 +1,7 @@
 ---
 import "../styles/main.scss";
 import { supabase } from '../utils/supabase';
-import { getPersistedTheme, themeStyle } from '../utils/theme';
+import { ThemeService, themeStyle } from '../services/themeService';
 import { getBaseUrl, getAdminUrl } from '../utils/url';
 
 interface Props {
@@ -16,7 +16,7 @@ const {
 
 const baseUrl = getBaseUrl();
 const adminUrl = getAdminUrl();
-const persistedTheme = await getPersistedTheme(supabase);
+const persistedTheme = await ThemeService.getTheme(supabase);
 ---
 
 <!doctype html>

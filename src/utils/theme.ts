@@ -199,21 +199,17 @@ export function themeStyle(theme: Record<string, string>): string {
   return `:root{${Object.entries(sanitizeTheme(theme)).map(([key, value]) => `${key}:${value}!important`).join(';')}}`;
 }
 
+import { ThemeService, themeService } from '../services/themeService';
+
 /**
- * Loads the active persisted theme from Supabase with fallback to DEFAULT_THEME.
+ * Loads the active persisted theme from Supabase with in-memory caching and fallback to DEFAULT_THEME.
  */
-export async function getPersistedTheme(supabaseClient: any): Promise<Record<string, string>> {
-  try {
-    const { data, error } = await supabaseClient
-      .from('site_theme')
-      .select('variables')
-      .eq('id', 'default')
-      .maybeSingle();
-    if (error) throw error;
-    return sanitizeTheme(data?.variables);
-  } catch (error) {
-    console.error('Unable to load persisted theme:', error);
-    return { ...DEFAULT_THEME };
-  }
+export async function getPersistedTheme(
+  supabaseClient: any,
+  options?: { forceRefresh?: boolean; ttlMs?: number }
+): Promise<Record<string, string>> {
+  return ThemeService.getTheme(supabaseClient, options);
 }
+
+export { ThemeService, themeService };
 
