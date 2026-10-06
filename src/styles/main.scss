@@ -7,8 +7,9 @@
 $border-radius: 0.5rem;
 $enable-shadows: true;
 
-// 2. Import Bootstrap source files from node_modules
+// 2. Import Bootstrap and Bootstrap Icons source files from node_modules
 @import "bootstrap/scss/bootstrap";
+@import "bootstrap-icons/font/bootstrap-icons.css";
 
 // ==========================================
 // 3. Connect All Bootstrap Root Tokens to CSS Vars

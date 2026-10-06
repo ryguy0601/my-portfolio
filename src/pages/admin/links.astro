@@ -98,7 +98,7 @@ const [{ data: projects }, { data: experiences }, { data: links }, adminCounts] 
           </div>
 
           <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">
-            Create Association
+            <i class="bi bi-link-45deg me-1"></i>Create Association
           </button>
         </form>
       </div>
@@ -124,7 +124,9 @@ const [{ data: projects }, { data: experiences }, { data: links }, adminCounts] 
                   <input type="hidden" name="action_type" value="delete_project_experience" />
                   <input type="hidden" name="project_id" value={l.project_id} />
                   <input type="hidden" name="experience_id" value={l.experience_id} />
-                  <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2" title="Delete connection">&times;</button>
+                  <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2" title="Delete connection">
+                    <i class="bi bi-trash3"></i>
+                  </button>
                 </form>
               </div>
             ))

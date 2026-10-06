@@ -36,9 +36,9 @@ const portfolioUrl = getPortfolioUrl();
         <p class="text-muted small mb-0">Manage projects, work experience, technical skills, associations, and export resumes.</p>
       </div>
       <div class="d-flex gap-2 align-items-center">
-        <a href={portfolioUrl} class="btn btn-outline-secondary btn-sm text-accent">&larr; Live Portfolio</a>
-        <a href="/projects" class="btn btn-outline-secondary btn-sm text-light">Projects Page</a>
-        <a href="/admin/logout" class="btn btn-outline-danger btn-sm">Log Out</a>
+        <a href={portfolioUrl} class="btn btn-outline-secondary btn-sm text-accent"><i class="bi bi-box-arrow-up-right me-1"></i>Live Portfolio</a>
+        <a href="/projects" class="btn btn-outline-secondary btn-sm text-light"><i class="bi bi-collection me-1"></i>Projects Page</a>
+        <a href="/admin/logout" class="btn btn-outline-danger btn-sm"><i class="bi bi-box-arrow-right me-1"></i>Log Out</a>
       </div>
     </div>
 
@@ -49,32 +49,32 @@ const portfolioUrl = getPortfolioUrl();
     <ul class="nav nav-pills custom-admin-tabs mb-4 border-bottom border-secondary border-opacity-25 pb-3">
       <li class="nav-item">
         <a class={`nav-link ${activePage === 'projects' ? 'active' : ''}`} href="/admin">
-          Projects {counts.projects !== undefined && `(${counts.projects})`}
+          <i class="bi bi-folder2-open me-1"></i>Projects {counts.projects !== undefined && `(${counts.projects})`}
         </a>
       </li>
       <li class="nav-item">
         <a class={`nav-link ${activePage === 'experience' ? 'active' : ''}`} href="/admin/experience">
-          Work Experience {counts.experience !== undefined && `(${counts.experience})`}
+          <i class="bi bi-briefcase me-1"></i>Work Experience {counts.experience !== undefined && `(${counts.experience})`}
         </a>
       </li>
       <li class="nav-item">
         <a class={`nav-link ${activePage === 'skills' ? 'active' : ''}`} href="/admin/skills">
-          Skills {counts.skills !== undefined && `(${counts.skills})`}
+          <i class="bi bi-tools me-1"></i>Skills {counts.skills !== undefined && `(${counts.skills})`}
         </a>
       </li>
       <li class="nav-item">
         <a class={`nav-link ${activePage === 'links' ? 'active' : ''}`} href="/admin/links">
-          Experience Links {counts.links !== undefined && `(${counts.links})`}
+          <i class="bi bi-link-45deg me-1"></i>Experience Links {counts.links !== undefined && `(${counts.links})`}
         </a>
       </li>
       <li class="nav-item">
         <a class={`nav-link ${activePage === 'resume' ? 'active' : ''}`} href="/admin/resume">
-          Resume Builder
+          <i class="bi bi-file-earmark-person me-1"></i>Resume Builder
         </a>
       </li>
       <li class="nav-item">
         <a class={`nav-link ${activePage === 'theme' ? 'active' : ''}`} href="/admin/theme">
-          Theme
+          <i class="bi bi-palette me-1"></i>Theme
         </a>
       </li>
     </ul>

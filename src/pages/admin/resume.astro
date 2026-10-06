@@ -55,23 +55,17 @@ const groupedSkills = groupSkillsByCategory(skills || []);
           
           <!-- Actions: Reset Cache + Downloads (.docx & .pdf) -->
           <div class="d-flex gap-2">
-            <button type="button" id="reset-defaults-btn" class="btn btn-outline-secondary btn-sm px-2 text-muted" title="Clear saved entries and reload defaults from .env">
-              ↺ Reset
+            <button type="button" id="reset-defaults-btn" class="btn btn-outline-secondary btn-sm px-2 text-light" title="Clear saved entries and reload defaults from .env">
+              <i class="bi bi-arrow-counterclockwise me-1"></i>Reset
             </button>
 
             <button type="button" id="download-docx-btn" class="btn btn-primary btn-sm px-3 shadow-sm d-flex align-items-center gap-2">
-              <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
-                <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
-              </svg>
+              <i class="bi bi-file-earmark-word"></i>
               <span>.docx</span>
             </button>
 
             <button type="button" id="download-pdf-btn" class="btn btn-outline-info text-accent btn-sm px-3 shadow-sm d-flex align-items-center gap-2">
-              <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z"/>
-                <path d="M4.603 12.087a.81.81 0 0 1-.438-.42c-.195-.388-.13-.776.08-1.102.198-.307.526-.468.89-.468.7 0 1.315.488 1.733 1.034.613-.222 1.35-.445 2.08-.628.314-.938.698-1.9 1.06-2.51.274-.463.54-.674.86-.674.526 0 .842.428.842.94 0 .55-.454 1.232-1.259 1.912-.216.792-.403 1.604-.515 2.34a8.08 8.08 0 0 1 1.61.382c.727.273 1.156.652 1.156 1.137 0 .61-.564 1.04-1.26 1.04-.6 0-1.158-.313-1.646-.867a14.2 14.2 0 0 1-2.055-.422c-.908.57-1.85 1.09-2.6 1.09-.64 0-1.044-.312-1.044-.836 0-.41.25-.765.748-.97z"/>
-              </svg>
+              <i class="bi bi-file-earmark-pdf"></i>
               <span>.pdf</span>
             </button>
           </div>
@@ -364,6 +358,8 @@ const groupedSkills = groupSkillsByCategory(skills || []);
 </style>
 
 <script>
+  import { SmartEditorService } from '../../services/smartEditorService';
+
   const builderRoot = document.getElementById('resume-builder-root');
   if (builderRoot) {
     const rawProjects = JSON.parse(builderRoot.getAttribute('data-projects') || '[]');
@@ -697,6 +693,16 @@ const groupedSkills = groupSkillsByCategory(skills || []);
       githubInput, linkedinInput, portfolioInput, 
       summaryInput, educationInput
     ].forEach(el => el?.addEventListener('input', renderPreview));
+
+    if (summaryInput) {
+      SmartEditorService.attach(summaryInput, {
+        enableAutoList: true,
+        enableSmartTab: true,
+        enablePairs: false,
+        enableShortcuts: false,
+        onUpdate: renderPreview
+      });
+    }
 
     document.querySelectorAll('.resume-project-cb, .resume-exp-cb, .resume-skill-cb').forEach(cb => cb.addEventListener('change', renderPreview));
     renderPreview();

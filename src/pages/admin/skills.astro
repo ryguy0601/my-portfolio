@@ -154,7 +154,7 @@ const safeIconMapJson = JSON.stringify(techIconMap);
 
         {editSkill && (
           <a href="/admin/skills" class="btn btn-outline-secondary btn-sm px-3 rounded-pill">
-            Cancel Edit
+            <i class="bi bi-x-circle me-1"></i>Cancel Edit
           </a>
         )}
       </div>
@@ -203,10 +203,10 @@ const safeIconMapJson = JSON.stringify(techIconMap);
                 {enteredCategories.slice(0, 5).map(cat => (
                   <button 
                     type="button" 
-                    class="badge rounded-pill bg-dark border border-secondary text-secondary category-chip py-1 px-2"
+                    class="badge rounded-pill bg-dark border border-secondary text-secondary category-chip py-1 px-2 d-inline-flex align-items-center"
                     data-category={cat}
                   >
-                    {cat}
+                    <i class="bi bi-tag me-1"></i>{cat}
                   </button>
                 ))}
               </div>
@@ -256,7 +256,7 @@ const safeIconMapJson = JSON.stringify(techIconMap);
             </div>
 
             <button type="submit" class="btn btn-primary btn-sm py-2 px-3 fw-semibold w-100 shadow-sm mt-3 mt-lg-0">
-              {editSkill ? 'Update Skill' : 'Save Skill(s)'}
+              <i class="bi bi-floppy me-1"></i>{editSkill ? 'Update Skill' : 'Save Skill(s)'}
             </button>
           </div>
         </div>

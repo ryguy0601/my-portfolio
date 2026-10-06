@@ -4,8 +4,9 @@ import Layout from '../../layouts/Layout.astro';
 import TechBadgeList from '../../components/TechBadgeList.astro';
 import { supabase } from '../../utils/supabase';
 import { getBaseUrl } from '../../utils/url';
-import { parseProjectImages } from '../../utils/projects';
+import { parseProjectImages, isReadmeUrl, fetchReadmeMarkdown } from '../../utils/projects';
 import { splitLines, splitCommaList } from '../../utils/text';
+import { marked } from 'marked';
 import '../../styles/main.scss';
 
 const { slug } = Astro.params;
@@ -73,7 +74,21 @@ if (!slug) {
 const images = parseProjectImages(project);
 const baseUrl = getBaseUrl();
 const summaryPoints = splitLines(project?.summary);
-const contentPoints = splitLines(project?.content);
+const rawContent = project?.content?.trim() || '';
+let parsedContentHtml = '';
+
+if (rawContent) {
+  if (isReadmeUrl(rawContent)) {
+    const fetchedMarkdown = await fetchReadmeMarkdown(rawContent);
+    if (fetchedMarkdown) {
+      parsedContentHtml = marked.parse(fetchedMarkdown, { gfm: true, breaks: true }) as string;
+    } else {
+      parsedContentHtml = marked.parse(`> 📖 **Project Documentation**\n>\n> [View README on GitHub](${rawContent})`, { gfm: true, breaks: true }) as string;
+    }
+  } else {
+    parsedContentHtml = marked.parse(rawContent, { gfm: true, breaks: true }) as string;
+  }
+}
 
 // Extract linked company/internship experience
 const associatedExperiences = (project?.project_experience || [])
@@ -319,25 +334,15 @@ const techCount = splitCommaList(project?.tech_stack).length;
                 </div>
               )}
 
-              <!-- 5. Full-Width Deep Architecture & Case Notes -->
-              {contentPoints.length > 0 && (
+              <!-- 5. Full-Width Deep Architecture & Case Notes (Markdown Rendered) -->
+              {parsedContentHtml && (
                 <div class="card detail-glass-card p-4 p-md-5 rounded-4 shadow-lg">
-                  <div class="d-flex align-items-center gap-2 mb-3">
+                  <div class="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom border-secondary border-opacity-25">
                     <span class="text-accent fs-5">&#9881;</span>
                     <h2 class="fw-bold text-light mb-0 fs-4">Architecture & Engineering Notes</h2>
                   </div>
 
-                  {contentPoints.length > 1 ? (
-                    <ul class="bullet-list notes-list ps-3 mb-0">
-                      {contentPoints.map((point: string) => (
-                        <li class="mb-2">{point}</li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p class="line-relaxed notes-list mb-0">
-                      {contentPoints[0]}
-                    </p>
-                  )}
+                  <div class="markdown-content text-light line-relaxed" set:html={parsedContentHtml} />
                 </div>
               )}
 
@@ -508,5 +513,122 @@ const techCount = splitCommaList(project?.tech_stack).length;
       height: 360px;
       aspect-ratio: 4 / 3;
     }
+  }
+
+  /* Markdown Rendered Content Styling */
+  .markdown-content {
+    line-height: 1.75;
+    font-size: 0.98rem;
+    color: var(--body-color);
+  }
+
+  .markdown-content h1,
+  .markdown-content h2,
+  .markdown-content h3,
+  .markdown-content h4 {
+    color: #ffffff;
+    font-weight: 700;
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+    letter-spacing: -0.02em;
+  }
+
+  .markdown-content h1 { font-size: 1.6rem; border-bottom: 1px solid var(--card-border-color); padding-bottom: 0.4rem; }
+  .markdown-content h2 { font-size: 1.35rem; border-bottom: 1px solid var(--card-border-color); padding-bottom: 0.3rem; }
+  .markdown-content h3 { font-size: 1.15rem; color: var(--color-secondary, #9b5de5); }
+  .markdown-content h4 { font-size: 1rem; color: var(--color-text-muted-mid); }
+
+  .markdown-content p {
+    margin-bottom: 1rem;
+    color: var(--color-text-muted-light);
+  }
+
+  .markdown-content ul,
+  .markdown-content ol {
+    margin-bottom: 1.25rem;
+    padding-left: 1.5rem;
+    color: var(--color-text-muted-light);
+  }
+
+  .markdown-content li {
+    margin-bottom: 0.35rem;
+  }
+
+  .markdown-content li::marker {
+    color: var(--color-secondary);
+  }
+
+  .markdown-content blockquote {
+    border-left: 3px solid var(--color-secondary);
+    padding: 0.6rem 1rem;
+    margin: 1.2rem 0;
+    background: rgba(var(--color-secondary-rgb, 155, 93, 229), 0.08);
+    border-radius: 0 var(--radius-sm, 6px) var(--radius-sm, 6px) 0;
+    color: var(--color-text-muted-light);
+    font-style: italic;
+  }
+
+  .markdown-content code {
+    font-family: var(--bs-font-monospace, monospace);
+    font-size: 0.88em;
+    background: rgba(var(--overlay-dark-rgb, 10, 5, 4), 0.7);
+    color: var(--color-accent, #f15bb5);
+    padding: 0.15em 0.4em;
+    border-radius: 4px;
+    border: 1px solid rgba(var(--color-secondary-rgb, 155, 93, 229), 0.25);
+  }
+
+  .markdown-content pre {
+    background: rgba(10, 12, 18, 0.95);
+    border: 1px solid var(--card-border-color);
+    border-radius: var(--radius-md, 8px);
+    padding: 1rem;
+    margin: 1.2rem 0;
+    overflow-x: auto;
+  }
+
+  .markdown-content pre code {
+    background: transparent;
+    border: none;
+    padding: 0;
+    color: #e6edf3;
+    font-size: 0.88rem;
+    line-height: 1.5;
+  }
+
+  .markdown-content table {
+    width: 100%;
+    margin: 1.2rem 0;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+
+  .markdown-content th,
+  .markdown-content td {
+    padding: 0.55rem 0.85rem;
+    border: 1px solid var(--card-border-color);
+  }
+
+  .markdown-content th {
+    background: rgba(var(--overlay-dark-rgb, 10, 5, 4), 0.75);
+    color: var(--color-secondary);
+    font-weight: 600;
+  }
+
+  .markdown-content a {
+    color: var(--color-secondary);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    transition: color 0.15s ease;
+  }
+
+  .markdown-content a:hover {
+    color: var(--color-accent);
+  }
+
+  .markdown-content hr {
+    border-color: var(--card-border-color);
+    opacity: 0.5;
+    margin: 2rem 0;
   }
 </style>

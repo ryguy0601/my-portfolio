@@ -79,3 +79,16 @@ export function extractFolderAndFilenames(imagePaths: string[] | null | undefine
 
   return { folder: '', filenames: imagePaths.length > 0 ? [...imagePaths] : [''] };
 }
+
+// Re-export README service methods for backward compatibility and clean modularity
+export {
+  ReadmeService,
+  readmeService,
+  isReadmeUrl,
+  resolveReadmeUrl,
+  rewriteRelativeMarkdownPaths,
+  fetchReadmeMarkdown,
+  fetchReadme
+} from '../services/readmeService';
+export type { ReadmeResolution, ReadmeFetchResult, ReadmeFetchOptions } from '../services/readmeService';
+

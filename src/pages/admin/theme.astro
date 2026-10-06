@@ -111,7 +111,7 @@ const previewThemeStyle = Object.entries(theme).map(([key, value]) => `${key}: $
   <main class="theme-page">
     <header class="theme-header">
       <div><p class="theme-eyebrow">Design system / live controls</p><h2>Shape the portfolio's atmosphere.</h2><p class="theme-intro">Tune the palette, surfaces, motion, and texture that visitors experience across the site.</p></div>
-      <div class="theme-header-actions"><span class="theme-save-state" data-save-state>Unsaved changes</span><form method="POST"><input type="hidden" name="action_type" value="reset_theme" /><button class="btn btn-outline-warning" type="submit">Reset defaults</button></form></div>
+      <div class="theme-header-actions"><span class="theme-save-state" data-save-state>Unsaved changes</span><form method="POST"><input type="hidden" name="action_type" value="reset_theme" /><button class="btn btn-outline-warning" type="submit"><i class="bi bi-arrow-counterclockwise me-1"></i>Reset defaults</button></form></div>
     </header>
 
     <div class="theme-layout">
@@ -136,11 +136,11 @@ const previewThemeStyle = Object.entries(theme).map(([key, value]) => `${key}: $
               </div>;
             })}
           </div></fieldset>)}
-          <div class="theme-form-footer"><span>Changes apply to the public portfolio after saving.</span><button class="btn btn-primary" type="submit">Save theme</button></div>
+          <div class="theme-form-footer"><span>Changes apply to the public portfolio after saving.</span><button class="btn btn-primary" type="submit"><i class="bi bi-floppy me-1"></i>Save theme</button></div>
         </form>
       </section>
 
-      <aside class="theme-preview-panel"><div class="theme-preview-toolbar"><div><p class="theme-kicker">Canvas</p><h3>Live preview</h3></div><div class="theme-preview-actions"><span class="theme-live-dot">Live</span><button class="btn btn-primary btn-sm" type="submit" form="theme-form">Save theme</button></div></div>
+      <aside class="theme-preview-panel"><div class="theme-preview-toolbar"><div><p class="theme-kicker">Canvas</p><h3>Live preview</h3></div><div class="theme-preview-actions"><span class="theme-live-dot">Live</span><button class="btn btn-primary btn-sm" type="submit" form="theme-form"><i class="bi bi-floppy me-1"></i>Save theme</button></div></div>
         <div class="theme-preview" id="theme-preview" style={previewThemeStyle}><canvas class="preview-canvas" id="preview-canvas" aria-hidden="true"></canvas><div class="preview-grid"></div><nav class="preview-nav"><strong>RC<span>.</span></strong><div><span>About</span><span class="preview-active">Work</span><span>Contact</span></div></nav><div class="preview-content"><span class="preview-label">Software engineer</span><h4>Build something <em class="preview-gradient-text">meaningful.</em></h4><p>A small window into your portfolio's visual language.</p><div class="preview-actions"><button class="preview-button preview-button-primary">View projects</button><button class="preview-button preview-button-secondary">Get in touch</button></div></div><div class="preview-card"><div class="preview-card-top"><span class="preview-dots">● ● ●</span><span>featured-project.ts</span></div><div><span class="preview-code">const</span> project = <span class="preview-string">'in progress'</span>;</div></div><div class="preview-tags"><span>Available</span><span>Astro</span><span>Supabase</span></div></div>
         <div class="preview-muted-samples" aria-label="Muted text preview"><span class="preview-muted-light">Light muted text</span><span class="preview-muted-mid">Mid muted text</span><span class="preview-muted-dark">Dark muted text</span></div>
       </aside>

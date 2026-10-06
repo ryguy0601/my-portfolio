@@ -1,68 +1,94 @@
 ---
 // src/pages/admin/index.astro
-import AdminLayout from '../../layouts/AdminLayout.astro';
-import { supabase, getAdminCounts } from '../../utils/supabase';
-import { getTechInfo, parseTechStack, techIconMap } from '../../utils/techIcons';
-import { slugify, splitCommaList } from '../../utils/text';
-import { formatImagePaths, extractFolderAndFilenames } from '../../utils/projects';
-import { extractUniqueCategories } from '../../utils/skills';
+import AdminLayout from "../../layouts/AdminLayout.astro";
+import { supabase, getAdminCounts } from "../../utils/supabase";
+import {
+  getTechInfo,
+  parseTechStack,
+  techIconMap,
+} from "../../utils/techIcons";
+import { slugify, splitCommaList } from "../../utils/text";
+import {
+  formatImagePaths,
+  extractFolderAndFilenames,
+} from "../../utils/projects";
+import { extractUniqueCategories } from "../../utils/skills";
 
-let errorMessage = '';
-let successMessage = '';
+let errorMessage = "";
+let successMessage = "";
 
 const url = new URL(Astro.request.url);
-const editProjectId = url.searchParams.get('edit_project');
+const editProjectId = url.searchParams.get("edit_project");
 
 // 1. HANDLE CRUD & AJAX SUBMISSIONS
-if (Astro.request.method === 'POST') {
+if (Astro.request.method === "POST") {
   const formData = await Astro.request.formData();
-  const actionType = formData.get('action_type')?.toString();
+  const actionType = formData.get("action_type")?.toString();
 
   try {
     // Background inline skill creation via fetch()
-    if (actionType === 'create_skill_ajax') {
-      const name = formData.get('name')?.toString()?.trim();
-      const category = formData.get('category')?.toString()?.trim();
+    if (actionType === "create_skill_ajax") {
+      const name = formData.get("name")?.toString()?.trim();
+      const category = formData.get("category")?.toString()?.trim();
 
       if (!name || !category) {
-        return new Response(JSON.stringify({ success: false, error: 'Missing name or category' }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        });
+        return new Response(
+          JSON.stringify({ success: false, error: "Missing name or category" }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
       }
 
-      const { data, error } = await supabase.from('skills').insert([{ name, category, order_index: 0 }]).select();
+      const { data, error } = await supabase
+        .from("skills")
+        .insert([{ name, category, order_index: 0 }])
+        .select();
       if (error) {
-        return new Response(JSON.stringify({ success: false, error: error.message }), {
-          status: 500,
-          headers: { 'Content-Type': 'application/json' }
-        });
+        return new Response(
+          JSON.stringify({ success: false, error: error.message }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
       }
 
       return new Response(JSON.stringify({ success: true, skill: data?.[0] }), {
         status: 200,
-        headers: { 'Content-Type': 'application/json' }
+        headers: { "Content-Type": "application/json" },
       });
     }
 
-    if (actionType === 'save_project') {
-      const projectId = formData.get('project_id')?.toString();
-      const title = formData.get('title')?.toString();
-      const summary = formData.get('summary')?.toString();
-      const content = formData.get('content')?.toString();
-      const live_url = formData.get('live_url')?.toString();
-      const github_url = formData.get('github_url')?.toString();
-      const featured = formData.get('featured') === 'on';
+    if (actionType === "save_project") {
+      const projectId = formData.get("project_id")?.toString();
+      const title = formData.get("title")?.toString();
+      const summary = formData.get("summary")?.toString();
+      const content = formData.get("content")?.toString();
+      const live_url = formData.get("live_url")?.toString();
+      const github_url = formData.get("github_url")?.toString();
+      const featured = formData.get("featured") === "on";
 
-      const techEntries = formData.getAll('tech_stack[]').map(t => t.toString().trim()).filter(Boolean);
-      const tech_stack = techEntries.join(', ');
+      const techEntries = formData
+        .getAll("tech_stack[]")
+        .map((t) => t.toString().trim())
+        .filter(Boolean);
+      const tech_stack = techEntries.join(", ");
 
-      const image_folder = formData.get('image_folder')?.toString() || '';
-      const imageFilenamesArray = formData.getAll('image_filenames[]').map(f => f.toString().trim()).filter(Boolean);
-      const formattedImagePaths = formatImagePaths(image_folder, imageFilenamesArray);
+      const image_folder = formData.get("image_folder")?.toString() || "";
+      const imageFilenamesArray = formData
+        .getAll("image_filenames[]")
+        .map((f) => f.toString().trim())
+        .filter(Boolean);
+      const formattedImagePaths = formatImagePaths(
+        image_folder,
+        imageFilenamesArray,
+      );
 
       if (!title || !summary || !tech_stack) {
-        errorMessage = 'Title, Summary, and at least one Technology are required.';
+        errorMessage =
+          "Title, Summary, and at least one Technology are required.";
       } else {
         const payload = {
           title,
@@ -73,51 +99,59 @@ if (Astro.request.method === 'POST') {
           live_url: live_url || null,
           github_url: github_url || null,
           featured,
-          image_url: formattedImagePaths.length > 0 ? formattedImagePaths[0] : null,
-          image_filenames: formattedImagePaths.length > 0 ? formattedImagePaths : null
+          image_url:
+            formattedImagePaths.length > 0 ? formattedImagePaths[0] : null,
+          image_filenames:
+            formattedImagePaths.length > 0 ? formattedImagePaths : null,
         };
 
         if (projectId) {
-          const { error } = await supabase.from('projects').update(payload).eq('id', projectId);
+          const { error } = await supabase
+            .from("projects")
+            .update(payload)
+            .eq("id", projectId);
           if (error) throw error;
-          return Astro.redirect('/admin');
+          return Astro.redirect("/admin");
         } else {
-          const { error } = await supabase.from('projects').insert([payload]);
+          const { error } = await supabase.from("projects").insert([payload]);
           if (error) throw error;
-          successMessage = 'Project saved successfully!';
+          successMessage = "Project saved successfully!";
         }
       }
-    } else if (actionType === 'delete_project') {
-      const id = formData.get('id')?.toString();
-      await supabase.from('project_experience').delete().eq('project_id', id);
-      const { error } = await supabase.from('projects').delete().eq('id', id);
+    } else if (actionType === "delete_project") {
+      const id = formData.get("id")?.toString();
+      await supabase.from("project_experience").delete().eq("project_id", id);
+      const { error } = await supabase.from("projects").delete().eq("id", id);
       if (error) throw error;
-      return Astro.redirect('/admin');
+      return Astro.redirect("/admin");
     }
   } catch (err: any) {
-    errorMessage = err.message || 'An unexpected database error occurred.';
+    errorMessage = err.message || "An unexpected database error occurred.";
   }
 }
 
 // 2. FETCH PROJECTS, SKILLS, AND COUNTS DIRECTLY FROM DB
-const [
-  { data: projects },
-  { data: skillsData },
-  adminCounts
-] = await Promise.all([
-  supabase.from('projects').select('*').order('id', { ascending: false }),
-  supabase.from('skills').select('name, category').order('category', { ascending: true }).order('name', { ascending: true }),
-  getAdminCounts()
-]);
+const [{ data: projects }, { data: skillsData }, adminCounts] =
+  await Promise.all([
+    supabase.from("projects").select("*").order("id", { ascending: false }),
+    supabase
+      .from("skills")
+      .select("name, category")
+      .order("category", { ascending: true })
+      .order("name", { ascending: true }),
+    getAdminCounts(),
+  ]);
 
 const existingSkills = skillsData || [];
 const dbCategories = extractUniqueCategories(existingSkills);
 
-let editProject = editProjectId ? projects?.find(p => String(p.id) === String(editProjectId)) : null;
+let editProject = editProjectId
+  ? projects?.find((p) => String(p.id) === String(editProjectId))
+  : null;
 
-let existingFolder = '';
-let existingFilenamesList: string[] = [''];
-let existingTechList: string[] = [''];
+let existingFolder = "";
+let existingFilenamesList: string[] = [""];
+let existingTechList: string[] = [""];
 
 if (editProject) {
   if (editProject.tech_stack) {
@@ -130,7 +164,7 @@ if (editProject) {
 }
 ---
 
-<AdminLayout 
+<AdminLayout
   activePage="projects"
   title="Manage Projects"
   errorMessage={errorMessage}
@@ -139,152 +173,692 @@ if (editProject) {
 >
   <div class="d-flex flex-column gap-4">
     <!-- JSON Payloads for Client Scripts -->
-    <script type="application/json" id="admin-skills-data" set:html={JSON.stringify(existingSkills)} />
-    <script type="application/json" id="admin-categories-data" set:html={JSON.stringify(dbCategories)} />
-    <script type="application/json" id="admin-icon-map" set:html={JSON.stringify(techIconMap)} />
+    <script
+      type="application/json"
+      id="admin-skills-data"
+      set:html={JSON.stringify(existingSkills)}
+    />
+    <script
+      type="application/json"
+      id="admin-categories-data"
+      set:html={JSON.stringify(dbCategories)}
+    />
+    <script
+      type="application/json"
+      id="admin-icon-map"
+      set:html={JSON.stringify(techIconMap)}
+    />
 
     <!-- Project Form Card -->
     <div class="card bg-card border border-secondary p-4 rounded-4 shadow-sm">
       <div class="d-flex justify-content-between align-items-center mb-3">
-        <h3 class="text-gradient h5 mb-0 fw-bold">{editProject ? `Editing: ${editProject.title}` : 'Add New Project'}</h3>
-        {editProject && <a href="/admin" class="btn btn-outline-secondary btn-sm">Cancel Edit</a>}
+        <h3 class="text-gradient h5 mb-0 fw-bold">
+          {editProject ? `Editing: ${editProject.title}` : "Add New Project"}
+        </h3>
+        {
+          editProject && (
+            <a href="/admin" class="btn btn-outline-secondary btn-sm">
+              <i class="bi bi-x-circle me-1"></i>Cancel Edit
+            </a>
+          )
+        }
       </div>
 
       <form method="POST">
         <input type="hidden" name="action_type" value="save_project" />
-        {editProject && <input type="hidden" name="project_id" value={editProject.id} />}
+        {
+          editProject && (
+            <input type="hidden" name="project_id" value={editProject.id} />
+          )
+        }
 
         <div class="row g-3">
           <div class="col-lg-4">
             <label class="form-label text-light small">Project Title *</label>
-            <input type="text" name="title" value={editProject?.title || ''} class="form-control form-control-sm bg-dark text-light border-secondary muted-placeholder" placeholder="Project Name" required />
+            <input
+              type="text"
+              name="title"
+              value={editProject?.title || ""}
+              class="form-control form-control-sm bg-dark text-light border-secondary muted-placeholder"
+              placeholder="Project Name"
+              required
+            />
           </div>
           <div class="col-lg-4">
             <label class="form-label text-light small">Live Demo URL</label>
-            <input type="url" name="live_url" value={editProject?.live_url || ''} class="form-control form-control-sm bg-dark text-light border-secondary muted-placeholder" placeholder="https://..." />
+            <input
+              type="url"
+              name="live_url"
+              value={editProject?.live_url || ""}
+              class="form-control form-control-sm bg-dark text-light border-secondary muted-placeholder"
+              placeholder="https://..."
+            />
           </div>
           <div class="col-lg-4">
             <label class="form-label text-light small">GitHub URL</label>
-            <input type="url" name="github_url" value={editProject?.github_url || ''} class="form-control form-control-sm bg-dark text-light border-secondary muted-placeholder" placeholder="https://github.com/..." />
+            <input
+              type="url"
+              name="github_url"
+              value={editProject?.github_url || ""}
+              class="form-control form-control-sm bg-dark text-light border-secondary muted-placeholder"
+              placeholder="https://github.com/..."
+            />
           </div>
 
-          <div class="col-lg-6">
-            <label class="form-label text-light small">Summary Description (Enter lines for bullets) *</label>
-            <textarea name="summary" class="form-control form-control-sm bg-dark text-light border-secondary muted-placeholder" rows="3" placeholder="Key bullet points..." required>{editProject?.summary || ''}</textarea>
+          <div class="col-12">
+            <label class="form-label text-light small"
+              >Summary Description (Enter lines for bullets) *</label
+            >
+            <textarea
+              name="summary"
+              class="form-control form-control-sm bg-dark text-light border-secondary muted-placeholder"
+              rows="2"
+              placeholder="Key bullet points (e.g. Architected microservices, integrated Supabase auth)..."
+              required>{editProject?.summary || ""}</textarea
+            >
           </div>
-          <div class="col-lg-6">
-            <label class="form-label text-light small">Full Content (Enter lines for bullets)</label>
-            <textarea name="content" class="form-control form-control-sm bg-dark text-light border-secondary muted-placeholder" rows="3" placeholder="Technical architecture & case study...">{editProject?.content || ''}</textarea>
+
+          <!-- Markdown Content Editor -->
+          <div class="col-12">
+            <div
+              id="md-editor-main-container"
+              class="md-editor-container rounded-3 border border-secondary border-opacity-50 overflow-hidden bg-black bg-opacity-40 shadow-sm"
+            >
+              <!-- Top Bar: Title & View Switcher -->
+              <div
+                class="md-editor-header d-flex flex-wrap justify-content-between align-items-center p-2 px-3 border-bottom border-secondary border-opacity-50 bg-dark bg-opacity-75 gap-2"
+              >
+                <div class="d-flex align-items-center gap-2">
+                  <label
+                    for="markdown-editor-textarea"
+                    class="form-label text-light small fw-bold mb-0 d-flex align-items-center gap-2"
+                  >
+                    <i class="bi bi-file-earmark-code text-accent"></i>
+                    <span>Full Content / Architecture Notes</span>
+                  </label>
+                  <span
+                    class="badge rounded-pill bg-black border border-secondary text-secondary font-monospace"
+                    style="font-size: 0.65rem;"
+                  >
+                    Markdown Supported
+                  </span>
+                  <span
+                    id="md-readme-active-badge"
+                    class="badge rounded-pill bg-dark border border-info text-info font-monospace d-none"
+                    style="font-size: 0.65rem;"
+                  >
+                    <i class="bi bi-link-45deg me-1"></i>README URL Active
+                  </span>
+                </div>
+
+                <div class="d-flex align-items-center gap-2">
+                  <span
+                    id="md-char-count"
+                    class="text-muted font-monospace small d-none d-sm-inline"
+                    style="font-size: 0.7rem;">0 words • 0 chars</span
+                  >
+
+                  <div
+                    class="btn-group btn-group-sm"
+                    role="group"
+                    aria-label="Editor View"
+                  >
+                    <button
+                      type="button"
+                      class="btn btn-sm active py-0 px-2 md-view-btn"
+                      id="md-view-write"
+                      title="Write Mode"
+                    >
+                      <i class="bi bi-pencil me-1"></i>Write
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm py-0 px-2 md-view-btn"
+                      id="md-view-preview"
+                      title="Preview Mode"
+                    >
+                      <i class="bi bi-eye me-1"></i>Preview
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm py-0 px-2 d-none d-md-inline-block md-view-btn"
+                      id="md-view-split"
+                      title="Split Screen Mode"
+                    >
+                      <i class="bi bi-columns-gap me-1"></i>Split
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    class="btn btn-sm py-0 px-2 ms-1 md-btn-fullscreen"
+                    id="md-btn-fullscreen"
+                    title="Toggle Fullscreen Focus Mode"
+                  >
+                    <i class="bi bi-arrows-fullscreen" id="md-fullscreen-icon"
+                    ></i>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Format Action Toolbar -->
+              <div
+                id="md-action-toolbar"
+                class="md-editor-toolbar d-flex flex-wrap align-items-center justify-content-between gap-1 p-1 px-2 border-bottom border-secondary border-opacity-25 bg-black bg-opacity-40"
+              >
+                <div class="d-flex flex-wrap align-items-center gap-1">
+                  <!-- Text Styling -->
+                  <div class="btn-group btn-group-sm">
+                    <button
+                      type="button"
+                      class="btn btn-sm md-btn"
+                      data-action="bold"
+                      title="Bold (**text**)"
+                    >
+                      <i class="bi bi-type-bold"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm md-btn"
+                      data-action="italic"
+                      title="Italic (*text*)"
+                    >
+                      <i class="bi bi-type-italic"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm md-btn"
+                      data-action="strike"
+                      title="Strikethrough (~~text~~)"
+                    >
+                      <i class="bi bi-type-strikethrough"></i>
+                    </button>
+                  </div>
+
+                  <span
+                    class="vr mx-1 bg-secondary opacity-50"
+                    style="height: 16px;"></span>
+
+                  <!-- Headings -->
+                  <div class="btn-group btn-group-sm">
+                    <button
+                      type="button"
+                      class="btn btn-sm md-btn"
+                      data-action="h1"
+                      title="Heading 1 (# Heading)"
+                    >
+                      <i class="bi bi-type-h1"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm md-btn"
+                      data-action="h2"
+                      title="Heading 2 (## Heading)"
+                    >
+                      <i class="bi bi-type-h2"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm md-btn"
+                      data-action="h3"
+                      title="Heading 3 (### Heading)"
+                    >
+                      <i class="bi bi-type-h3"></i>
+                    </button>
+                  </div>
+
+                  <span
+                    class="vr mx-1 bg-secondary opacity-50"
+                    style="height: 16px;"></span>
+
+                  <!-- Lists & Blocks -->
+                  <div class="btn-group btn-group-sm">
+                    <button
+                      type="button"
+                      class="btn btn-sm md-btn"
+                      data-action="bullet"
+                      title="Bullet List (- item)"
+                    >
+                      <i class="bi bi-list-ul"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm md-btn"
+                      data-action="numbered"
+                      title="Numbered List (1. item)"
+                    >
+                      <i class="bi bi-list-ol"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm md-btn"
+                      data-action="task"
+                      title="Task List (- [ ] item)"
+                    >
+                      <i class="bi bi-check2-square"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm md-btn"
+                      data-action="quote"
+                      title="Quote (> quote)"
+                    >
+                      <i class="bi bi-quote"></i>
+                    </button>
+                  </div>
+
+                  <span
+                    class="vr mx-1 bg-secondary opacity-50"
+                    style="height: 16px;"></span>
+
+                  <!-- Code & Insertions -->
+                  <div class="btn-group btn-group-sm">
+                    <button
+                      type="button"
+                      class="btn btn-sm md-btn"
+                      data-action="inline-code"
+                      title="Inline Code (`code`)"
+                    >
+                      <i class="bi bi-code"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm md-btn"
+                      data-action="code-block"
+                      title="Code Block (```)"
+                    >
+                      <i class="bi bi-code-square"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm md-btn"
+                      data-action="link"
+                      title="Link ([title](url))"
+                    >
+                      <i class="bi bi-link-45deg"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm md-btn"
+                      data-action="image"
+                      title="Image (![alt](url))"
+                    >
+                      <i class="bi bi-image"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm md-btn"
+                      data-action="table"
+                      title="Table"
+                    >
+                      <i class="bi bi-table"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm md-btn"
+                      data-action="hr"
+                      title="Horizontal Line (---)"
+                    >
+                      <i class="bi bi-hr"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Special README & Action Tools -->
+                <div class="d-flex align-items-center gap-1 ms-auto">
+                  <button
+                    type="button"
+                    class="btn btn-sm md-btn-readme px-2 py-1 d-inline-flex align-items-center gap-1"
+                    id="md-toggle-readme-btn"
+                    title="Fetch or link GitHub README"
+                  >
+                    <i class="bi bi-github"></i>
+                    <span>Import README</span>
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-sm md-btn"
+                    id="md-btn-clear"
+                    title="Clear content"
+                  >
+                    <i class="bi bi-trash3"></i>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Collapsible README Import / Sync Drawer -->
+              <div
+                id="md-readme-drawer"
+                class="p-3 border-bottom border-secondary border-opacity-50 bg-black bg-opacity-70 d-none"
+              >
+                <div
+                  class="d-flex align-items-center justify-content-between mb-2"
+                >
+                  <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-github text-accent fs-5"></i>
+                    <span class="text-light small fw-bold"
+                      >Load README from GitHub or URL</span
+                    >
+                  </div>
+                  <button
+                    type="button"
+                    class="btn-close btn-close-white small"
+                    id="md-readme-close-btn"
+                    aria-label="Close"></button>
+                </div>
+
+                <div class="input-group input-group-sm mb-2">
+                  <span
+                    class="input-group-text bg-dark border-secondary text-muted font-monospace"
+                    style="font-size: 0.72rem;">URL</span
+                  >
+                  <input
+                    type="url"
+                    id="md-readme-url-input"
+                    class="form-control bg-dark text-light border-secondary muted-placeholder font-monospace"
+                    placeholder="https://github.com/owner/repo or raw.githubusercontent.com/.../README.md"
+                  />
+                  <button
+                    type="button"
+                    class="btn btn-sm md-drawer-btn"
+                    id="md-use-project-github-btn"
+                    title="Fill from project GitHub URL above"
+                  >
+                    <i class="bi bi-arrow-down-left me-1"></i>From Project
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-primary px-3"
+                    id="md-fetch-readme-btn"
+                  >
+                    <span
+                      id="md-fetch-spinner"
+                      class="spinner-border spinner-border-sm me-1 d-none"
+                      role="status"></span>
+                    <i class="bi bi-cloud-arrow-down me-1" id="md-fetch-icon"
+                    ></i>Fetch &amp; Insert
+                  </button>
+                </div>
+
+                <div
+                  class="d-flex justify-content-between align-items-center flex-wrap gap-2"
+                >
+                  <div class="text-muted small" style="font-size: 0.73rem;">
+                    <i class="bi bi-info-circle me-1 text-accent"></i>Tip: You
+                    can also just paste the README link directly into the text
+                    box below.
+                  </div>
+                  <div
+                    class="form-check form-check-inline mb-0"
+                    style="font-size: 0.75rem;"
+                  >
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      id="md-readme-append-check"
+                    />
+                    <label
+                      class="form-check-label text-muted"
+                      for="md-readme-append-check"
+                      >Append (keep existing text)</label
+                    >
+                  </div>
+                </div>
+
+                <div
+                  id="md-readme-status"
+                  class="small mt-2 p-2 rounded-2 d-none"
+                >
+                </div>
+              </div>
+
+              <!-- Main Editor Workspace (Write Pane & Preview Pane) -->
+              <div
+                class="md-editor-workspace d-flex position-relative"
+                id="md-workspace"
+              >
+                <div class="md-pane-write flex-grow-1 w-100" id="md-pane-write">
+                  <textarea
+                    id="markdown-editor-textarea"
+                    name="content"
+                    class="form-control bg-transparent text-light border-0 font-monospace md-textarea p-3 muted-placeholder"
+                    rows="9"
+                    placeholder="### Architectural Highlights
+
+Detailed write-up of engineering decisions, technical trade-offs, and outcomes...
+
+- High-throughput event processing
+- Relational database modeling with PostgreSQL
+
+(Or paste a README.md link directly here)"
+                    >{editProject?.content || ""}</textarea
+                  >
+                </div>
+                <div
+                  class="md-pane-preview flex-grow-1 w-100 d-none p-3 overflow-auto markdown-content"
+                  id="md-pane-preview"
+                  style="min-height: 240px; max-height: 500px;"
+                >
+                  <span class="text-muted fst-italic small"
+                    >Nothing to preview yet. Start typing markdown or paste a
+                    README link!</span
+                  >
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- Technologies Input Repeater -->
           <div class="col-lg-6">
-            <div class="p-3 bg-dark bg-opacity-50 border border-secondary rounded-3 h-100">
-              <div class="d-flex justify-content-between align-items-center mb-2">
+            <div
+              class="p-3 bg-dark bg-opacity-50 border border-secondary rounded-3 h-100"
+            >
+              <div
+                class="d-flex justify-content-between align-items-center mb-2"
+              >
                 <div>
-                  <label class="form-label text-accent small fw-bold mb-0">Technologies *</label>
-                  <span class="text-muted d-block" style="font-size: 0.72rem;">Autocompletes skills; prompts modal if missing in DB</span>
+                  <label class="form-label text-accent small fw-bold mb-0"
+                    >Technologies *</label
+                  >
+                  <span class="text-muted d-block" style="font-size: 0.72rem;"
+                    >Autocompletes skills; prompts modal if missing in DB</span
+                  >
                 </div>
-                <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2" id="add-tech-btn">+ Add Tech</button>
+                <button
+                  type="button"
+                  class="btn btn-outline-primary btn-sm py-0 px-2"
+                  id="add-tech-btn"
+                ><i class="bi bi-plus-circle me-1"></i>Add Tech</button>
               </div>
 
               <!-- Quick Skill Picks (Matching skills.astro 1-Click Pickers) -->
-              {existingSkills.length > 0 && (
-                <div class="mb-2 p-2 rounded-3 border border-secondary border-opacity-50 bg-black bg-opacity-30">
-                  <div class="d-flex justify-content-between align-items-center mb-1">
-                    <span class="text-muted small font-monospace" style="font-size: 0.7rem;">Quick Picks from Skills:</span>
-                    <span id="quick-picks-filter-hint" class="text-muted small" style="font-size: 0.65rem;">Click to add • filters as you type</span>
-                  </div>
-                  <div id="quick-picks-container" class="d-flex flex-wrap gap-1 align-items-center quick-picks-container" style="max-height: 84px; overflow-y: auto;">
-                    {existingSkills.map((s) => {
-                      const tInfo = getTechInfo(s.name);
-                      return (
-                        <button
-                          type="button"
-                          class="skill-quick-chip badge rounded-pill bg-dark border border-secondary text-secondary d-inline-flex align-items-center gap-1 py-1 px-2"
-                          data-skill-name={s.name}
-                          data-tech-tooltip={s.name}
-                          title={s.name}
-                        >
-                          <span class="skill-icon-wrap d-inline-flex align-items-center justify-content-center rounded-circle flex-shrink-0" style="width: 14px; height: 14px; border: none; background: transparent;">
-                            {tInfo.hasIcon ? (
-                              <img src={tInfo.iconUrl} alt={s.name} class="tech-icon-img" style="width: 11px; height: 11px;" loading="lazy" />
-                            ) : (
-                              <span style="font-size: 0.55rem;">●</span>
-                            )}
-                          </span>
-                          <span style="font-size: 0.72rem;">{s.name}</span>
-                        </button>
-                      );
-                    })}
-                    <div id="no-quick-picks-msg" class="text-muted small fst-italic d-none p-1" style="font-size: 0.72rem;">No matching skills found in database.</div>
-                  </div>
-                </div>
-              )}
-
-              <div id="tech-inputs-container" class="d-flex flex-column gap-2">
-                {existingTechList.map((tech) => {
-                  const techInfo = getTechInfo(tech);
-                  return (
-                    <div class="tech-row position-relative">
-                      <div class="d-flex align-items-center gap-2">
-                        <div 
-                          class="skill-icon-wrap position-relative d-flex align-items-center justify-content-center rounded-2 flex-shrink-0"
-                          data-tech-tooltip={tech || ''}
-                          title={tech || ''}
-                        >
-                          {techInfo.hasIcon ? (
-                            <img src={techInfo.iconUrl} alt={tech} class="tech-icon-img" loading="lazy" />
-                          ) : (
-                            <span class="text-muted font-monospace small" style="font-size: 0.65rem;">txt</span>
-                          )}
-                        </div>
-                        <div class="input-group input-group-sm flex-grow-1">
-                          <input 
-                            type="text" 
-                            name="tech_stack[]" 
-                            value={tech} 
-                            class="form-control bg-dark text-light border-secondary muted-placeholder tech-stack-input" 
-                            placeholder="e.g., C#, React" 
-                            autocomplete="off"
-                            required 
-                          />
-                          <button type="button" class="btn btn-outline-danger remove-input-btn">&times;</button>
-                        </div>
+              {
+                existingSkills.length > 0 && (
+                  <div class="mb-2 p-2 rounded-3 border border-secondary border-opacity-50 bg-black bg-opacity-30">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                      <span
+                        class="text-muted small font-monospace"
+                        style="font-size: 0.7rem;"
+                      >
+                        Quick Picks from Skills:
+                      </span>
+                      <span
+                        id="quick-picks-filter-hint"
+                        class="text-muted small"
+                        style="font-size: 0.65rem;"
+                      >
+                        Click to add • filters as you type
+                      </span>
+                    </div>
+                    <div
+                      id="quick-picks-container"
+                      class="d-flex flex-wrap gap-1 align-items-center quick-picks-container"
+                      style="max-height: 84px; overflow-y: auto;"
+                    >
+                      {existingSkills.map((s) => {
+                        const tInfo = getTechInfo(s.name);
+                        return (
+                          <button
+                            type="button"
+                            class="skill-quick-chip badge rounded-pill bg-dark border border-secondary text-secondary d-inline-flex align-items-center gap-1 py-1 px-2"
+                            data-skill-name={s.name}
+                            data-tech-tooltip={s.name}
+                            title={s.name}
+                          >
+                            <span
+                              class="skill-icon-wrap d-inline-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
+                              style="width: 14px; height: 14px; border: none; background: transparent;"
+                            >
+                              {tInfo.hasIcon ? (
+                                <img
+                                  src={tInfo.iconUrl}
+                                  alt={s.name}
+                                  class="tech-icon-img"
+                                  style="width: 11px; height: 11px;"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <span style="font-size: 0.55rem;">●</span>
+                              )}
+                            </span>
+                            <span style="font-size: 0.72rem;">{s.name}</span>
+                          </button>
+                        );
+                      })}
+                      <div
+                        id="no-quick-picks-msg"
+                        class="text-muted small fst-italic d-none p-1"
+                        style="font-size: 0.72rem;"
+                      >
+                        No matching skills found in database.
                       </div>
                     </div>
-                  );
-                })}
+                  </div>
+                )
+              }
+
+              <div id="tech-inputs-container" class="d-flex flex-column gap-2">
+                {
+                  existingTechList.map((tech) => {
+                    const techInfo = getTechInfo(tech);
+                    return (
+                      <div class="tech-row position-relative">
+                        <div class="d-flex align-items-center gap-2">
+                          <div
+                            class="skill-icon-wrap position-relative d-flex align-items-center justify-content-center rounded-2 flex-shrink-0"
+                            data-tech-tooltip={tech || ""}
+                            title={tech || ""}
+                          >
+                            {techInfo.hasIcon ? (
+                              <img
+                                src={techInfo.iconUrl}
+                                alt={tech}
+                                class="tech-icon-img"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <span
+                                class="text-muted font-monospace small"
+                                style="font-size: 0.65rem;"
+                              >
+                                txt
+                              </span>
+                            )}
+                          </div>
+                          <div class="input-group input-group-sm flex-grow-1">
+                            <input
+                              type="text"
+                              name="tech_stack[]"
+                              value={tech}
+                              class="form-control bg-dark text-light border-secondary muted-placeholder tech-stack-input"
+                              placeholder="e.g., C#, React"
+                              autocomplete="off"
+                              required
+                            />
+                            <button
+                              type="button"
+                              class="btn btn-outline-danger remove-input-btn"
+                              title="Remove item"
+                            >
+                              <i class="bi bi-trash3"></i>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                }
               </div>
             </div>
           </div>
 
           <!-- Screenshots Input Repeater -->
           <div class="col-lg-6">
-            <div class="p-3 bg-dark bg-opacity-50 border border-secondary rounded-3 h-100">
-              <div class="d-flex justify-content-between align-items-center mb-2">
-                <label class="form-label text-accent small fw-bold mb-0">Image Assets</label>
-                <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2" id="add-image-btn">+ Add Picture</button>
+            <div
+              class="p-3 bg-dark bg-opacity-50 border border-secondary rounded-3 h-100"
+            >
+              <div
+                class="d-flex justify-content-between align-items-center mb-2"
+              >
+                <label class="form-label text-accent small fw-bold mb-0"
+                  >Image Assets</label
+                >
+                <button
+                  type="button"
+                  class="btn btn-outline-primary btn-sm py-0 px-2"
+                  id="add-image-btn"
+                ><i class="bi bi-plus-circle me-1"></i>Add Picture</button>
               </div>
-              <input type="text" name="image_folder" value={existingFolder} class="form-control form-control-sm bg-dark text-light border-secondary mb-2 muted-placeholder" placeholder="Folder path e.g. /images/projects/demo" />
+              <input
+                type="text"
+                name="image_folder"
+                value={existingFolder}
+                class="form-control form-control-sm bg-dark text-light border-secondary mb-2 muted-placeholder"
+                placeholder="Folder path e.g. /images/projects/demo"
+              />
               <div id="image-inputs-container" class="d-flex flex-column gap-2">
-                {existingFilenamesList.map((file) => (
-                  <div class="input-group input-group-sm">
-                    <input type="text" name="image_filenames[]" value={file} class="form-control bg-dark text-light border-secondary muted-placeholder" placeholder="screen1.png" />
-                    <button type="button" class="btn btn-outline-danger remove-input-btn">&times;</button>
-                  </div>
-                ))}
+                {
+                  existingFilenamesList.map((file) => (
+                    <div class="input-group input-group-sm">
+                      <input
+                        type="text"
+                        name="image_filenames[]"
+                        value={file}
+                        class="form-control bg-dark text-light border-secondary muted-placeholder"
+                        placeholder="screen1.png"
+                      />
+                      <button
+                        type="button"
+                        class="btn btn-outline-danger remove-input-btn"
+                        title="Remove item"
+                      >
+                        <i class="bi bi-trash3"></i>
+                      </button>
+                    </div>
+                  ))
+                }
               </div>
             </div>
           </div>
 
-          <div class="col-12 d-flex align-items-center justify-content-between pt-2">
+          <div
+            class="col-12 d-flex align-items-center justify-content-between pt-2"
+          >
             <div class="form-check">
-              <input type="checkbox" name="featured" class="form-check-input bg-dark border-secondary" id="featuredCheck" checked={editProject?.featured} />
-              <label class="form-check-label text-light small" for="featuredCheck">Feature on Homepage</label>
+              <input
+                type="checkbox"
+                name="featured"
+                class="form-check-input bg-dark border-secondary"
+                id="featuredCheck"
+                checked={editProject?.featured}
+              />
+              <label
+                class="form-check-label text-light small"
+                for="featuredCheck">Feature on Homepage</label
+              >
             </div>
             <button type="submit" class="btn btn-primary px-4 py-2 fw-semibold">
-              {editProject ? 'Update Project' : 'Save Project to Database'}
+              <i class="bi bi-floppy me-2"></i>{editProject ? "Update Project" : "Save Project to Database"}
             </button>
           </div>
         </div>
@@ -293,84 +867,174 @@ if (editProject) {
 
     <!-- Active Projects Grid -->
     <div>
-      <h4 class="text-light h6 mb-3 fw-bold">Active Portfolio Projects ({projects?.length || 0})</h4>
-      <div class="scroll-grid-container p-2 border border-secondary border-opacity-25 rounded-4 bg-dark bg-opacity-25">
+      <h4 class="text-light h6 mb-3 fw-bold">
+        Active Portfolio Projects ({projects?.length || 0})
+      </h4>
+      <div
+        class="scroll-grid-container p-2 border border-secondary border-opacity-25 rounded-4 bg-dark bg-opacity-25"
+      >
         <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
-          {projects && projects.map((project) => (
-            <div class="col">
-              <div class={`card bg-card border ${editProjectId == project.id ? 'border-primary' : 'border-secondary'} p-3 rounded-3 h-100 d-flex flex-column justify-content-between`}>
-                <div>
-                  <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
-                    <h6 class="text-primary fw-bold mb-0 text-truncate">{project.title}</h6>
-                    {project.featured && <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 small">Featured</span>}
-                  </div>
-                  <p class="text-muted small line-clamp-2 mb-2">{project.summary}</p>
-                  <div class="d-flex flex-wrap gap-1 align-items-center mb-3">
-                    {project.tech_stack && parseTechStack(project.tech_stack).map((tech) => (
-                      <div 
-                        class="skill-icon-wrap position-relative d-flex align-items-center justify-content-center rounded-2 flex-shrink-0" 
-                        title={tech.name}
-                        data-tech-tooltip={tech.name}
-                      >
-                        {tech.hasIcon ? (
-                          <img src={tech.iconUrl} alt={tech.name} class="tech-icon-img" loading="lazy" />
-                        ) : (
-                          <span class="text-muted font-monospace small" style="font-size: 0.65rem;">txt</span>
+          {
+            projects &&
+              projects.map((project) => (
+                <div class="col">
+                  <div
+                    class={`card bg-card border ${editProjectId == project.id ? "border-primary" : "border-secondary"} p-3 rounded-3 h-100 d-flex flex-column justify-content-between`}
+                  >
+                    <div>
+                      <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                        <h6 class="text-primary fw-bold mb-0 text-truncate">
+                          {project.title}
+                        </h6>
+                        {project.featured && (
+                          <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 small">
+                            Featured
+                          </span>
                         )}
                       </div>
-                    ))}
-                    <span class="font-monospace text-accent small ms-1 text-truncate" style="max-width: 140px;" title={project.tech_stack}>
-                      {project.tech_stack}
-                    </span>
+                      <p class="text-muted small line-clamp-2 mb-2">
+                        {project.summary}
+                      </p>
+                      <div class="d-flex flex-wrap gap-1 align-items-center mb-3">
+                        {project.tech_stack &&
+                          parseTechStack(project.tech_stack).map((tech) => (
+                            <div
+                              class="skill-icon-wrap position-relative d-flex align-items-center justify-content-center rounded-2 flex-shrink-0"
+                              title={tech.name}
+                              data-tech-tooltip={tech.name}
+                            >
+                              {tech.hasIcon ? (
+                                <img
+                                  src={tech.iconUrl}
+                                  alt={tech.name}
+                                  class="tech-icon-img"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <span
+                                  class="text-muted font-monospace small"
+                                  style="font-size: 0.65rem;"
+                                >
+                                  txt
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        <span
+                          class="font-monospace text-accent small ms-1 text-truncate"
+                          style="max-width: 140px;"
+                          title={project.tech_stack}
+                        >
+                          {project.tech_stack}
+                        </span>
+                      </div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center pt-2 border-top border-secondary border-opacity-25">
+                      <a
+                        href={`/admin?edit_project=${project.id}`}
+                        class="btn btn-outline-primary btn-sm py-0 px-2"
+                      >
+                        <i class="bi bi-pencil me-1"></i>Edit
+                      </a>
+                      <form
+                        method="POST"
+                        onsubmit="return confirm('Delete this project?');"
+                        class="m-0"
+                      >
+                        <input
+                          type="hidden"
+                          name="action_type"
+                          value="delete_project"
+                        />
+                        <input type="hidden" name="id" value={project.id} />
+                        <button
+                          type="submit"
+                          class="btn btn-outline-danger btn-sm py-0 px-2"
+                        >
+                          <i class="bi bi-trash3 me-1"></i>Delete
+                        </button>
+                      </form>
+                    </div>
                   </div>
                 </div>
-                <div class="d-flex justify-content-between align-items-center pt-2 border-top border-secondary border-opacity-25">
-                  <a href={`/admin?edit_project=${project.id}`} class="btn btn-outline-primary btn-sm py-0 px-2">Edit</a>
-                  <form method="POST" onsubmit="return confirm('Delete this project?');" class="m-0">
-                    <input type="hidden" name="action_type" value="delete_project" />
-                    <input type="hidden" name="id" value={project.id} />
-                    <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2">Delete</button>
-                  </form>
-                </div>
-              </div>
-            </div>
-          ))}
+              ))
+          }
         </div>
       </div>
     </div>
   </div>
 
   <!-- New Skill Category Modal -->
-  <div class="modal fade" id="addSkillModal" tabindex="-1" aria-labelledby="addSkillModalLabel" aria-hidden="true">
+  <div
+    class="modal fade"
+    id="addSkillModal"
+    tabindex="-1"
+    aria-labelledby="addSkillModalLabel"
+    aria-hidden="true"
+  >
     <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content glass-modal border border-secondary text-light rounded-4 shadow-lg">
+      <div
+        class="modal-content glass-modal border border-secondary text-light rounded-4 shadow-lg"
+      >
         <div class="modal-header border-secondary border-opacity-50 pb-2">
           <div class="d-flex align-items-center gap-2">
-            <span class="badge rounded-circle p-2 bg-primary bg-opacity-25 text-primary border border-primary border-opacity-50">+</span>
-            <h5 class="modal-title h6 mb-0 fw-bold" id="addSkillModalLabel">Add New Skill to Database</h5>
+            <span
+              class="badge rounded-circle p-2 bg-primary bg-opacity-25 text-primary border border-primary border-opacity-50"
+              >+</span
+            >
+            <h5 class="modal-title h6 mb-0 fw-bold" id="addSkillModalLabel">
+              Add New Skill to Database
+            </h5>
           </div>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+          <button
+            type="button"
+            class="btn-close btn-close-white"
+            data-bs-dismiss="modal"
+            aria-label="Close"></button>
         </div>
         <div class="modal-body py-3">
           <p class="small text-muted mb-3">
-            <strong class="text-light" id="modal-skill-name-display">Skill</strong> was not found in your database. Pick one of your existing database categories or create a new one.
+            <strong class="text-light" id="modal-skill-name-display"
+              >Skill</strong
+            > was not found in your database. Pick one of your existing database categories
+            or create a new one.
           </p>
-          
+
           <div class="mb-3" id="modal-category-select-group">
-            <label class="form-label text-accent small fw-semibold">Database Category</label>
-            <select class="form-select form-select-sm bg-dark text-light border-secondary" id="modal-category-select">
+            <label class="form-label text-accent small fw-semibold"
+              >Database Category</label
+            >
+            <select
+              class="form-select form-select-sm bg-dark text-light border-secondary"
+              id="modal-category-select"
+            >
               <!-- Strictly filled from DB categories -->
             </select>
           </div>
 
           <div id="modal-new-category-wrap" class="d-none">
-            <label class="form-label text-accent small fw-semibold">New Category Name *</label>
-            <input type="text" id="modal-new-category-input" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="e.g. Mobile Development" />
+            <label class="form-label text-accent small fw-semibold"
+              >New Category Name *</label
+            >
+            <input
+              type="text"
+              id="modal-new-category-input"
+              class="form-control form-control-sm bg-dark text-light border-secondary"
+              placeholder="e.g. Mobile Development"
+            />
           </div>
         </div>
         <div class="modal-footer border-secondary border-opacity-50 pt-2">
-          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-          <button type="button" class="btn btn-primary btn-sm px-3" id="modal-save-skill-btn">Save to Skills</button>
+          <button
+            type="button"
+            class="btn btn-outline-secondary btn-sm"
+            data-bs-dismiss="modal"
+          ><i class="bi bi-x-circle me-1"></i>Cancel</button>
+          <button
+            type="button"
+            class="btn btn-primary btn-sm px-3"
+            id="modal-save-skill-btn"
+          ><i class="bi bi-plus-circle me-1"></i>Save to Skills</button>
         </div>
       </div>
     </div>
@@ -422,7 +1086,10 @@ if (editProject) {
     pointer-events: none;
     opacity: 0;
     visibility: hidden;
-    transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), visibility 0.2s ease;
+    transition:
+      opacity 0.2s ease,
+      transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+      visibility 0.2s ease;
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     box-shadow: var(--shadow-tooltip, 0 8px 24px rgba(0, 0, 0, 0.8));
@@ -439,11 +1106,15 @@ if (editProject) {
     transform: translateX(-50%) translateY(4px);
     border-width: 5px 4.5px 0 4.5px;
     border-style: solid;
-    border-color: rgba(var(--color-secondary-rgb, 155, 93, 229), 0.45) transparent transparent transparent;
+    border-color: rgba(var(--color-secondary-rgb, 155, 93, 229), 0.45)
+      transparent transparent transparent;
     pointer-events: none;
     opacity: 0;
     visibility: hidden;
-    transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), visibility 0.2s ease;
+    transition:
+      opacity 0.2s ease,
+      transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+      visibility 0.2s ease;
     z-index: 1070;
   }
 
@@ -463,7 +1134,8 @@ if (editProject) {
 
   .quick-picks-container {
     scrollbar-width: thin;
-    scrollbar-color: rgba(var(--color-secondary-rgb, 155, 93, 229), 0.3) transparent;
+    scrollbar-color: rgba(var(--color-secondary-rgb, 155, 93, 229), 0.3)
+      transparent;
   }
 
   .skill-quick-chip {
@@ -485,115 +1157,509 @@ if (editProject) {
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
   }
+
+  /* Markdown Editor Styles - Refined Dark Glassmorphism */
+  .md-editor-container {
+    background: rgba(14, 16, 24, 0.78) !important;
+    border: 1px solid rgba(var(--color-secondary-rgb, 155, 93, 229), 0.35) !important;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .md-editor-container:focus-within {
+    border-color: rgba(
+      var(--color-secondary-rgb, 155, 93, 229),
+      0.7
+    ) !important;
+    box-shadow: 0 0 20px rgba(var(--color-secondary-rgb, 155, 93, 229), 0.22);
+  }
+
+  /* Fullscreen Immersive Focus Mode */
+  .md-editor-container.is-fullscreen {
+    position: fixed !important;
+    top: 20px !important;
+    left: 20px !important;
+    right: 20px !important;
+    bottom: 20px !important;
+    z-index: 1090 !important;
+    max-height: calc(100vh - 40px) !important;
+    height: calc(100vh - 40px) !important;
+    box-shadow:
+      0 0 60px rgba(0, 0, 0, 0.95),
+      0 0 0 9999px rgba(0, 0, 0, 0.8) !important;
+    border-color: rgba(
+      var(--color-secondary-rgb, 155, 93, 229),
+      0.85
+    ) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    border-radius: var(--radius-lg, 12px) !important;
+  }
+
+  .md-editor-container.is-fullscreen .md-editor-workspace {
+    flex-grow: 1 !important;
+    height: calc(100% - 90px) !important;
+    overflow: hidden !important;
+  }
+
+  .md-editor-container.is-fullscreen .md-textarea,
+  .md-editor-container.is-fullscreen .md-pane-preview {
+    height: 100% !important;
+    max-height: 100% !important;
+    min-height: 100% !important;
+  }
+
+  .md-textarea {
+    resize: vertical;
+    min-height: 230px;
+    line-height: 1.65;
+    font-size: 0.88rem;
+    tab-size: 2;
+    color: #f1f5f9 !important;
+    caret-color: var(--color-primary-light, #ff79c6);
+    box-shadow: none !important;
+  }
+
+  .md-textarea:focus {
+    outline: none !important;
+    background: transparent !important;
+  }
+
+  /* Markdown Editor Toolbars */
+  .md-editor-header {
+    background: rgba(var(--card-bg-rgb, 26, 13, 36), 0.95) !important;
+    border-bottom: 1px solid
+      rgba(var(--color-secondary-rgb, 155, 93, 229), 0.35) !important;
+  }
+
+  .md-editor-toolbar {
+    background: rgba(var(--body-bg-rgb, 13, 7, 18), 0.85) !important;
+    border-bottom: 1px solid
+      rgba(var(--color-secondary-rgb, 155, 93, 229), 0.25) !important;
+  }
+
+  #md-readme-drawer {
+    background: rgba(var(--card-bg-rgb, 26, 13, 36), 0.96) !important;
+    border-bottom: 1px solid
+      rgba(var(--color-secondary-rgb, 155, 93, 229), 0.35) !important;
+  }
+
+  /* Editor Action Buttons — Distinct, Theme-Aware, High-Contrast */
+  .md-btn {
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1.25;
+    border-radius: var(--radius-xs, 4px);
+    color: var(--body-color, #ffffff) !important;
+    background: rgba(var(--card-bg-rgb, 26, 13, 36), 0.92) !important;
+    border: 1px solid rgba(var(--color-secondary-rgb, 155, 93, 229), 0.45) !important;
+    box-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.22rem 0.55rem;
+    transition: all 0.15s ease;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .md-btn strong,
+  .md-btn em,
+  .md-btn s,
+  .md-btn i,
+  .md-btn span {
+    color: inherit !important;
+    font-style: inherit;
+    line-height: inherit;
+  }
+
+  .md-btn code {
+    color: inherit !important;
+    background: transparent !important;
+    font-family: var(--bs-font-monospace, monospace);
+    font-size: 0.72rem;
+    padding: 0;
+    line-height: inherit;
+  }
+
+  .md-btn:hover {
+    color: #ffffff !important;
+    background: rgba(var(--color-secondary-rgb, 155, 93, 229), 0.35) !important;
+    border-color: var(
+      --color-primary-light,
+      var(--color-primary, #ff79c6)
+    ) !important;
+    box-shadow:
+      0 0 10px rgba(var(--color-secondary-rgb, 155, 93, 229), 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    transform: translateY(-1px);
+  }
+
+  .md-btn:active,
+  .md-btn.active {
+    background: linear-gradient(
+      135deg,
+      rgba(var(--color-primary-rgb, 232, 62, 159), 0.4) 0%,
+      rgba(var(--color-secondary-rgb, 155, 93, 229), 0.5) 100%
+    ) !important;
+    border-color: var(--color-primary-light, #ff79c6) !important;
+    color: #ffffff !important;
+    transform: translateY(0);
+  }
+
+  .btn-group > .md-btn:not(:first-child) {
+    margin-left: -1px;
+  }
+
+  .btn-group > .md-btn:hover {
+    z-index: 2;
+  }
+
+  /* Clear Button */
+  #md-btn-clear:hover {
+    color: #ffffff !important;
+    background: rgba(var(--color-danger-rgb, 255, 82, 82), 0.3) !important;
+    border-color: var(--color-danger, #ff5252) !important;
+    box-shadow: 0 0 10px rgba(var(--color-danger-rgb, 255, 82, 82), 0.5);
+  }
+
+  /* Import README Button */
+  .md-btn-readme {
+    background: rgba(var(--color-secondary-rgb, 155, 93, 229), 0.18) !important;
+    border: 1px solid rgba(var(--color-secondary-rgb, 155, 93, 229), 0.55) !important;
+    color: var(--color-primary-light, var(--color-primary, #ff79c6)) !important;
+    font-size: 0.75rem;
+    border-radius: var(--radius-xs, 4px);
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    transition: all 0.2s ease;
+  }
+
+  .md-btn-readme:hover,
+  .md-btn-readme.active {
+    background: linear-gradient(
+      135deg,
+      rgba(var(--color-primary-rgb, 232, 62, 159), 0.45) 0%,
+      rgba(var(--color-secondary-rgb, 155, 93, 229), 0.55) 100%
+    ) !important;
+    border-color: var(--color-primary-light, #ff79c6) !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 14px rgba(var(--color-secondary-rgb, 155, 93, 229), 0.5);
+    transform: translateY(-1px);
+  }
+
+  /* View Switcher, Fullscreen, & Drawer Buttons */
+  .md-view-btn,
+  .md-btn-fullscreen,
+  .md-drawer-btn {
+    font-size: 0.76rem;
+    font-weight: 500;
+    color: var(--body-color, #ffffff) !important;
+    background: rgba(var(--card-bg-rgb, 26, 13, 36), 0.9) !important;
+    border: 1px solid rgba(var(--color-secondary-rgb, 155, 93, 229), 0.45) !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    transition: all 0.15s ease;
+  }
+
+  .md-view-btn:hover,
+  .md-btn-fullscreen:hover,
+  .md-drawer-btn:hover {
+    color: #ffffff !important;
+    background: rgba(var(--color-secondary-rgb, 155, 93, 229), 0.3) !important;
+    border-color: var(
+      --color-primary-light,
+      var(--color-primary, #ff79c6)
+    ) !important;
+    box-shadow: 0 0 10px rgba(var(--color-secondary-rgb, 155, 93, 229), 0.4);
+    transform: translateY(-1px);
+  }
+
+  .md-view-btn.active {
+    background: linear-gradient(
+      135deg,
+      var(--color-primary) 0%,
+      var(--color-secondary) 100%
+    ) !important;
+    border-color: var(--color-primary-light, var(--color-primary)) !important;
+    color: var(--color-on-accent, #ffffff) !important;
+    font-weight: 600;
+    box-shadow: 0 2px 10px rgba(var(--color-secondary-rgb, 155, 93, 229), 0.45);
+    transform: none;
+  }
+
+  /* Shared Markdown Rendered Content Styles */
+  .markdown-content {
+    line-height: 1.75;
+    font-size: 0.94rem;
+    color: #e2e8f0;
+  }
+
+  .markdown-content h1,
+  .markdown-content h2,
+  .markdown-content h3,
+  .markdown-content h4 {
+    color: #ffffff;
+    font-weight: 700;
+    margin-top: 1.35rem;
+    margin-bottom: 0.65rem;
+    letter-spacing: -0.02em;
+  }
+
+  .markdown-content h1 {
+    font-size: 1.55rem;
+    border-bottom: 1px solid rgba(var(--color-secondary-rgb, 155, 93, 229), 0.3);
+    padding-bottom: 0.4rem;
+  }
+  .markdown-content h2 {
+    font-size: 1.3rem;
+    border-bottom: 1px solid rgba(var(--color-secondary-rgb, 155, 93, 229), 0.2);
+    padding-bottom: 0.3rem;
+  }
+  .markdown-content h3 {
+    font-size: 1.12rem;
+    color: var(--color-primary-light, #ff79c6);
+  }
+  .markdown-content h4 {
+    font-size: 1rem;
+    color: #cbd5e1;
+  }
+
+  .markdown-content p {
+    margin-bottom: 0.9rem;
+    color: #cbd5e1;
+  }
+
+  .markdown-content ul,
+  .markdown-content ol {
+    margin-bottom: 1.1rem;
+    padding-left: 1.5rem;
+    color: #cbd5e1;
+  }
+
+  .markdown-content li {
+    margin-bottom: 0.3rem;
+  }
+
+  .markdown-content li::marker {
+    color: var(--color-secondary, #9b5de5);
+  }
+
+  .markdown-content blockquote {
+    border-left: 3px solid var(--color-primary, #e83e9f);
+    padding: 0.6rem 1rem;
+    margin: 1.1rem 0;
+    background: linear-gradient(
+      90deg,
+      rgba(var(--color-primary-rgb, 232, 62, 159), 0.1) 0%,
+      rgba(var(--color-secondary-rgb, 155, 93, 229), 0.04) 100%
+    );
+    border-radius: 0 6px 6px 0;
+    color: #cbd5e1;
+    font-style: italic;
+  }
+
+  .markdown-content code {
+    font-family: var(--bs-font-monospace, monospace);
+    font-size: 0.86em;
+    background: rgba(10, 5, 14, 0.7);
+    color: var(--color-primary-light, #ff79c6);
+    padding: 0.15em 0.4em;
+    border-radius: 4px;
+    border: 1px solid rgba(var(--color-secondary-rgb, 155, 93, 229), 0.25);
+  }
+
+  .markdown-content pre {
+    background: rgba(10, 5, 14, 0.95);
+    border: 1px solid rgba(var(--color-secondary-rgb, 155, 93, 229), 0.25);
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 1.1rem 0;
+    overflow-x: auto;
+  }
+
+  .markdown-content pre code {
+    background: transparent;
+    border: none;
+    padding: 0;
+    color: #e2e8f0;
+    font-size: 0.86rem;
+    line-height: 1.55;
+  }
+
+  .markdown-content table {
+    width: 100%;
+    margin: 1.1rem 0;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+  }
+
+  .markdown-content th,
+  .markdown-content td {
+    padding: 0.5rem 0.8rem;
+    border: 1px solid rgba(var(--color-secondary-rgb, 155, 93, 229), 0.25);
+  }
+
+  .markdown-content th {
+    background: rgba(var(--color-secondary-rgb, 155, 93, 229), 0.18);
+    color: #ffffff;
+    font-weight: 600;
+  }
+
+  .markdown-content a {
+    color: var(--color-primary-light, #ff79c6);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    transition: color 0.15s ease;
+  }
+
+  .markdown-content a:hover {
+    color: #ffffff;
+  }
+
+  .markdown-content hr {
+    border-color: rgba(var(--color-secondary-rgb, 155, 93, 229), 0.3);
+    margin: 1.8rem 0;
+    opacity: 0.6;
+  }
 </style>
 
 <script>
+  import { marked } from "marked";
+  import { ReadmeService, isReadmeUrl } from "../../services/readmeService";
+  import { SmartEditorService } from "../../services/smartEditorService";
   declare const bootstrap: any;
 
-  document.addEventListener('DOMContentLoaded', () => {
-    const skillsScript = document.getElementById('admin-skills-data');
-    const categoriesScript = document.getElementById('admin-categories-data');
-    const iconMapScript = document.getElementById('admin-icon-map');
+  document.addEventListener("DOMContentLoaded", () => {
+    const skillsScript = document.getElementById("admin-skills-data");
+    const categoriesScript = document.getElementById("admin-categories-data");
+    const iconMapScript = document.getElementById("admin-icon-map");
 
-    let skillsList: Array<{ name: string; category: string }> = JSON.parse(skillsScript ? skillsScript.textContent || '[]' : '[]');
-    let dbCategories: string[] = JSON.parse(categoriesScript ? categoriesScript.textContent || '[]' : '[]');
-    const iconMap: Record<string, string> = JSON.parse(iconMapScript ? iconMapScript.textContent || '{}' : '{}');
+    let skillsList: Array<{ name: string; category: string }> = JSON.parse(
+      skillsScript ? skillsScript.textContent || "[]" : "[]",
+    );
+    let dbCategories: string[] = JSON.parse(
+      categoriesScript ? categoriesScript.textContent || "[]" : "[]",
+    );
+    const iconMap: Record<string, string> = JSON.parse(
+      iconMapScript ? iconMapScript.textContent || "{}" : "{}",
+    );
 
-    let pendingSkillName = '';
+    let pendingSkillName = "";
     let pendingInputEl: HTMLInputElement | null = null;
 
     // Modal elements
-    const modalEl = document.getElementById('addSkillModal');
-    const modalInstance = modalEl && typeof bootstrap !== 'undefined' ? new bootstrap.Modal(modalEl) : null;
-    const modalSkillNameDisplay = document.getElementById('modal-skill-name-display');
-    const modalCatSelect = document.getElementById('modal-category-select') as HTMLSelectElement | null;
-    const modalNewCatWrap = document.getElementById('modal-new-category-wrap');
-    const modalNewCatInput = document.getElementById('modal-new-category-input') as HTMLInputElement | null;
-    const modalSaveBtn = document.getElementById('modal-save-skill-btn');
+    const modalEl = document.getElementById("addSkillModal");
+    const modalInstance =
+      modalEl && typeof bootstrap !== "undefined"
+        ? new bootstrap.Modal(modalEl)
+        : null;
+    const modalSkillNameDisplay = document.getElementById(
+      "modal-skill-name-display",
+    );
+    const modalCatSelect = document.getElementById(
+      "modal-category-select",
+    ) as HTMLSelectElement | null;
+    const modalNewCatWrap = document.getElementById("modal-new-category-wrap");
+    const modalNewCatInput = document.getElementById(
+      "modal-new-category-input",
+    ) as HTMLInputElement | null;
+    const modalSaveBtn = document.getElementById("modal-save-skill-btn");
 
     function resolveIconUrl(name: string): { hasIcon: boolean; url: string } {
       const clean = name.trim().toLowerCase();
       const entry = iconMap[clean];
-      if (!entry) return { hasIcon: false, url: '' };
+      if (!entry) return { hasIcon: false, url: "" };
 
-      if (entry.startsWith('data:')) {
+      if (entry.startsWith("data:")) {
         return { hasIcon: true, url: entry };
       }
-      if (entry.startsWith('bi:')) {
-        return { hasIcon: true, url: `https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/icons/${entry.replace('bi:', '')}.svg` };
+      if (entry.startsWith("bi:")) {
+        return {
+          hasIcon: true,
+          url: `https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/icons/${entry.replace("bi:", "")}.svg`,
+        };
       }
-      if (entry.startsWith('devicon:')) {
-        return { hasIcon: true, url: `https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/${entry.replace('devicon:', '')}.svg` };
+      if (entry.startsWith("devicon:")) {
+        return {
+          hasIcon: true,
+          url: `https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/${entry.replace("devicon:", "")}.svg`,
+        };
       }
-      return { hasIcon: true, url: `https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/${entry.replace('si:', '')}.svg` };
+      return {
+        hasIcon: true,
+        url: `https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/${entry.replace("si:", "")}.svg`,
+      };
     }
 
     function updateRowIcon(row: HTMLElement, value: string) {
-      const iconWrap = row.querySelector('.skill-icon-wrap');
+      const iconWrap = row.querySelector(".skill-icon-wrap");
       if (!iconWrap) return;
       const { hasIcon, url } = resolveIconUrl(value);
       if (hasIcon) {
         iconWrap.innerHTML = `<img src="${url}" alt="${value}" class="tech-icon-img" loading="lazy" />`;
-        iconWrap.setAttribute('data-tech-tooltip', value);
-        iconWrap.setAttribute('title', value);
+        iconWrap.setAttribute("data-tech-tooltip", value);
+        iconWrap.setAttribute("title", value);
       } else {
         iconWrap.innerHTML = `<span class="text-muted font-monospace small" style="font-size: 0.65rem;">txt</span>`;
         if (value.trim()) {
-          iconWrap.setAttribute('data-tech-tooltip', value);
-          iconWrap.setAttribute('title', value);
+          iconWrap.setAttribute("data-tech-tooltip", value);
+          iconWrap.setAttribute("title", value);
         } else {
-          iconWrap.removeAttribute('data-tech-tooltip');
-          iconWrap.removeAttribute('title');
+          iconWrap.removeAttribute("data-tech-tooltip");
+          iconWrap.removeAttribute("title");
         }
       }
     }
 
     function updateRemoveButtons(container: HTMLElement | null) {
       if (!container) return;
-      const rows = container.querySelectorAll('.input-group');
+      const rows = container.querySelectorAll(".input-group");
       const showButtons = rows.length > 1;
       rows.forEach((row) => {
-        const btn = row.querySelector('.remove-input-btn') as HTMLElement | null;
-        if (btn) btn.style.display = showButtons ? 'block' : 'none';
+        const btn = row.querySelector(
+          ".remove-input-btn",
+        ) as HTMLElement | null;
+        if (btn) btn.style.display = showButtons ? "block" : "none";
       });
     }
 
     function populateModalCategories() {
       if (!modalCatSelect) return;
-      modalCatSelect.innerHTML = '';
+      modalCatSelect.innerHTML = "";
 
       if (dbCategories.length === 0) {
         // No existing categories in DB yet -> force new category entry
-        const opt = document.createElement('option');
-        opt.value = '__new__';
-        opt.textContent = '+ Create First Category...';
+        const opt = document.createElement("option");
+        opt.value = "__new__";
+        opt.textContent = "+ Create First Category...";
         modalCatSelect.appendChild(opt);
-        modalNewCatWrap?.classList.remove('d-none');
+        modalNewCatWrap?.classList.remove("d-none");
         modalNewCatInput?.focus();
         return;
       }
 
       // Add actual categories from database
       dbCategories.forEach((cat) => {
-        const opt = document.createElement('option');
+        const opt = document.createElement("option");
         opt.value = cat;
         opt.textContent = cat;
         modalCatSelect.appendChild(opt);
       });
 
-      const newOpt = document.createElement('option');
-      newOpt.value = '__new__';
-      newOpt.textContent = '+ Add New Category...';
+      const newOpt = document.createElement("option");
+      newOpt.value = "__new__";
+      newOpt.textContent = "+ Add New Category...";
       modalCatSelect.appendChild(newOpt);
     }
 
     if (modalCatSelect) {
-      modalCatSelect.addEventListener('change', () => {
-        if (modalCatSelect.value === '__new__') {
-          modalNewCatWrap?.classList.remove('d-none');
+      modalCatSelect.addEventListener("change", () => {
+        if (modalCatSelect.value === "__new__") {
+          modalNewCatWrap?.classList.remove("d-none");
           modalNewCatInput?.focus();
         } else {
-          modalNewCatWrap?.classList.add('d-none');
+          modalNewCatWrap?.classList.add("d-none");
         }
       });
     }
@@ -603,25 +1669,26 @@ if (editProject) {
       pendingInputEl = inputEl;
       if (!pendingSkillName) return;
 
-      if (modalSkillNameDisplay) modalSkillNameDisplay.textContent = pendingSkillName;
+      if (modalSkillNameDisplay)
+        modalSkillNameDisplay.textContent = pendingSkillName;
       populateModalCategories();
-      
+
       if (dbCategories.length > 0) {
-        modalNewCatWrap?.classList.add('d-none');
+        modalNewCatWrap?.classList.add("d-none");
       }
-      if (modalNewCatInput) modalNewCatInput.value = '';
+      if (modalNewCatInput) modalNewCatInput.value = "";
 
       if (modalInstance) {
         modalInstance.show();
       }
     }
 
-    modalSaveBtn?.addEventListener('click', async () => {
+    modalSaveBtn?.addEventListener("click", async () => {
       if (!pendingSkillName) return;
 
       let chosenCategory = modalCatSelect?.value;
-      if (chosenCategory === '__new__' || !chosenCategory) {
-        chosenCategory = modalNewCatInput?.value?.trim() || '';
+      if (chosenCategory === "__new__" || !chosenCategory) {
+        chosenCategory = modalNewCatInput?.value?.trim() || "";
       }
 
       if (!chosenCategory) {
@@ -631,13 +1698,13 @@ if (editProject) {
 
       try {
         const formData = new FormData();
-        formData.append('action_type', 'create_skill_ajax');
-        formData.append('name', pendingSkillName);
-        formData.append('category', chosenCategory);
+        formData.append("action_type", "create_skill_ajax");
+        formData.append("name", pendingSkillName);
+        formData.append("category", chosenCategory);
 
-        const res = await fetch('/admin', {
-          method: 'POST',
-          body: formData
+        const res = await fetch("/admin", {
+          method: "POST",
+          body: formData,
         });
 
         const result = await res.json();
@@ -648,42 +1715,49 @@ if (editProject) {
             dbCategories.sort();
           }
           if (pendingInputEl) {
-            const row = pendingInputEl.closest('.tech-row') as HTMLElement | null;
+            const row = pendingInputEl.closest(
+              ".tech-row",
+            ) as HTMLElement | null;
             if (row) updateRowIcon(row, pendingSkillName);
           }
 
           // Add newly registered skill to Quick Picks
-          const quickContainer = document.getElementById('quick-picks-container');
+          const quickContainer = document.getElementById(
+            "quick-picks-container",
+          );
           if (quickContainer) {
             const { hasIcon, url } = resolveIconUrl(pendingSkillName);
-            const newChip = document.createElement('button');
-            newChip.type = 'button';
-            newChip.className = 'skill-quick-chip badge rounded-pill bg-dark border border-secondary text-secondary d-inline-flex align-items-center gap-1 py-1 px-2';
-            newChip.setAttribute('data-skill-name', pendingSkillName);
-            newChip.setAttribute('data-tech-tooltip', pendingSkillName);
+            const newChip = document.createElement("button");
+            newChip.type = "button";
+            newChip.className =
+              "skill-quick-chip badge rounded-pill bg-dark border border-secondary text-secondary d-inline-flex align-items-center gap-1 py-1 px-2";
+            newChip.setAttribute("data-skill-name", pendingSkillName);
+            newChip.setAttribute("data-tech-tooltip", pendingSkillName);
             newChip.title = pendingSkillName;
             newChip.innerHTML = `
               <span class="skill-icon-wrap d-inline-flex align-items-center justify-content-center rounded-circle flex-shrink-0" style="width: 14px; height: 14px; border: none; background: transparent;">
-                ${hasIcon 
-                  ? `<img src="${url}" alt="${pendingSkillName}" class="tech-icon-img" style="width: 11px; height: 11px;" loading="lazy" />` 
-                  : `<span style="font-size: 0.55rem;">●</span>`}
+                ${
+                  hasIcon
+                    ? `<img src="${url}" alt="${pendingSkillName}" class="tech-icon-img" style="width: 11px; height: 11px;" loading="lazy" />`
+                    : `<span style="font-size: 0.55rem;">●</span>`
+                }
               </span>
               <span style="font-size: 0.72rem;">${pendingSkillName}</span>
             `;
             bindQuickChip(newChip);
-            const noMatchEl = document.getElementById('no-quick-picks-msg');
+            const noMatchEl = document.getElementById("no-quick-picks-msg");
             if (noMatchEl) {
               quickContainer.insertBefore(newChip, noMatchEl);
             } else {
               quickContainer.appendChild(newChip);
             }
           }
-          filterQuickPicks('');
+          filterQuickPicks("");
 
           if (modalInstance) modalInstance.hide();
         }
       } catch (err) {
-        console.error('Failed to auto-save skill:', err);
+        console.error("Failed to auto-save skill:", err);
       }
     });
 
@@ -691,79 +1765,88 @@ if (editProject) {
 
     function filterQuickPicks(filterText: string) {
       const query = filterText.trim().toLowerCase();
-      const chips = document.querySelectorAll<HTMLElement>('.skill-quick-chip');
+      const chips = document.querySelectorAll<HTMLElement>(".skill-quick-chip");
       let visibleCount = 0;
 
       chips.forEach((chip) => {
-        const skillName = chip.getAttribute('data-skill-name') || '';
+        const skillName = chip.getAttribute("data-skill-name") || "";
         const match = !query || skillName.toLowerCase().includes(query);
         if (match) {
-          chip.classList.remove('d-none');
+          chip.classList.remove("d-none");
           visibleCount++;
         } else {
-          chip.classList.add('d-none');
+          chip.classList.add("d-none");
         }
       });
 
-      const noMatchEl = document.getElementById('no-quick-picks-msg');
-      const hintEl = document.getElementById('quick-picks-filter-hint');
+      const noMatchEl = document.getElementById("no-quick-picks-msg");
+      const hintEl = document.getElementById("quick-picks-filter-hint");
 
       if (hintEl) {
         if (query) {
-          hintEl.textContent = `Filtering: "${filterText.trim()}" (${visibleCount} match${visibleCount === 1 ? '' : 'es'})`;
+          hintEl.textContent = `Filtering: "${filterText.trim()}" (${visibleCount} match${visibleCount === 1 ? "" : "es"})`;
         } else {
-          hintEl.textContent = 'Click to add • filters as you type';
+          hintEl.textContent = "Click to add • filters as you type";
         }
       }
 
       if (noMatchEl) {
         if (visibleCount === 0 && query.length > 0) {
           noMatchEl.textContent = `No saved skills match "${filterText.trim()}". Press Enter or Tab to register it.`;
-          noMatchEl.classList.remove('d-none');
+          noMatchEl.classList.remove("d-none");
         } else {
-          noMatchEl.classList.add('d-none');
+          noMatchEl.classList.add("d-none");
         }
       }
     }
 
     function setupTechInputRow(row: HTMLElement) {
-      const inputEl = row.querySelector('.tech-stack-input') as HTMLInputElement | null;
+      const inputEl = row.querySelector(
+        ".tech-stack-input",
+      ) as HTMLInputElement | null;
       if (!inputEl) return;
       const input: HTMLInputElement = inputEl;
 
-      input.addEventListener('input', () => {
+      input.addEventListener("input", () => {
         activeTechInput = input;
         updateRowIcon(row, input.value);
         filterQuickPicks(input.value);
       });
 
-      input.addEventListener('focus', () => {
+      input.addEventListener("focus", () => {
         activeTechInput = input;
         filterQuickPicks(input.value);
       });
 
-      input.addEventListener('blur', () => {
+      input.addEventListener("blur", () => {
         setTimeout(() => {
-          if (document.activeElement && !document.activeElement.classList.contains('tech-stack-input')) {
-            filterQuickPicks('');
+          if (
+            document.activeElement &&
+            !document.activeElement.classList.contains("tech-stack-input")
+          ) {
+            filterQuickPicks("");
           }
 
           const trimmed = input.value.trim();
           if (!trimmed) return;
 
-          const exists = skillsList.some(s => s.name.toLowerCase() === trimmed.toLowerCase());
+          const exists = skillsList.some(
+            (s) => s.name.toLowerCase() === trimmed.toLowerCase(),
+          );
           if (!exists) {
             openSkillModal(trimmed, input);
           }
         }, 200);
       });
 
-      input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
           e.preventDefault();
           const trimmed = input.value.trim();
           if (trimmed) {
-            const exists = skillsList.some(s => s.name.toLowerCase() === trimmed.toLowerCase());
+            const exists = skillsList.some(
+              (s) => s.name.toLowerCase() === trimmed.toLowerCase(),
+            );
             if (!exists) {
               openSkillModal(trimmed, input);
             }
@@ -772,10 +1855,15 @@ if (editProject) {
       });
     }
 
-    function createInputRow(name: string, placeholder: string, isRequired = false, isTech = false) {
+    function createInputRow(
+      name: string,
+      placeholder: string,
+      isRequired = false,
+      isTech = false,
+    ) {
       if (isTech) {
-        const row = document.createElement('div');
-        row.className = 'tech-row position-relative';
+        const row = document.createElement("div");
+        row.className = "tech-row position-relative";
         row.innerHTML = `
           <div class="d-flex align-items-center gap-2">
             <div class="skill-icon-wrap position-relative d-flex align-items-center justify-content-center rounded-2 flex-shrink-0">
@@ -788,15 +1876,15 @@ if (editProject) {
                 class="form-control bg-dark text-light border-secondary muted-placeholder tech-stack-input" 
                 placeholder="${placeholder}" 
                 autocomplete="off"
-                ${isRequired ? 'required' : ''} 
+                ${isRequired ? "required" : ""} 
               />
-              <button type="button" class="btn btn-outline-danger remove-input-btn">&times;</button>
+              <button type="button" class="btn btn-outline-danger remove-input-btn" title="Remove item"><i class="bi bi-trash3"></i></button>
             </div>
           </div>
         `;
 
-        const removeBtn = row.querySelector('.remove-input-btn');
-        removeBtn?.addEventListener('click', () => {
+        const removeBtn = row.querySelector(".remove-input-btn");
+        removeBtn?.addEventListener("click", () => {
           const container = row.parentElement;
           row.remove();
           updateRemoveButtons(container);
@@ -805,22 +1893,23 @@ if (editProject) {
         setupTechInputRow(row);
         return row;
       } else {
-        const row = document.createElement('div');
-        row.className = 'input-group input-group-sm';
-        const input = document.createElement('input');
-        input.type = 'text';
+        const row = document.createElement("div");
+        row.className = "input-group input-group-sm";
+        const input = document.createElement("input");
+        input.type = "text";
         input.name = name;
-        input.className = 'form-control bg-dark text-light border-secondary muted-placeholder';
+        input.className =
+          "form-control bg-dark text-light border-secondary muted-placeholder";
         input.placeholder = placeholder;
         if (isRequired) input.required = true;
 
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'btn btn-outline-danger remove-input-btn';
-        button.title = 'Remove item';
-        button.innerHTML = '&times;';
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "btn btn-outline-danger remove-input-btn";
+        button.title = "Remove item";
+        button.innerHTML = '<i class="bi bi-trash3"></i>';
 
-        button.addEventListener('click', () => {
+        button.addEventListener("click", () => {
           const container = row.parentElement;
           row.remove();
           updateRemoveButtons(container);
@@ -833,16 +1922,19 @@ if (editProject) {
     }
 
     // Initialize existing tech rows
-    document.querySelectorAll<HTMLElement>('.tech-row').forEach(setupTechInputRow);
+    document
+      .querySelectorAll<HTMLElement>(".tech-row")
+      .forEach(setupTechInputRow);
 
     // Initial remove buttons state
-    const techContainer = document.getElementById('tech-inputs-container');
-    const imageContainer = document.getElementById('image-inputs-container');
+    const techContainer = document.getElementById("tech-inputs-container");
+    const imageContainer = document.getElementById("image-inputs-container");
 
-    document.querySelectorAll('.remove-input-btn').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
+    document.querySelectorAll(".remove-input-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
         const target = e.currentTarget as HTMLElement;
-        const row = target.closest('.tech-row') || target.closest('.input-group');
+        const row =
+          target.closest(".tech-row") || target.closest(".input-group");
         const container = row?.parentElement as HTMLElement | null;
         row?.remove();
         updateRemoveButtons(container);
@@ -853,73 +1945,464 @@ if (editProject) {
     updateRemoveButtons(imageContainer);
 
     function bindQuickChip(btn: HTMLElement) {
-      btn.addEventListener('mousedown', (e) => {
+      btn.addEventListener("mousedown", (e) => {
         e.preventDefault();
       });
 
-      btn.addEventListener('click', () => {
-        const skillName = btn.getAttribute('data-skill-name');
+      btn.addEventListener("click", () => {
+        const skillName = btn.getAttribute("data-skill-name");
         if (!skillName || !techContainer) return;
 
-        const inputs = Array.from(techContainer.querySelectorAll<HTMLInputElement>('.tech-stack-input'));
+        const inputs = Array.from(
+          techContainer.querySelectorAll<HTMLInputElement>(".tech-stack-input"),
+        );
         let targetInput: HTMLInputElement | null = null;
 
         if (activeTechInput && activeTechInput.isConnected) {
           const currentVal = activeTechInput.value.trim().toLowerCase();
-          const isCompleteSkill = skillsList.some(s => s.name.toLowerCase() === currentVal);
+          const isCompleteSkill = skillsList.some(
+            (s) => s.name.toLowerCase() === currentVal,
+          );
           if (!currentVal || !isCompleteSkill) {
             targetInput = activeTechInput;
           }
         }
 
         if (!targetInput) {
-          const emptyInput = inputs.find(i => !i.value.trim());
+          const emptyInput = inputs.find((i) => !i.value.trim());
           if (emptyInput) {
             targetInput = emptyInput;
           } else {
-            const alreadyAdded = inputs.some(i => i.value.trim().toLowerCase() === skillName.toLowerCase());
+            const alreadyAdded = inputs.some(
+              (i) => i.value.trim().toLowerCase() === skillName.toLowerCase(),
+            );
             if (alreadyAdded) {
-              filterQuickPicks('');
+              filterQuickPicks("");
               return;
             }
-            const newRow = createInputRow('tech_stack[]', 'e.g., C#, React', true, true);
+            const newRow = createInputRow(
+              "tech_stack[]",
+              "e.g., C#, React",
+              true,
+              true,
+            );
             techContainer.appendChild(newRow);
             updateRemoveButtons(techContainer);
-            targetInput = newRow.querySelector<HTMLInputElement>('.tech-stack-input');
+            targetInput =
+              newRow.querySelector<HTMLInputElement>(".tech-stack-input");
           }
         }
 
         if (targetInput) {
           targetInput.value = skillName;
-          const row = targetInput.closest('.tech-row') as HTMLElement | null;
+          const row = targetInput.closest(".tech-row") as HTMLElement | null;
           if (row) updateRowIcon(row, skillName);
           targetInput.focus();
           activeTechInput = targetInput;
         }
 
-        filterQuickPicks('');
+        filterQuickPicks("");
       });
     }
 
     // Quick tech chips 1-click addition
-    document.querySelectorAll<HTMLElement>('.skill-quick-chip').forEach(bindQuickChip);
+    document
+      .querySelectorAll<HTMLElement>(".skill-quick-chip")
+      .forEach(bindQuickChip);
 
-    document.getElementById('add-tech-btn')?.addEventListener('click', () => {
+    document.getElementById("add-tech-btn")?.addEventListener("click", () => {
       if (!techContainer) return;
-      const newRow = createInputRow('tech_stack[]', 'e.g., Supabase', true, true);
+      const newRow = createInputRow(
+        "tech_stack[]",
+        "e.g., Supabase",
+        true,
+        true,
+      );
       techContainer.appendChild(newRow);
       updateRemoveButtons(techContainer);
-      const input = newRow.querySelector('input');
+      const input = newRow.querySelector("input");
       if (input) input.focus();
     });
 
-    document.getElementById('add-image-btn')?.addEventListener('click', () => {
+    document.getElementById("add-image-btn")?.addEventListener("click", () => {
       if (!imageContainer) return;
-      const newRow = createInputRow('image_filenames[]', 'screenshot.png', false, false);
+      const newRow = createInputRow(
+        "image_filenames[]",
+        "screenshot.png",
+        false,
+        false,
+      );
       imageContainer.appendChild(newRow);
       updateRemoveButtons(imageContainer);
-      const input = newRow.querySelector('input');
+      const input = newRow.querySelector("input");
       if (input) input.focus();
+    });
+
+    // --- Interactive Markdown Editor ---
+    const mdContainer = document.getElementById("md-editor-main-container");
+    const mdTextarea = document.getElementById(
+      "markdown-editor-textarea",
+    ) as HTMLTextAreaElement | null;
+    const mdPreview = document.getElementById("md-pane-preview");
+    const mdPaneWrite = document.getElementById("md-pane-write");
+    const mdViewWrite = document.getElementById("md-view-write");
+    const mdViewPreview = document.getElementById("md-view-preview");
+    const mdViewSplit = document.getElementById("md-view-split");
+    const mdCharCount = document.getElementById("md-char-count");
+    const mdToolbar = document.getElementById("md-action-toolbar");
+    const mdReadmeBadge = document.getElementById("md-readme-active-badge");
+    const mdFullscreenBtn = document.getElementById("md-btn-fullscreen");
+    const mdFullscreenIcon = document.getElementById("md-fullscreen-icon");
+
+    // README Drawer Elements
+    const mdToggleReadmeBtn = document.getElementById("md-toggle-readme-btn");
+    const mdReadmeDrawer = document.getElementById("md-readme-drawer");
+    const mdReadmeCloseBtn = document.getElementById("md-readme-close-btn");
+    const mdReadmeUrlInput = document.getElementById(
+      "md-readme-url-input",
+    ) as HTMLInputElement | null;
+    const mdUseProjectGithubBtn = document.getElementById(
+      "md-use-project-github-btn",
+    );
+    const mdFetchReadmeBtn = document.getElementById("md-fetch-readme-btn");
+    const mdFetchSpinner = document.getElementById("md-fetch-spinner");
+    const mdFetchIcon = document.getElementById("md-fetch-icon");
+    const mdReadmeAppendCheck = document.getElementById(
+      "md-readme-append-check",
+    ) as HTMLInputElement | null;
+    const mdReadmeStatus = document.getElementById("md-readme-status");
+    const mdClearBtn = document.getElementById("md-btn-clear");
+    const projectGithubInput = document.querySelector<HTMLInputElement>(
+      'input[name="github_url"]',
+    );
+
+    let mdCurrentMode: "write" | "preview" | "split" = "write";
+    let isFullscreen = false;
+
+    function updateMdCharCount() {
+      if (!mdTextarea || !mdCharCount) return;
+      const text = mdTextarea.value;
+      const chars = text.length;
+      const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+      mdCharCount.textContent = `${words} word${words === 1 ? "" : "s"} • ${chars} chars`;
+
+      if (mdReadmeBadge) {
+        if (isReadmeUrl(text.trim())) {
+          mdReadmeBadge.classList.remove("d-none");
+        } else {
+          mdReadmeBadge.classList.add("d-none");
+        }
+      }
+    }
+
+    let previewDebounceTimer: any = null;
+
+    async function renderMdPreview() {
+      if (!mdTextarea || !mdPreview) return;
+      const raw = mdTextarea.value.trim();
+      if (!raw) {
+        mdPreview.innerHTML =
+          '<span class="text-muted fst-italic small">Nothing to preview yet. Start typing markdown or paste a README link!</span>';
+        return;
+      }
+
+      // Check if user entered a README link directly
+      if (isReadmeUrl(raw)) {
+        mdPreview.innerHTML = `
+          <div class="d-flex align-items-center gap-2 text-info small py-3">
+            <span class="spinner-border spinner-border-sm" role="status"></span>
+            <span>Fetching live README from <code>${raw}</code>...</span>
+          </div>
+        `;
+        const { markdown: text, error } = await ReadmeService.fetchReadme(raw);
+        if (text) {
+          const html = marked.parse(text, {
+            gfm: true,
+            breaks: true,
+          }) as string;
+          mdPreview.innerHTML = `
+            <div class="p-2 mb-3 rounded-3 border border-secondary border-opacity-50 bg-black bg-opacity-40 d-flex align-items-center justify-content-between flex-wrap gap-2">
+              <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-github text-accent"></i>
+                <span class="small text-light font-monospace" style="font-size: 0.75rem;">Live README Linked (${raw})</span>
+              </div>
+              <button type="button" class="btn btn-sm btn-outline-primary py-0 px-2" id="md-expand-linked-btn" style="font-size: 0.72rem;">
+                <i class="bi bi-file-earmark-arrow-down me-1"></i>Load Raw Markdown into Text Box
+              </button>
+            </div>
+            ${html}
+          `;
+          mdPreview
+            .querySelector("#md-expand-linked-btn")
+            ?.addEventListener("click", () => {
+              if (mdTextarea) {
+                mdTextarea.value = text;
+                updateMdCharCount();
+                renderMdPreview();
+              }
+            });
+        } else {
+          mdPreview.innerHTML = `
+            <div class="p-3 text-warning small border border-warning border-opacity-25 rounded-3 bg-dark">
+              <i class="bi bi-exclamation-triangle me-1"></i>Could not load README from URL: ${error || "Unknown error"}
+            </div>
+          `;
+        }
+        return;
+      }
+
+      try {
+        const html = marked.parse(raw, { gfm: true, breaks: true }) as string;
+        mdPreview.innerHTML = html;
+      } catch (err) {
+        mdPreview.innerHTML = `<div class="text-danger small">Markdown render error: ${err}</div>`;
+      }
+    }
+
+    function schedulePreviewRender() {
+      if (mdCurrentMode === "write") return;
+      clearTimeout(previewDebounceTimer);
+      previewDebounceTimer = setTimeout(renderMdPreview, 150);
+    }
+
+    function setMdMode(mode: "write" | "preview" | "split") {
+      mdCurrentMode = mode;
+      mdViewWrite?.classList.toggle("active", mode === "write");
+      mdViewPreview?.classList.toggle("active", mode === "preview");
+      mdViewSplit?.classList.toggle("active", mode === "split");
+
+      if (mode === "write") {
+        mdPaneWrite?.classList.remove("d-none", "w-50");
+        mdPaneWrite?.classList.add("w-100");
+        mdPreview?.classList.add("d-none");
+        mdPreview?.classList.remove(
+          "w-50",
+          "border-start",
+          "border-secondary",
+          "border-opacity-50",
+        );
+      } else if (mode === "preview") {
+        renderMdPreview();
+        mdPaneWrite?.classList.add("d-none");
+        mdPaneWrite?.classList.remove("w-50", "w-100");
+        mdPreview?.classList.remove("d-none", "w-50");
+        mdPreview?.classList.add("w-100");
+        mdPreview?.classList.remove(
+          "border-start",
+          "border-secondary",
+          "border-opacity-50",
+        );
+      } else if (mode === "split") {
+        renderMdPreview();
+        mdPaneWrite?.classList.remove("d-none", "w-100");
+        mdPaneWrite?.classList.add("w-50");
+        mdPreview?.classList.remove("d-none", "w-100");
+        mdPreview?.classList.add(
+          "w-50",
+          "border-start",
+          "border-secondary",
+          "border-opacity-50",
+        );
+      }
+    }
+
+    function toggleFullscreen() {
+      isFullscreen = !isFullscreen;
+      if (mdContainer) {
+        mdContainer.classList.toggle("is-fullscreen", isFullscreen);
+      }
+      if (mdFullscreenIcon) {
+        mdFullscreenIcon.className = isFullscreen
+          ? "bi bi-fullscreen-exit"
+          : "bi bi-arrows-fullscreen";
+      }
+    }
+
+    function insertMarkdown(before: string, after = "", defaultText = "") {
+      if (!mdTextarea) return;
+      SmartEditorService.insertFormatting(
+        mdTextarea,
+        before,
+        after,
+        defaultText,
+        () => {
+          updateMdCharCount();
+          schedulePreviewRender();
+        }
+      );
+    }
+
+    if (mdTextarea) {
+      updateMdCharCount();
+
+      mdTextarea.addEventListener("input", () => {
+        updateMdCharCount();
+        schedulePreviewRender();
+      });
+
+      // Attach smart list continuation, pair auto-closing, selection wrapping, and tab indentation
+      SmartEditorService.attach(mdTextarea, {
+        enableAutoList: true,
+        enablePairs: true,
+        enableSelectionWrap: true,
+        enableSmartTab: true,
+        enableShortcuts: true,
+        indentSize: 2,
+        onUpdate: () => {
+          updateMdCharCount();
+          schedulePreviewRender();
+        },
+      });
+
+      mdTextarea.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && isFullscreen) {
+          toggleFullscreen();
+        }
+      });
+    }
+
+    // Also attach smart bullet list continuation to the project summary description textarea
+    const summaryInput = document.querySelector<HTMLTextAreaElement>(
+      'textarea[name="summary"]'
+    );
+    if (summaryInput) {
+      SmartEditorService.attach(summaryInput, {
+        enableAutoList: true,
+        enableSmartTab: true,
+        enablePairs: false,
+        enableShortcuts: false,
+      });
+    }
+
+    mdViewWrite?.addEventListener("click", () => setMdMode("write"));
+    mdViewPreview?.addEventListener("click", () => setMdMode("preview"));
+    mdViewSplit?.addEventListener("click", () => setMdMode("split"));
+    mdFullscreenBtn?.addEventListener("click", toggleFullscreen);
+
+    mdClearBtn?.addEventListener("click", () => {
+      if (!mdTextarea) return;
+      if (confirm("Are you sure you want to clear the editor content?")) {
+        mdTextarea.value = "";
+        updateMdCharCount();
+        renderMdPreview();
+      }
+    });
+
+    // README Drawer Toggling & Fetching
+    mdToggleReadmeBtn?.addEventListener("click", () => {
+      if (!mdReadmeDrawer) return;
+      const isHidden = mdReadmeDrawer.classList.contains("d-none");
+      if (isHidden) {
+        mdReadmeDrawer.classList.remove("d-none");
+        mdToggleReadmeBtn.classList.add("active");
+        if (
+          mdReadmeUrlInput &&
+          !mdReadmeUrlInput.value &&
+          projectGithubInput?.value
+        ) {
+          mdReadmeUrlInput.value = projectGithubInput.value.trim();
+        }
+        mdReadmeUrlInput?.focus();
+      } else {
+        mdReadmeDrawer.classList.add("d-none");
+        mdToggleReadmeBtn.classList.remove("active");
+      }
+    });
+
+    mdReadmeCloseBtn?.addEventListener("click", () => {
+      mdReadmeDrawer?.classList.add("d-none");
+      mdToggleReadmeBtn?.classList.remove("active");
+    });
+
+    mdUseProjectGithubBtn?.addEventListener("click", () => {
+      if (projectGithubInput?.value && mdReadmeUrlInput) {
+        mdReadmeUrlInput.value = projectGithubInput.value.trim();
+      }
+    });
+
+    mdFetchReadmeBtn?.addEventListener("click", async () => {
+      const url = mdReadmeUrlInput?.value.trim();
+      if (!url) {
+        if (mdReadmeStatus) {
+          mdReadmeStatus.className =
+            "small mt-2 p-2 rounded-2 bg-danger bg-opacity-25 text-danger border border-danger border-opacity-50";
+          mdReadmeStatus.textContent =
+            "Please enter a GitHub repository or raw README URL.";
+          mdReadmeStatus.classList.remove("d-none");
+        }
+        return;
+      }
+
+      mdFetchSpinner?.classList.remove("d-none");
+      mdFetchIcon?.classList.add("d-none");
+      if (mdReadmeStatus) mdReadmeStatus.classList.add("d-none");
+
+      const { markdown: text, error } = await ReadmeService.fetchReadme(url);
+
+      mdFetchSpinner?.classList.add("d-none");
+      mdFetchIcon?.classList.remove("d-none");
+
+      if (text && mdTextarea) {
+        const isAppend = mdReadmeAppendCheck?.checked;
+        if (isAppend && mdTextarea.value.trim()) {
+          mdTextarea.value = mdTextarea.value.trim() + "\n\n" + text;
+        } else {
+          mdTextarea.value = text;
+        }
+
+        updateMdCharCount();
+        renderMdPreview();
+        setMdMode("preview");
+
+        if (mdReadmeStatus) {
+          mdReadmeStatus.className =
+            "small mt-2 p-2 rounded-2 bg-success bg-opacity-25 text-success border border-success border-opacity-50";
+          mdReadmeStatus.innerHTML = `<i class="bi bi-check-circle me-1"></i>Successfully loaded README (${text.length} characters)!`;
+          mdReadmeStatus.classList.remove("d-none");
+        }
+
+        setTimeout(() => {
+          mdReadmeDrawer?.classList.add("d-none");
+          mdToggleReadmeBtn?.classList.remove("active");
+        }, 1500);
+      } else {
+        if (mdReadmeStatus) {
+          mdReadmeStatus.className =
+            "small mt-2 p-2 rounded-2 bg-danger bg-opacity-25 text-danger border border-danger border-opacity-50";
+          mdReadmeStatus.innerHTML = `<i class="bi bi-x-circle me-1"></i>${error || "Failed to fetch README."}`;
+          mdReadmeStatus.classList.remove("d-none");
+        }
+      }
+    });
+
+    mdToolbar?.querySelectorAll<HTMLButtonElement>(".md-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        const action = btn.getAttribute("data-action");
+        if (action === "bold") insertMarkdown("**", "**", "bold text");
+        else if (action === "italic") insertMarkdown("*", "*", "italic text");
+        else if (action === "strike")
+          insertMarkdown("~~", "~~", "strikethrough text");
+        else if (action === "h1") insertMarkdown("# ", "", "Heading 1");
+        else if (action === "h2") insertMarkdown("## ", "", "Heading 2");
+        else if (action === "h3") insertMarkdown("### ", "", "Heading 3");
+        else if (action === "bullet") insertMarkdown("- ", "", "List item");
+        else if (action === "numbered") insertMarkdown("1. ", "", "List item");
+        else if (action === "task") insertMarkdown("- [ ] ", "", "Task item");
+        else if (action === "quote") insertMarkdown("> ", "", "Quote text");
+        else if (action === "inline-code") insertMarkdown("`", "`", "code");
+        else if (action === "code-block")
+          insertMarkdown("```ts\n", "\n```\n", "// Code snippet");
+        else if (action === "link")
+          insertMarkdown("[", "](https://)", "Link text");
+        else if (action === "image")
+          insertMarkdown("![", "](https://)", "Image description");
+        else if (action === "table")
+          insertMarkdown(
+            "\n| Column 1 | Column 2 |\n| --- | --- |\n| Item 1 | Detail 1 |\n| Item 2 | Detail 2 |\n",
+          );
+        else if (action === "hr") insertMarkdown("\n\n---\n\n");
+      });
     });
   });
 </script>
