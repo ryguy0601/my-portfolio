@@ -1,7 +1,8 @@
 ---
 import "../styles/main.scss";
-import { createClient } from '@supabase/supabase-js';
-import { sanitizeTheme, themeStyle } from '../utils/theme';
+import { supabase } from '../utils/supabase';
+import { getPersistedTheme, themeStyle } from '../utils/theme';
+import { getBaseUrl, getAdminUrl } from '../utils/url';
 
 interface Props {
   title?: string;
@@ -13,27 +14,9 @@ const {
   hasHero = false 
 } = Astro.props;
 
-const baseUrl = import.meta.env.BASE_URL.endsWith('/')
-  ? import.meta.env.BASE_URL
-  : `${import.meta.env.BASE_URL}/`;
-const adminUrl = import.meta.env.PUBLIC_ADMIN_URL || `${baseUrl}admin`;
-
-let persistedTheme = {};
-try {
-  const supabase = createClient(
-    import.meta.env.PUBLIC_SUPABASE_URL,
-    import.meta.env.SUPABASE_SERVICE_ROLE_KEY
-  );
-  const { data, error } = await supabase
-    .from('site_theme')
-    .select('variables')
-    .eq('id', 'default')
-    .maybeSingle();
-  if (error) throw error;
-  persistedTheme = sanitizeTheme(data?.variables);
-} catch (error) {
-  console.error('Unable to load persisted theme:', error);
-}
+const baseUrl = getBaseUrl();
+const adminUrl = getAdminUrl();
+const persistedTheme = await getPersistedTheme(supabase);
 ---
 
 <!doctype html>

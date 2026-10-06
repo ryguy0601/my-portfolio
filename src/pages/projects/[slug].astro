@@ -1,18 +1,17 @@
 ---
 // src/pages/projects/[slug].astro
-import { createClient } from '@supabase/supabase-js';
 import Layout from '../../layouts/Layout.astro';
 import TechBadgeList from '../../components/TechBadgeList.astro';
+import { supabase } from '../../utils/supabase';
+import { getBaseUrl } from '../../utils/url';
+import { parseProjectImages } from '../../utils/projects';
+import { splitLines, splitCommaList } from '../../utils/text';
 import '../../styles/main.scss';
 
 const { slug } = Astro.params;
 
 export async function getStaticPaths() {
-  const pathsClient = createClient(
-    import.meta.env.PUBLIC_SUPABASE_URL,
-    import.meta.env.SUPABASE_SERVICE_ROLE_KEY
-  );
-  const { data } = await pathsClient.from('projects').select('id, slug');
+  const { data } = await supabase.from('projects').select('id, slug');
 
   return (data || []).flatMap((project) => {
     const slugs = [String(project.id), project.slug].filter(Boolean);
@@ -21,11 +20,6 @@ export async function getStaticPaths() {
     }));
   });
 }
-
-const supabase = createClient(
-  import.meta.env.PUBLIC_SUPABASE_URL,
-  import.meta.env.SUPABASE_SERVICE_ROLE_KEY
-);
 
 let project: any = null;
 let notFound = false;
@@ -76,55 +70,17 @@ if (!slug) {
   }
 }
 
-// Parse screenshots array or fallback
-function parseProjectImages(proj: any): string[] {
-  if (!proj) return [];
-  if (Array.isArray(proj.image_filenames) && proj.image_filenames.length > 0) {
-    return proj.image_filenames;
-  }
-  if (typeof proj.image_filenames === 'string' && proj.image_filenames.trim().length > 0) {
-    try {
-      const parsed = JSON.parse(proj.image_filenames);
-      if (Array.isArray(parsed)) return parsed;
-    } catch {
-      return proj.image_filenames.split(',').map((s: string) => s.trim()).filter(Boolean);
-    }
-  }
-  if (proj.image_url) {
-    if (typeof proj.image_url === 'string' && proj.image_url.includes(',')) {
-      return proj.image_url.split(',').map((s: string) => s.trim()).filter(Boolean);
-    }
-    return [proj.image_url];
-  }
-  return [];
-}
-
 const images = parseProjectImages(project);
-const baseUrl = import.meta.env.BASE_URL.endsWith('/')
-  ? import.meta.env.BASE_URL
-  : `${import.meta.env.BASE_URL}/`;
-
-// Parse summary: split by newlines into bullet items
-const summaryPoints = (project?.summary || '')
-  .split(/\r?\n/)
-  .map((line: string) => line.trim())
-  .filter(Boolean);
-
-// Parse content: split by newlines into bullet items
-const contentPoints = (project?.content || '')
-  .split(/\r?\n/)
-  .map((line: string) => line.trim())
-  .filter(Boolean);
+const baseUrl = getBaseUrl();
+const summaryPoints = splitLines(project?.summary);
+const contentPoints = splitLines(project?.content);
 
 // Extract linked company/internship experience
 const associatedExperiences = (project?.project_experience || [])
   .map((pe: any) => pe.work_experience)
   .filter(Boolean);
 
-// Calculate tech stack count
-const techCount = project?.tech_stack
-  ? project.tech_stack.split(',').map((t: string) => t.trim()).filter(Boolean).length
-  : 0;
+const techCount = splitCommaList(project?.tech_stack).length;
 ---
 
 <Layout hasHero={false} title={project ? `${project.title} — Ryan Cuccurullo` : 'Project Not Found'}>

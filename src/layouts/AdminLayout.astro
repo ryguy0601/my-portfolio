@@ -1,6 +1,7 @@
 ---
 // src/layouts/AdminLayout.astro
 import Layout from './Layout.astro';
+import { getPortfolioUrl } from '../utils/url';
 
 interface Props {
   activePage: 'projects' | 'experience' | 'skills' | 'links' | 'resume' | 'theme';
@@ -23,7 +24,7 @@ const {
   counts = {}
 } = Astro.props;
 
-const portfolioUrl = import.meta.env.PUBLIC_PORTFOLIO_URL || '/';
+const portfolioUrl = getPortfolioUrl();
 ---
 
 <Layout title={`Admin — ${title}`}>
@@ -140,5 +141,9 @@ const portfolioUrl = import.meta.env.PUBLIC_PORTFOLIO_URL || '/';
   .remove-input-btn {
     line-height: 1;
     padding: 0 0.5rem;
+  }
+
+  .muted-placeholder::placeholder {
+    color: var(--color-text-muted-mid);
   }
 </style>

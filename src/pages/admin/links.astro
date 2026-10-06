@@ -1,12 +1,7 @@
 ---
 // src/pages/admin/links.astro
-import { createClient } from '@supabase/supabase-js';
 import AdminLayout from '../../layouts/AdminLayout.astro';
-
-const supabase = createClient(
-  import.meta.env.PUBLIC_SUPABASE_URL,
-  import.meta.env.SUPABASE_SERVICE_ROLE_KEY
-);
+import { supabase, getAdminCounts } from '../../utils/supabase';
 
 let errorMessage = '';
 let successMessage = '';
@@ -56,10 +51,11 @@ if (Astro.request.method === 'POST') {
 }
 
 // 2. FETCH DATA & COUNTS FOR TAB BADGES
-const [{ data: projects }, { data: experiences }, { data: links }] = await Promise.all([
+const [{ data: projects }, { data: experiences }, { data: links }, adminCounts] = await Promise.all([
   supabase.from('projects').select('id, title').order('title', { ascending: true }),
   supabase.from('work_experience').select('id, company, role').order('company', { ascending: true }),
-  supabase.from('project_experience').select('*, projects(title), work_experience(company, role)')
+  supabase.from('project_experience').select('*, projects(title), work_experience(company, role)'),
+  getAdminCounts(supabase)
 ]);
 ---
 
@@ -68,7 +64,7 @@ const [{ data: projects }, { data: experiences }, { data: links }] = await Promi
   title="Manage Experience Links" 
   errorMessage={errorMessage} 
   successMessage={successMessage}
-  counts={{ projects: projects?.length || 0, experience: experiences?.length || 0, links: links?.length || 0 }}
+  counts={adminCounts}
 >
   <div class="row g-4">
     
@@ -93,7 +89,7 @@ const [{ data: projects }, { data: experiences }, { data: links }] = await Promi
 
           <div class="mb-4">
             <label class="form-label text-light small">Select Work Experience *</label>
-            <select name="experience_id" class="form-select form-select-sm bg-dark text-light border-secondary" required>
+            <select name="experience_id" class="form-select form-select-sm bg-dark text-light border-secondary muted-placeholder" style="color: var(--color-text-muted-mid)" required>
               <option value="">-- Choose Work Experience --</option>
               {experiences?.map(e => (
                 <option value={e.id}>{e.company} ({e.role})</option>

@@ -198,3 +198,22 @@ export function themeStyle(theme: Record<string, string>): string {
   // Sanitize again because this helper is also safe to call with external data.
   return `:root{${Object.entries(sanitizeTheme(theme)).map(([key, value]) => `${key}:${value}!important`).join(';')}}`;
 }
+
+/**
+ * Loads the active persisted theme from Supabase with fallback to DEFAULT_THEME.
+ */
+export async function getPersistedTheme(supabaseClient: any): Promise<Record<string, string>> {
+  try {
+    const { data, error } = await supabaseClient
+      .from('site_theme')
+      .select('variables')
+      .eq('id', 'default')
+      .maybeSingle();
+    if (error) throw error;
+    return sanitizeTheme(data?.variables);
+  } catch (error) {
+    console.error('Unable to load persisted theme:', error);
+    return { ...DEFAULT_THEME };
+  }
+}
+

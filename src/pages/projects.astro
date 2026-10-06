@@ -1,19 +1,15 @@
 ---
 // src/pages/projects.astro
-import { createClient } from '@supabase/supabase-js';
 import Layout from '../layouts/Layout.astro';
 import TechBadgeList from '../components/TechBadgeList.astro';
+import { supabase } from '../utils/supabase';
+import { getBaseUrl, getAdminUrl } from '../utils/url';
+import { parseProjectImages } from '../utils/projects';
+import { splitLines } from '../utils/text';
 import '../styles/projects.scss';
 
-const supabase = createClient(
-  import.meta.env.PUBLIC_SUPABASE_URL,
-  import.meta.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
-const baseUrl = import.meta.env.BASE_URL.endsWith('/')
-  ? import.meta.env.BASE_URL
-  : `${import.meta.env.BASE_URL}/`;
-const adminUrl = import.meta.env.PUBLIC_ADMIN_URL || `${baseUrl}admin`;
+const baseUrl = getBaseUrl();
+const adminUrl = getAdminUrl();
 
 let allProjects: any[] = [];
 let dbError = false;
@@ -33,28 +29,6 @@ try {
 } catch (err) {
   console.error('Unexpected error connecting to Supabase:', err);
   dbError = true;
-}
-
-// Robust image parser to guarantee arrays even if stored as strings/JSON in Postgres
-function parseProjectImages(project: any): string[] {
-  if (Array.isArray(project.image_filenames) && project.image_filenames.length > 0) {
-    return project.image_filenames;
-  }
-  if (typeof project.image_filenames === 'string' && project.image_filenames.trim().length > 0) {
-    try {
-      const parsed = JSON.parse(project.image_filenames);
-      if (Array.isArray(parsed)) return parsed;
-    } catch {
-      return project.image_filenames.split(',').map((s: string) => s.trim()).filter(Boolean);
-    }
-  }
-  if (project.image_url) {
-    if (typeof project.image_url === 'string' && project.image_url.includes(',')) {
-      return project.image_url.split(',').map((s: string) => s.trim()).filter(Boolean);
-    }
-    return [project.image_url];
-  }
-  return [];
 }
 ---
 
@@ -158,10 +132,7 @@ function parseProjectImages(project: any): string[] {
         const totalProjects = String(allProjects.length).padStart(2, '0');
         const projectDetailUrl = `${baseUrl}projects/${project.id}`;
 
-        const summaryPoints = (project.summary || '')
-          .split(/\r?\n/)
-          .map((line: string) => line.trim())
-          .filter(Boolean);
+        const summaryPoints = splitLines(project.summary);
 
         return (
           <section

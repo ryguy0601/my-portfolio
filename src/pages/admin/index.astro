@@ -1,12 +1,11 @@
 ---
 // src/pages/admin/index.astro
-import { createClient } from '@supabase/supabase-js';
 import AdminLayout from '../../layouts/AdminLayout.astro';
-
-const supabase = createClient(
-  import.meta.env.PUBLIC_SUPABASE_URL,
-  import.meta.env.SUPABASE_SERVICE_ROLE_KEY
-);
+import { supabase, getAdminCounts } from '../../utils/supabase';
+import { getTechInfo, parseTechStack, techIconMap } from '../../utils/techIcons';
+import { slugify, splitCommaList } from '../../utils/text';
+import { formatImagePaths, extractFolderAndFilenames } from '../../utils/projects';
+import { extractUniqueCategories } from '../../utils/skills';
 
 let errorMessage = '';
 let successMessage = '';
@@ -14,12 +13,38 @@ let successMessage = '';
 const url = new URL(Astro.request.url);
 const editProjectId = url.searchParams.get('edit_project');
 
-// 1. HANDLE PROJECT CRUD SUBMISSIONS
+// 1. HANDLE CRUD & AJAX SUBMISSIONS
 if (Astro.request.method === 'POST') {
   const formData = await Astro.request.formData();
   const actionType = formData.get('action_type')?.toString();
 
   try {
+    // Background inline skill creation via fetch()
+    if (actionType === 'create_skill_ajax') {
+      const name = formData.get('name')?.toString()?.trim();
+      const category = formData.get('category')?.toString()?.trim();
+
+      if (!name || !category) {
+        return new Response(JSON.stringify({ success: false, error: 'Missing name or category' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      const { data, error } = await supabase.from('skills').insert([{ name, category, order_index: 0 }]).select();
+      if (error) {
+        return new Response(JSON.stringify({ success: false, error: error.message }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      return new Response(JSON.stringify({ success: true, skill: data?.[0] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
     if (actionType === 'save_project') {
       const projectId = formData.get('project_id')?.toString();
       const title = formData.get('title')?.toString();
@@ -34,18 +59,14 @@ if (Astro.request.method === 'POST') {
 
       const image_folder = formData.get('image_folder')?.toString() || '';
       const imageFilenamesArray = formData.getAll('image_filenames[]').map(f => f.toString().trim()).filter(Boolean);
-      const formattedImagePaths = imageFilenamesArray.map(file => {
-        if (!image_folder) return file;
-        const cleanFolder = image_folder.endsWith('/') ? image_folder : `${image_folder}/`;
-        return `${cleanFolder}${file}`;
-      });
+      const formattedImagePaths = formatImagePaths(image_folder, imageFilenamesArray);
 
       if (!title || !summary || !tech_stack) {
         errorMessage = 'Title, Summary, and at least one Technology are required.';
       } else {
         const payload = {
           title,
-          slug: title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+          slug: slugify(title),
           summary,
           content: content || null,
           tech_stack,
@@ -78,12 +99,19 @@ if (Astro.request.method === 'POST') {
   }
 }
 
-// 2. FETCH PROJECTS & COUNTS FOR TAB BADGES
-const [{ data: projects }, { count: expCount }, { count: linksCount }] = await Promise.all([
+// 2. FETCH PROJECTS, SKILLS, AND COUNTS DIRECTLY FROM DB
+const [
+  { data: projects },
+  { data: skillsData },
+  adminCounts
+] = await Promise.all([
   supabase.from('projects').select('*').order('id', { ascending: false }),
-  supabase.from('work_experience').select('*', { count: 'exact', head: true }),
-  supabase.from('project_experience').select('*', { count: 'exact', head: true })
+  supabase.from('skills').select('name, category').order('category', { ascending: true }).order('name', { ascending: true }),
+  getAdminCounts()
 ]);
+
+const existingSkills = skillsData || [];
+const dbCategories = extractUniqueCategories(existingSkills);
 
 let editProject = editProjectId ? projects?.find(p => String(p.id) === String(editProjectId)) : null;
 
@@ -93,19 +121,12 @@ let existingTechList: string[] = [''];
 
 if (editProject) {
   if (editProject.tech_stack) {
-    const items = editProject.tech_stack.split(',').map((t: string) => t.trim()).filter(Boolean);
+    const items = splitCommaList(editProject.tech_stack);
     if (items.length > 0) existingTechList = items;
   }
-  if (Array.isArray(editProject.image_filenames) && editProject.image_filenames.length > 0) {
-    const firstFile = editProject.image_filenames[0] || '';
-    const lastSlashIndex = firstFile.lastIndexOf('/');
-    if (lastSlashIndex !== -1) {
-      existingFolder = firstFile.substring(0, lastSlashIndex);
-      existingFilenamesList = editProject.image_filenames.map((p: string) => p.substring(lastSlashIndex + 1));
-    } else {
-      existingFilenamesList = [...editProject.image_filenames];
-    }
-  }
+  const extracted = extractFolderAndFilenames(editProject.image_filenames);
+  existingFolder = extracted.folder;
+  existingFilenamesList = extracted.filenames;
 }
 ---
 
@@ -114,9 +135,14 @@ if (editProject) {
   title="Manage Projects"
   errorMessage={errorMessage}
   successMessage={successMessage}
-  counts={{ projects: projects?.length || 0, experience: expCount || 0, links: linksCount || 0 }}
+  counts={adminCounts}
 >
   <div class="d-flex flex-column gap-4">
+    <!-- JSON Payloads for Client Scripts -->
+    <script type="application/json" id="admin-skills-data" set:html={JSON.stringify(existingSkills)} />
+    <script type="application/json" id="admin-categories-data" set:html={JSON.stringify(dbCategories)} />
+    <script type="application/json" id="admin-icon-map" set:html={JSON.stringify(techIconMap)} />
+
     <!-- Project Form Card -->
     <div class="card bg-card border border-secondary p-4 rounded-4 shadow-sm">
       <div class="d-flex justify-content-between align-items-center mb-3">
@@ -131,40 +157,104 @@ if (editProject) {
         <div class="row g-3">
           <div class="col-lg-4">
             <label class="form-label text-light small">Project Title *</label>
-            <input type="text" name="title" value={editProject?.title || ''} class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="Project Name" required />
+            <input type="text" name="title" value={editProject?.title || ''} class="form-control form-control-sm bg-dark text-light border-secondary muted-placeholder" placeholder="Project Name" required />
           </div>
           <div class="col-lg-4">
             <label class="form-label text-light small">Live Demo URL</label>
-            <input type="url" name="live_url" value={editProject?.live_url || ''} class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="https://..." />
+            <input type="url" name="live_url" value={editProject?.live_url || ''} class="form-control form-control-sm bg-dark text-light border-secondary muted-placeholder" placeholder="https://..." />
           </div>
           <div class="col-lg-4">
             <label class="form-label text-light small">GitHub URL</label>
-            <input type="url" name="github_url" value={editProject?.github_url || ''} class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="https://github.com/..." />
+            <input type="url" name="github_url" value={editProject?.github_url || ''} class="form-control form-control-sm bg-dark text-light border-secondary muted-placeholder" placeholder="https://github.com/..." />
           </div>
 
           <div class="col-lg-6">
             <label class="form-label text-light small">Summary Description (Enter lines for bullets) *</label>
-            <textarea name="summary" class="form-control form-control-sm bg-dark text-light border-secondary" rows="3" placeholder="Key bullet points..." required>{editProject?.summary || ''}</textarea>
+            <textarea name="summary" class="form-control form-control-sm bg-dark text-light border-secondary muted-placeholder" rows="3" placeholder="Key bullet points..." required>{editProject?.summary || ''}</textarea>
           </div>
           <div class="col-lg-6">
             <label class="form-label text-light small">Full Content (Enter lines for bullets)</label>
-            <textarea name="content" class="form-control form-control-sm bg-dark text-light border-secondary" rows="3" placeholder="Technical architecture & case study...">{editProject?.content || ''}</textarea>
+            <textarea name="content" class="form-control form-control-sm bg-dark text-light border-secondary muted-placeholder" rows="3" placeholder="Technical architecture & case study...">{editProject?.content || ''}</textarea>
           </div>
 
           <!-- Technologies Input Repeater -->
           <div class="col-lg-6">
             <div class="p-3 bg-dark bg-opacity-50 border border-secondary rounded-3 h-100">
               <div class="d-flex justify-content-between align-items-center mb-2">
-                <label class="form-label text-accent small fw-bold mb-0">Technologies *</label>
+                <div>
+                  <label class="form-label text-accent small fw-bold mb-0">Technologies *</label>
+                  <span class="text-muted d-block" style="font-size: 0.72rem;">Autocompletes skills; prompts modal if missing in DB</span>
+                </div>
                 <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2" id="add-tech-btn">+ Add Tech</button>
               </div>
-              <div id="tech-inputs-container" class="d-flex flex-column gap-2">
-                {existingTechList.map((tech) => (
-                  <div class="input-group input-group-sm">
-                    <input type="text" name="tech_stack[]" value={tech} class="form-control bg-dark text-light border-secondary" placeholder="e.g., C#, React" required />
-                    <button type="button" class="btn btn-outline-danger remove-input-btn">&times;</button>
+
+              <!-- Quick Skill Picks (Matching skills.astro 1-Click Pickers) -->
+              {existingSkills.length > 0 && (
+                <div class="mb-2 p-2 rounded-3 border border-secondary border-opacity-50 bg-black bg-opacity-30">
+                  <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="text-muted small font-monospace" style="font-size: 0.7rem;">Quick Picks from Skills:</span>
+                    <span id="quick-picks-filter-hint" class="text-muted small" style="font-size: 0.65rem;">Click to add • filters as you type</span>
                   </div>
-                ))}
+                  <div id="quick-picks-container" class="d-flex flex-wrap gap-1 align-items-center quick-picks-container" style="max-height: 84px; overflow-y: auto;">
+                    {existingSkills.map((s) => {
+                      const tInfo = getTechInfo(s.name);
+                      return (
+                        <button
+                          type="button"
+                          class="skill-quick-chip badge rounded-pill bg-dark border border-secondary text-secondary d-inline-flex align-items-center gap-1 py-1 px-2"
+                          data-skill-name={s.name}
+                          data-tech-tooltip={s.name}
+                          title={s.name}
+                        >
+                          <span class="skill-icon-wrap d-inline-flex align-items-center justify-content-center rounded-circle flex-shrink-0" style="width: 14px; height: 14px; border: none; background: transparent;">
+                            {tInfo.hasIcon ? (
+                              <img src={tInfo.iconUrl} alt={s.name} class="tech-icon-img" style="width: 11px; height: 11px;" loading="lazy" />
+                            ) : (
+                              <span style="font-size: 0.55rem;">●</span>
+                            )}
+                          </span>
+                          <span style="font-size: 0.72rem;">{s.name}</span>
+                        </button>
+                      );
+                    })}
+                    <div id="no-quick-picks-msg" class="text-muted small fst-italic d-none p-1" style="font-size: 0.72rem;">No matching skills found in database.</div>
+                  </div>
+                </div>
+              )}
+
+              <div id="tech-inputs-container" class="d-flex flex-column gap-2">
+                {existingTechList.map((tech) => {
+                  const techInfo = getTechInfo(tech);
+                  return (
+                    <div class="tech-row position-relative">
+                      <div class="d-flex align-items-center gap-2">
+                        <div 
+                          class="skill-icon-wrap position-relative d-flex align-items-center justify-content-center rounded-2 flex-shrink-0"
+                          data-tech-tooltip={tech || ''}
+                          title={tech || ''}
+                        >
+                          {techInfo.hasIcon ? (
+                            <img src={techInfo.iconUrl} alt={tech} class="tech-icon-img" loading="lazy" />
+                          ) : (
+                            <span class="text-muted font-monospace small" style="font-size: 0.65rem;">txt</span>
+                          )}
+                        </div>
+                        <div class="input-group input-group-sm flex-grow-1">
+                          <input 
+                            type="text" 
+                            name="tech_stack[]" 
+                            value={tech} 
+                            class="form-control bg-dark text-light border-secondary muted-placeholder tech-stack-input" 
+                            placeholder="e.g., C#, React" 
+                            autocomplete="off"
+                            required 
+                          />
+                          <button type="button" class="btn btn-outline-danger remove-input-btn">&times;</button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -176,11 +266,11 @@ if (editProject) {
                 <label class="form-label text-accent small fw-bold mb-0">Image Assets</label>
                 <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2" id="add-image-btn">+ Add Picture</button>
               </div>
-              <input type="text" name="image_folder" value={existingFolder} class="form-control form-control-sm bg-dark text-light border-secondary mb-2" placeholder="Folder path e.g. /images/projects/demo" />
+              <input type="text" name="image_folder" value={existingFolder} class="form-control form-control-sm bg-dark text-light border-secondary mb-2 muted-placeholder" placeholder="Folder path e.g. /images/projects/demo" />
               <div id="image-inputs-container" class="d-flex flex-column gap-2">
                 {existingFilenamesList.map((file) => (
                   <div class="input-group input-group-sm">
-                    <input type="text" name="image_filenames[]" value={file} class="form-control bg-dark text-light border-secondary" placeholder="screen1.png" />
+                    <input type="text" name="image_filenames[]" value={file} class="form-control bg-dark text-light border-secondary muted-placeholder" placeholder="screen1.png" />
                     <button type="button" class="btn btn-outline-danger remove-input-btn">&times;</button>
                   </div>
                 ))}
@@ -215,7 +305,24 @@ if (editProject) {
                     {project.featured && <span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 small">Featured</span>}
                   </div>
                   <p class="text-muted small line-clamp-2 mb-2">{project.summary}</p>
-                  <div class="font-monospace text-accent small text-truncate mb-3">{project.tech_stack}</div>
+                  <div class="d-flex flex-wrap gap-1 align-items-center mb-3">
+                    {project.tech_stack && parseTechStack(project.tech_stack).map((tech) => (
+                      <div 
+                        class="skill-icon-wrap position-relative d-flex align-items-center justify-content-center rounded-2 flex-shrink-0" 
+                        title={tech.name}
+                        data-tech-tooltip={tech.name}
+                      >
+                        {tech.hasIcon ? (
+                          <img src={tech.iconUrl} alt={tech.name} class="tech-icon-img" loading="lazy" />
+                        ) : (
+                          <span class="text-muted font-monospace small" style="font-size: 0.65rem;">txt</span>
+                        )}
+                      </div>
+                    ))}
+                    <span class="font-monospace text-accent small ms-1 text-truncate" style="max-width: 140px;" title={project.tech_stack}>
+                      {project.tech_stack}
+                    </span>
+                  </div>
                 </div>
                 <div class="d-flex justify-content-between align-items-center pt-2 border-top border-secondary border-opacity-25">
                   <a href={`/admin?edit_project=${project.id}`} class="btn btn-outline-primary btn-sm py-0 px-2">Edit</a>
@@ -232,77 +339,587 @@ if (editProject) {
       </div>
     </div>
   </div>
+
+  <!-- New Skill Category Modal -->
+  <div class="modal fade" id="addSkillModal" tabindex="-1" aria-labelledby="addSkillModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content glass-modal border border-secondary text-light rounded-4 shadow-lg">
+        <div class="modal-header border-secondary border-opacity-50 pb-2">
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge rounded-circle p-2 bg-primary bg-opacity-25 text-primary border border-primary border-opacity-50">+</span>
+            <h5 class="modal-title h6 mb-0 fw-bold" id="addSkillModalLabel">Add New Skill to Database</h5>
+          </div>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body py-3">
+          <p class="small text-muted mb-3">
+            <strong class="text-light" id="modal-skill-name-display">Skill</strong> was not found in your database. Pick one of your existing database categories or create a new one.
+          </p>
+          
+          <div class="mb-3" id="modal-category-select-group">
+            <label class="form-label text-accent small fw-semibold">Database Category</label>
+            <select class="form-select form-select-sm bg-dark text-light border-secondary" id="modal-category-select">
+              <!-- Strictly filled from DB categories -->
+            </select>
+          </div>
+
+          <div id="modal-new-category-wrap" class="d-none">
+            <label class="form-label text-accent small fw-semibold">New Category Name *</label>
+            <input type="text" id="modal-new-category-input" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="e.g. Mobile Development" />
+          </div>
+        </div>
+        <div class="modal-footer border-secondary border-opacity-50 pt-2">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary btn-sm px-3" id="modal-save-skill-btn">Save to Skills</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </AdminLayout>
 
+<style>
+  .skill-icon-wrap {
+    width: 28px;
+    height: 28px;
+    background: var(--border-glass-minimal);
+    border: 1px solid var(--border-glass-subtle);
+    position: relative;
+  }
+
+  .tech-icon-img {
+    width: 16px;
+    height: 16px;
+    filter: brightness(0) invert(1);
+    opacity: 0.9;
+    vertical-align: middle;
+    flex-shrink: 0;
+    transition: opacity 0.15s ease;
+  }
+
+  /* Floating Monospace Capsule Tooltip (matching TechBadgeList design) */
+  .skill-icon-wrap[data-tech-tooltip]::before,
+  .skill-quick-chip[data-tech-tooltip]::before {
+    content: attr(data-tech-tooltip);
+    position: absolute;
+    bottom: calc(100% + 7px);
+    left: 50%;
+    transform: translateX(-50%) translateY(4px) scale(0.92);
+    transform-origin: bottom center;
+    background: linear-gradient(
+      135deg,
+      rgba(var(--card-bg-rgb, 26, 13, 36), 0.96),
+      rgba(var(--overlay-dark-rgb, 10, 5, 4), 0.98)
+    );
+    color: var(--body-color, #fff5fc);
+    border: 1px solid rgba(var(--color-secondary-rgb, 155, 93, 229), 0.45);
+    border-radius: var(--radius-pill, 9999px);
+    padding: var(--badge-tooltip-padding, 3px 10px);
+    font-size: 0.72rem;
+    font-weight: 500;
+    font-family: var(--bs-font-monospace, monospace);
+    white-space: nowrap;
+    letter-spacing: 0.03em;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), visibility 0.2s ease;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: var(--shadow-tooltip, 0 8px 24px rgba(0, 0, 0, 0.8));
+    z-index: 1070;
+  }
+
+  /* Micro Arrow Pointing Down to Icon */
+  .skill-icon-wrap[data-tech-tooltip]::after,
+  .skill-quick-chip[data-tech-tooltip]::after {
+    content: "";
+    position: absolute;
+    bottom: calc(100% + 2px);
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    border-width: 5px 4.5px 0 4.5px;
+    border-style: solid;
+    border-color: rgba(var(--color-secondary-rgb, 155, 93, 229), 0.45) transparent transparent transparent;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), visibility 0.2s ease;
+    z-index: 1070;
+  }
+
+  .skill-icon-wrap[data-tech-tooltip]:hover::before,
+  .skill-icon-wrap[data-tech-tooltip]:hover::after,
+  .skill-quick-chip[data-tech-tooltip]:hover::before,
+  .skill-quick-chip[data-tech-tooltip]:hover::after {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+
+  .skill-icon-wrap[data-tech-tooltip=""]::before,
+  .skill-icon-wrap[data-tech-tooltip=""]::after {
+    display: none !important;
+  }
+
+  .quick-picks-container {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(var(--color-secondary-rgb, 155, 93, 229), 0.3) transparent;
+  }
+
+  .skill-quick-chip {
+    cursor: pointer;
+    transition: all 0.15s ease;
+    background: rgba(var(--card-bg-rgb, 26, 13, 36), 0.7) !important;
+    border-color: var(--border-glass-subtle) !important;
+  }
+
+  .skill-quick-chip:hover {
+    color: var(--color-secondary) !important;
+    border-color: var(--color-secondary) !important;
+    background: rgba(var(--color-secondary-rgb, 155, 93, 229), 0.18) !important;
+    transform: translateY(-1px);
+  }
+
+  .glass-modal {
+    background: rgba(18, 20, 28, 0.94) !important;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+</style>
+
 <script>
+  declare const bootstrap: any;
+
   document.addEventListener('DOMContentLoaded', () => {
+    const skillsScript = document.getElementById('admin-skills-data');
+    const categoriesScript = document.getElementById('admin-categories-data');
+    const iconMapScript = document.getElementById('admin-icon-map');
+
+    let skillsList: Array<{ name: string; category: string }> = JSON.parse(skillsScript ? skillsScript.textContent || '[]' : '[]');
+    let dbCategories: string[] = JSON.parse(categoriesScript ? categoriesScript.textContent || '[]' : '[]');
+    const iconMap: Record<string, string> = JSON.parse(iconMapScript ? iconMapScript.textContent || '{}' : '{}');
+
+    let pendingSkillName = '';
+    let pendingInputEl: HTMLInputElement | null = null;
+
+    // Modal elements
+    const modalEl = document.getElementById('addSkillModal');
+    const modalInstance = modalEl && typeof bootstrap !== 'undefined' ? new bootstrap.Modal(modalEl) : null;
+    const modalSkillNameDisplay = document.getElementById('modal-skill-name-display');
+    const modalCatSelect = document.getElementById('modal-category-select') as HTMLSelectElement | null;
+    const modalNewCatWrap = document.getElementById('modal-new-category-wrap');
+    const modalNewCatInput = document.getElementById('modal-new-category-input') as HTMLInputElement | null;
+    const modalSaveBtn = document.getElementById('modal-save-skill-btn');
+
+    function resolveIconUrl(name: string): { hasIcon: boolean; url: string } {
+      const clean = name.trim().toLowerCase();
+      const entry = iconMap[clean];
+      if (!entry) return { hasIcon: false, url: '' };
+
+      if (entry.startsWith('data:')) {
+        return { hasIcon: true, url: entry };
+      }
+      if (entry.startsWith('bi:')) {
+        return { hasIcon: true, url: `https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/icons/${entry.replace('bi:', '')}.svg` };
+      }
+      if (entry.startsWith('devicon:')) {
+        return { hasIcon: true, url: `https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/${entry.replace('devicon:', '')}.svg` };
+      }
+      return { hasIcon: true, url: `https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/${entry.replace('si:', '')}.svg` };
+    }
+
+    function updateRowIcon(row: HTMLElement, value: string) {
+      const iconWrap = row.querySelector('.skill-icon-wrap');
+      if (!iconWrap) return;
+      const { hasIcon, url } = resolveIconUrl(value);
+      if (hasIcon) {
+        iconWrap.innerHTML = `<img src="${url}" alt="${value}" class="tech-icon-img" loading="lazy" />`;
+        iconWrap.setAttribute('data-tech-tooltip', value);
+        iconWrap.setAttribute('title', value);
+      } else {
+        iconWrap.innerHTML = `<span class="text-muted font-monospace small" style="font-size: 0.65rem;">txt</span>`;
+        if (value.trim()) {
+          iconWrap.setAttribute('data-tech-tooltip', value);
+          iconWrap.setAttribute('title', value);
+        } else {
+          iconWrap.removeAttribute('data-tech-tooltip');
+          iconWrap.removeAttribute('title');
+        }
+      }
+    }
+
     function updateRemoveButtons(container: HTMLElement | null) {
       if (!container) return;
-      const rows = container.querySelectorAll<HTMLElement>('.input-group');
+      const rows = container.querySelectorAll('.input-group');
       const showButtons = rows.length > 1;
       rows.forEach((row) => {
-        const btn = row.querySelector<HTMLElement>('.remove-input-btn');
+        const btn = row.querySelector('.remove-input-btn') as HTMLElement | null;
         if (btn) btn.style.display = showButtons ? 'block' : 'none';
       });
     }
 
-    function createInputRow(name: string, placeholder: string, isRequired = false) {
-      const row = document.createElement('div');
-      row.className = 'input-group input-group-sm';
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.name = name;
-      input.className = 'form-control bg-dark text-light border-secondary';
-      input.placeholder = placeholder;
-      if (isRequired) input.required = true;
+    function populateModalCategories() {
+      if (!modalCatSelect) return;
+      modalCatSelect.innerHTML = '';
 
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'btn btn-outline-danger remove-input-btn';
-      button.title = 'Remove item';
-      button.innerHTML = '&times;';
+      if (dbCategories.length === 0) {
+        // No existing categories in DB yet -> force new category entry
+        const opt = document.createElement('option');
+        opt.value = '__new__';
+        opt.textContent = '+ Create First Category...';
+        modalCatSelect.appendChild(opt);
+        modalNewCatWrap?.classList.remove('d-none');
+        modalNewCatInput?.focus();
+        return;
+      }
 
-      button.addEventListener('click', () => {
-        const container = row.parentElement as HTMLElement;
-        row.remove();
-        updateRemoveButtons(container);
+      // Add actual categories from database
+      dbCategories.forEach((cat) => {
+        const opt = document.createElement('option');
+        opt.value = cat;
+        opt.textContent = cat;
+        modalCatSelect.appendChild(opt);
       });
 
-      row.appendChild(input);
-      row.appendChild(button);
-      return row;
+      const newOpt = document.createElement('option');
+      newOpt.value = '__new__';
+      newOpt.textContent = '+ Add New Category...';
+      modalCatSelect.appendChild(newOpt);
     }
+
+    if (modalCatSelect) {
+      modalCatSelect.addEventListener('change', () => {
+        if (modalCatSelect.value === '__new__') {
+          modalNewCatWrap?.classList.remove('d-none');
+          modalNewCatInput?.focus();
+        } else {
+          modalNewCatWrap?.classList.add('d-none');
+        }
+      });
+    }
+
+    function openSkillModal(skillName: string, inputEl: HTMLInputElement) {
+      pendingSkillName = skillName.trim();
+      pendingInputEl = inputEl;
+      if (!pendingSkillName) return;
+
+      if (modalSkillNameDisplay) modalSkillNameDisplay.textContent = pendingSkillName;
+      populateModalCategories();
+      
+      if (dbCategories.length > 0) {
+        modalNewCatWrap?.classList.add('d-none');
+      }
+      if (modalNewCatInput) modalNewCatInput.value = '';
+
+      if (modalInstance) {
+        modalInstance.show();
+      }
+    }
+
+    modalSaveBtn?.addEventListener('click', async () => {
+      if (!pendingSkillName) return;
+
+      let chosenCategory = modalCatSelect?.value;
+      if (chosenCategory === '__new__' || !chosenCategory) {
+        chosenCategory = modalNewCatInput?.value?.trim() || '';
+      }
+
+      if (!chosenCategory) {
+        modalNewCatInput?.focus();
+        return;
+      }
+
+      try {
+        const formData = new FormData();
+        formData.append('action_type', 'create_skill_ajax');
+        formData.append('name', pendingSkillName);
+        formData.append('category', chosenCategory);
+
+        const res = await fetch('/admin', {
+          method: 'POST',
+          body: formData
+        });
+
+        const result = await res.json();
+        if (result.success) {
+          skillsList.push({ name: pendingSkillName, category: chosenCategory });
+          if (!dbCategories.includes(chosenCategory)) {
+            dbCategories.push(chosenCategory);
+            dbCategories.sort();
+          }
+          if (pendingInputEl) {
+            const row = pendingInputEl.closest('.tech-row') as HTMLElement | null;
+            if (row) updateRowIcon(row, pendingSkillName);
+          }
+
+          // Add newly registered skill to Quick Picks
+          const quickContainer = document.getElementById('quick-picks-container');
+          if (quickContainer) {
+            const { hasIcon, url } = resolveIconUrl(pendingSkillName);
+            const newChip = document.createElement('button');
+            newChip.type = 'button';
+            newChip.className = 'skill-quick-chip badge rounded-pill bg-dark border border-secondary text-secondary d-inline-flex align-items-center gap-1 py-1 px-2';
+            newChip.setAttribute('data-skill-name', pendingSkillName);
+            newChip.setAttribute('data-tech-tooltip', pendingSkillName);
+            newChip.title = pendingSkillName;
+            newChip.innerHTML = `
+              <span class="skill-icon-wrap d-inline-flex align-items-center justify-content-center rounded-circle flex-shrink-0" style="width: 14px; height: 14px; border: none; background: transparent;">
+                ${hasIcon 
+                  ? `<img src="${url}" alt="${pendingSkillName}" class="tech-icon-img" style="width: 11px; height: 11px;" loading="lazy" />` 
+                  : `<span style="font-size: 0.55rem;">●</span>`}
+              </span>
+              <span style="font-size: 0.72rem;">${pendingSkillName}</span>
+            `;
+            bindQuickChip(newChip);
+            const noMatchEl = document.getElementById('no-quick-picks-msg');
+            if (noMatchEl) {
+              quickContainer.insertBefore(newChip, noMatchEl);
+            } else {
+              quickContainer.appendChild(newChip);
+            }
+          }
+          filterQuickPicks('');
+
+          if (modalInstance) modalInstance.hide();
+        }
+      } catch (err) {
+        console.error('Failed to auto-save skill:', err);
+      }
+    });
+
+    let activeTechInput: HTMLInputElement | null = null;
+
+    function filterQuickPicks(filterText: string) {
+      const query = filterText.trim().toLowerCase();
+      const chips = document.querySelectorAll<HTMLElement>('.skill-quick-chip');
+      let visibleCount = 0;
+
+      chips.forEach((chip) => {
+        const skillName = chip.getAttribute('data-skill-name') || '';
+        const match = !query || skillName.toLowerCase().includes(query);
+        if (match) {
+          chip.classList.remove('d-none');
+          visibleCount++;
+        } else {
+          chip.classList.add('d-none');
+        }
+      });
+
+      const noMatchEl = document.getElementById('no-quick-picks-msg');
+      const hintEl = document.getElementById('quick-picks-filter-hint');
+
+      if (hintEl) {
+        if (query) {
+          hintEl.textContent = `Filtering: "${filterText.trim()}" (${visibleCount} match${visibleCount === 1 ? '' : 'es'})`;
+        } else {
+          hintEl.textContent = 'Click to add • filters as you type';
+        }
+      }
+
+      if (noMatchEl) {
+        if (visibleCount === 0 && query.length > 0) {
+          noMatchEl.textContent = `No saved skills match "${filterText.trim()}". Press Enter or Tab to register it.`;
+          noMatchEl.classList.remove('d-none');
+        } else {
+          noMatchEl.classList.add('d-none');
+        }
+      }
+    }
+
+    function setupTechInputRow(row: HTMLElement) {
+      const inputEl = row.querySelector('.tech-stack-input') as HTMLInputElement | null;
+      if (!inputEl) return;
+      const input: HTMLInputElement = inputEl;
+
+      input.addEventListener('input', () => {
+        activeTechInput = input;
+        updateRowIcon(row, input.value);
+        filterQuickPicks(input.value);
+      });
+
+      input.addEventListener('focus', () => {
+        activeTechInput = input;
+        filterQuickPicks(input.value);
+      });
+
+      input.addEventListener('blur', () => {
+        setTimeout(() => {
+          if (document.activeElement && !document.activeElement.classList.contains('tech-stack-input')) {
+            filterQuickPicks('');
+          }
+
+          const trimmed = input.value.trim();
+          if (!trimmed) return;
+
+          const exists = skillsList.some(s => s.name.toLowerCase() === trimmed.toLowerCase());
+          if (!exists) {
+            openSkillModal(trimmed, input);
+          }
+        }, 200);
+      });
+
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const trimmed = input.value.trim();
+          if (trimmed) {
+            const exists = skillsList.some(s => s.name.toLowerCase() === trimmed.toLowerCase());
+            if (!exists) {
+              openSkillModal(trimmed, input);
+            }
+          }
+        }
+      });
+    }
+
+    function createInputRow(name: string, placeholder: string, isRequired = false, isTech = false) {
+      if (isTech) {
+        const row = document.createElement('div');
+        row.className = 'tech-row position-relative';
+        row.innerHTML = `
+          <div class="d-flex align-items-center gap-2">
+            <div class="skill-icon-wrap position-relative d-flex align-items-center justify-content-center rounded-2 flex-shrink-0">
+              <span class="text-muted font-monospace small" style="font-size: 0.65rem;">txt</span>
+            </div>
+            <div class="input-group input-group-sm flex-grow-1">
+              <input 
+                type="text" 
+                name="${name}" 
+                class="form-control bg-dark text-light border-secondary muted-placeholder tech-stack-input" 
+                placeholder="${placeholder}" 
+                autocomplete="off"
+                ${isRequired ? 'required' : ''} 
+              />
+              <button type="button" class="btn btn-outline-danger remove-input-btn">&times;</button>
+            </div>
+          </div>
+        `;
+
+        const removeBtn = row.querySelector('.remove-input-btn');
+        removeBtn?.addEventListener('click', () => {
+          const container = row.parentElement;
+          row.remove();
+          updateRemoveButtons(container);
+        });
+
+        setupTechInputRow(row);
+        return row;
+      } else {
+        const row = document.createElement('div');
+        row.className = 'input-group input-group-sm';
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.name = name;
+        input.className = 'form-control bg-dark text-light border-secondary muted-placeholder';
+        input.placeholder = placeholder;
+        if (isRequired) input.required = true;
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'btn btn-outline-danger remove-input-btn';
+        button.title = 'Remove item';
+        button.innerHTML = '&times;';
+
+        button.addEventListener('click', () => {
+          const container = row.parentElement;
+          row.remove();
+          updateRemoveButtons(container);
+        });
+
+        row.appendChild(input);
+        row.appendChild(button);
+        return row;
+      }
+    }
+
+    // Initialize existing tech rows
+    document.querySelectorAll<HTMLElement>('.tech-row').forEach(setupTechInputRow);
+
+    // Initial remove buttons state
+    const techContainer = document.getElementById('tech-inputs-container');
+    const imageContainer = document.getElementById('image-inputs-container');
 
     document.querySelectorAll('.remove-input-btn').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         const target = e.currentTarget as HTMLElement;
-        const row = target.closest('.input-group');
-        const container = row?.parentElement as HTMLElement;
+        const row = target.closest('.tech-row') || target.closest('.input-group');
+        const container = row?.parentElement as HTMLElement | null;
         row?.remove();
         updateRemoveButtons(container);
       });
     });
 
-    const techContainer = document.getElementById('tech-inputs-container');
-    const imageContainer = document.getElementById('image-inputs-container');
-
     updateRemoveButtons(techContainer);
     updateRemoveButtons(imageContainer);
 
+    function bindQuickChip(btn: HTMLElement) {
+      btn.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+      });
+
+      btn.addEventListener('click', () => {
+        const skillName = btn.getAttribute('data-skill-name');
+        if (!skillName || !techContainer) return;
+
+        const inputs = Array.from(techContainer.querySelectorAll<HTMLInputElement>('.tech-stack-input'));
+        let targetInput: HTMLInputElement | null = null;
+
+        if (activeTechInput && activeTechInput.isConnected) {
+          const currentVal = activeTechInput.value.trim().toLowerCase();
+          const isCompleteSkill = skillsList.some(s => s.name.toLowerCase() === currentVal);
+          if (!currentVal || !isCompleteSkill) {
+            targetInput = activeTechInput;
+          }
+        }
+
+        if (!targetInput) {
+          const emptyInput = inputs.find(i => !i.value.trim());
+          if (emptyInput) {
+            targetInput = emptyInput;
+          } else {
+            const alreadyAdded = inputs.some(i => i.value.trim().toLowerCase() === skillName.toLowerCase());
+            if (alreadyAdded) {
+              filterQuickPicks('');
+              return;
+            }
+            const newRow = createInputRow('tech_stack[]', 'e.g., C#, React', true, true);
+            techContainer.appendChild(newRow);
+            updateRemoveButtons(techContainer);
+            targetInput = newRow.querySelector<HTMLInputElement>('.tech-stack-input');
+          }
+        }
+
+        if (targetInput) {
+          targetInput.value = skillName;
+          const row = targetInput.closest('.tech-row') as HTMLElement | null;
+          if (row) updateRowIcon(row, skillName);
+          targetInput.focus();
+          activeTechInput = targetInput;
+        }
+
+        filterQuickPicks('');
+      });
+    }
+
+    // Quick tech chips 1-click addition
+    document.querySelectorAll<HTMLElement>('.skill-quick-chip').forEach(bindQuickChip);
+
     document.getElementById('add-tech-btn')?.addEventListener('click', () => {
       if (!techContainer) return;
-      const newRow = createInputRow('tech_stack[]', 'e.g., Supabase', true);
+      const newRow = createInputRow('tech_stack[]', 'e.g., Supabase', true, true);
       techContainer.appendChild(newRow);
       updateRemoveButtons(techContainer);
-      newRow.querySelector('input')?.focus();
+      const input = newRow.querySelector('input');
+      if (input) input.focus();
     });
 
     document.getElementById('add-image-btn')?.addEventListener('click', () => {
       if (!imageContainer) return;
-      const newRow = createInputRow('image_filenames[]', 'screenshot.png', false);
+      const newRow = createInputRow('image_filenames[]', 'screenshot.png', false, false);
       imageContainer.appendChild(newRow);
       updateRemoveButtons(imageContainer);
-      newRow.querySelector('input')?.focus();
+      const input = newRow.querySelector('input');
+      if (input) input.focus();
     });
   });
 </script>

@@ -1,12 +1,7 @@
 ---
 // src/pages/admin/experience.astro
-import { createClient } from '@supabase/supabase-js';
 import AdminLayout from '../../layouts/AdminLayout.astro';
-
-const supabase = createClient(
-  import.meta.env.PUBLIC_SUPABASE_URL,
-  import.meta.env.SUPABASE_SERVICE_ROLE_KEY
-);
+import { supabase, getAdminCounts } from '../../utils/supabase';
 
 let errorMessage = '';
 let successMessage = '';
@@ -64,10 +59,9 @@ if (Astro.request.method === 'POST') {
 }
 
 // 2. FETCH EXPERIENCES & COUNTS FOR TAB BADGES
-const [{ count: projCount }, { data: experiences }, { count: linksCount }] = await Promise.all([
-  supabase.from('projects').select('*', { count: 'exact', head: true }),
+const [{ data: experiences }, adminCounts] = await Promise.all([
   supabase.from('work_experience').select('*').order('order_index', { ascending: true }),
-  supabase.from('project_experience').select('*', { count: 'exact', head: true })
+  getAdminCounts(supabase)
 ]);
 
 let editExperience = editExpId ? experiences?.find(e => String(e.id) === String(editExpId)) : null;
@@ -78,7 +72,7 @@ let editExperience = editExpId ? experiences?.find(e => String(e.id) === String(
   title="Manage Work Experience" 
   errorMessage={errorMessage} 
   successMessage={successMessage}
-  counts={{ projects: projCount || 0, experience: experiences?.length || 0, links: linksCount || 0 }}
+  counts={adminCounts}
 >
   <div class="d-flex flex-column gap-4">
     
@@ -104,7 +98,7 @@ let editExperience = editExpId ? experiences?.find(e => String(e.id) === String(
               type="text" 
               name="company" 
               value={editExperience?.company || ''} 
-              class="form-control form-control-sm bg-dark text-light border-secondary" 
+              class="form-control form-control-sm bg-dark text-light border-secondary muted-placeholder" style="color: var(--color-text-muted-mid)" 
               placeholder="e.g. Acme Corporation" 
               required 
             />
@@ -116,7 +110,7 @@ let editExperience = editExpId ? experiences?.find(e => String(e.id) === String(
               type="text" 
               name="role" 
               value={editExperience?.role || ''} 
-              class="form-control form-control-sm bg-dark text-light border-secondary" 
+              class="form-control form-control-sm bg-dark text-light border-secondary muted-placeholder" 
               placeholder="e.g. Software Engineer" 
               required 
             />
@@ -128,7 +122,7 @@ let editExperience = editExpId ? experiences?.find(e => String(e.id) === String(
               type="number" 
               name="order_index" 
               value={editExperience?.order_index ?? 0} 
-              class="form-control form-control-sm bg-dark text-light border-secondary" 
+              class="form-control form-control-sm bg-dark text-light border-secondary muted-placeholder" 
               placeholder="0"
             />
           </div>
@@ -139,7 +133,7 @@ let editExperience = editExpId ? experiences?.find(e => String(e.id) === String(
               type="text" 
               name="start_date" 
               value={editExperience?.start_date || ''} 
-              class="form-control form-control-sm bg-dark text-light border-secondary" 
+              class="form-control form-control-sm bg-dark text-light border-secondary muted-placeholder" 
               placeholder="e.g. June 2024" 
               required 
             />
@@ -151,7 +145,7 @@ let editExperience = editExpId ? experiences?.find(e => String(e.id) === String(
               type="text" 
               name="end_date" 
               value={editExperience?.end_date || ''} 
-              class="form-control form-control-sm bg-dark text-light border-secondary" 
+              class="form-control form-control-sm bg-dark text-light border-secondary muted-placeholder" 
               placeholder="e.g. August 2024 or Present" 
             />
           </div>
@@ -162,7 +156,7 @@ let editExperience = editExpId ? experiences?.find(e => String(e.id) === String(
             </label>
             <textarea 
               name="description" 
-              class="form-control form-control-sm bg-dark text-light border-secondary" 
+              class="form-control form-control-sm bg-dark text-light border-secondary muted-placeholder" 
               rows="4" 
               placeholder="Architected RESTful microservices and optimized query latency by 35%&#10;Integrated third-party authentication and automated unit test pipelines&#10;Collaborated in cross-functional agile sprints to deliver core product features" 
               required

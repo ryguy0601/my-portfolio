@@ -1,15 +1,10 @@
 ---
 // src/pages/index.astro
-import { createClient } from '@supabase/supabase-js';
 import Layout from '../layouts/Layout.astro';
 import FeaturedProjects from '../components/FeaturedProjects.astro';
+import { supabase } from '../utils/supabase';
+import { getBaseUrl } from '../utils/url';
 import '../styles/index.scss';
-
-// Initialize Supabase for server-side fetching
-const supabase = createClient(
-  import.meta.env.PUBLIC_SUPABASE_URL,
-  import.meta.env.SUPABASE_SERVICE_ROLE_KEY
-);
 
 // Fetch only featured projects from the database (including live_url)
 const { data: featuredProjects, error } = await supabase
@@ -26,9 +21,7 @@ const { data: dbProjects } = await supabase
   .limit(5);
 
 const safeProjectsJson = JSON.stringify(dbProjects || []);
-const baseUrl = import.meta.env.BASE_URL.endsWith('/')
-  ? import.meta.env.BASE_URL
-  : `${import.meta.env.BASE_URL}/`;
+const baseUrl = getBaseUrl();
 ---
 
 <Layout hasHero={true} title="Ryan Cuccurullo — Software Engineer Portfolio">

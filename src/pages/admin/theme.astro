@@ -1,13 +1,14 @@
 ---
-import { createClient } from '@supabase/supabase-js';
 import AdminLayout from '../../layouts/AdminLayout.astro';
-import { DEFAULT_THEME, THEME_FIELDS, sanitizeTheme } from '../../utils/theme';
+import { supabase, getAdminCounts } from '../../utils/supabase';
+import { DEFAULT_THEME, THEME_FIELDS, sanitizeTheme, getPersistedTheme } from '../../utils/theme';
 import '../../styles/theme.scss';
 
-const supabase = createClient(import.meta.env.PUBLIC_SUPABASE_URL, import.meta.env.SUPABASE_SERVICE_ROLE_KEY);
 let errorMessage = '';
 let successMessage = '';
 let theme = { ...DEFAULT_THEME };
+
+const adminCounts = await getAdminCounts(supabase);
 
 try {
   if (Astro.request.method === 'POST') {
@@ -28,9 +29,7 @@ try {
       successMessage = 'Theme saved successfully.';
     }
   } else {
-    const { data, error } = await supabase.from('site_theme').select('variables').eq('id', 'default').maybeSingle();
-    if (error) throw error;
-    theme = sanitizeTheme(data?.variables);
+    theme = await getPersistedTheme(supabase);
   }
 } catch (error) {
   console.error('Theme settings request failed:', error);
@@ -108,7 +107,7 @@ const themePresets = [
 const previewThemeStyle = Object.entries(theme).map(([key, value]) => `${key}: ${value}`).join('; ');
 ---
 
-<AdminLayout activePage="theme" title="Theme Settings" errorMessage={errorMessage} successMessage={successMessage}>
+<AdminLayout activePage="theme" title="Theme Settings" errorMessage={errorMessage} successMessage={successMessage} counts={adminCounts}>
   <main class="theme-page">
     <header class="theme-header">
       <div><p class="theme-eyebrow">Design system / live controls</p><h2>Shape the portfolio's atmosphere.</h2><p class="theme-intro">Tune the palette, surfaces, motion, and texture that visitors experience across the site.</p></div>

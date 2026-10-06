@@ -4,6 +4,7 @@ import '../../styles/main.scss';
 
 import { generateSecret, verify, generateURI } from 'otplib';
 import QRCode from 'qrcode';
+import { setAdminSession } from '../../utils/auth';
 
 let errorMessage = '';
 let qrCodeUrl = '';
@@ -48,14 +49,8 @@ if (Astro.request.method === 'POST') {
     // Verify the 6-digit code
     const result = await verify({ token, secret: activeSecret });
 
-if (result.valid) {
-      // Grant a pure session cookie (clears automatically when the browser closes)
-      Astro.cookies.set('admin_session', 'authenticated_true', {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'lax',
-        path: '/'
-      });
+    if (result.valid) {
+      setAdminSession(Astro.cookies);
       return Astro.redirect('/admin');
     } else {
       errorMessage = 'Invalid authenticator code. Check your app and try again.';
@@ -98,7 +93,7 @@ if (result.valid) {
           <input 
             type="text" 
             name="token" 
-            class="form-control bg-dark text-light border-secondary text-center fs-3 tracking-widest font-monospace" 
+            class="form-control bg-dark text-light border-secondary text-center fs-3 tracking-widest font-monospace muted-placeholder" style="color: var(--color-text-muted-mid)" 
             maxlength="6" 
             placeholder="000000" 
             autocomplete="one-time-code"

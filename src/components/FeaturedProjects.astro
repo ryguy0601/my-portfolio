@@ -1,17 +1,9 @@
 ---
 // src/components/FeaturedProjects.astro
 import TechBadgeList from './TechBadgeList.astro';
-
-interface Project {
-  id: number;
-  title: string;
-  summary: string;
-  tech_stack: string;
-  live_url?: string;
-  github_url?: string;
-  image_url?: string;
-  image_filenames?: string[];
-}
+import type { Project } from '../utils/projects';
+import { parseProjectImages } from '../utils/projects';
+import { splitLines } from '../utils/text';
 
 interface Props {
   projects: Project[] | null;
@@ -63,17 +55,9 @@ const hasMultiplePages = Boolean(projects && projects.length > ITEMS_PER_SLIDE);
               <div class={`carousel-item ${groupIndex === 0 ? 'active' : ''}`} data-bs-interval="6000">
                 <div class="row g-4 justify-content-center">
                   {group.map((project, index) => {
-                    const images = project.image_filenames && project.image_filenames.length > 0 
-                      ? project.image_filenames 
-                      : (project.image_url ? [project.image_url] : []);
-                    
+                    const images = parseProjectImages(project);
                     const innerCarouselId = `projectCardCarousel_${project.id}`;
-
-                    // Split multiline summaries into bullet entries
-                    const summaryPoints = (project.summary || '')
-                      .split(/\r?\n/)
-                      .map((line: string) => line.trim())
-                      .filter(Boolean);
+                    const summaryPoints = splitLines(project.summary);
 
                     return (
                       <div class="col-12 col-md-10 col-lg-6 d-flex justify-content-center">

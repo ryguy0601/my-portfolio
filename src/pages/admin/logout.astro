@@ -1,5 +1,7 @@
 ---
 // src/pages/admin/logout.astro
-Astro.cookies.delete('admin_session', { path: '/' });
+import { clearAdminSession } from '../../utils/auth';
+
+clearAdminSession(Astro.cookies);
 return Astro.redirect('/admin/login');
 ---

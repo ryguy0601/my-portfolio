@@ -418,3 +418,12 @@ export function parseTechStack(techStack: string | null | undefined): TechInfo[]
     .filter(Boolean)
     .map(getTechInfo);
 }
+
+/**
+ * Quick helper returning hasIcon and url for any tech name.
+ */
+export function resolveIconUrl(name: string): { hasIcon: boolean; url: string } {
+  const info = getTechInfo(name);
+  return { hasIcon: info.hasIcon, url: info.iconUrl };
+}
+
