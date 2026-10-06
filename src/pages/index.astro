@@ -16,7 +16,7 @@ const { data: featuredProjects, error } = await supabase
 // Fetch real projects from Supabase to feed the terminal
 const { data: dbProjects } = await supabase
   .from('projects')
-  .select('title, tech_stack, live_url')
+  .select('title, tech_stack, live_url, github_url')
   .order('id', { ascending: false })
   .limit(5);
 
@@ -316,7 +316,7 @@ if (canvas) {
 
     type Step = string | { delete: number };
 
-    let liveDbProjects: { title: string; tech_stack: string; live_url?: string }[] = [];
+    let liveDbProjects: { title: string; tech_stack: string; live_url?: string; github_url?: string }[] = [];
     try {
       liveDbProjects = JSON.parse(container.getAttribute("data-projects") || "[]");
     } catch (e) {
@@ -337,11 +337,29 @@ if (canvas) {
         "  stack: [" + formattedStack + "],\n"
       ];
 
-      if (p.live_url) {
+      const targetLink = p.live_url?.trim() || p.github_url?.trim() || '404';
+
+      if (targetLink === '404') {
+        steps.push(
+          "  demo: '403",
+          { delete: 1 },
+          "4',\n"
+        );
+      } else if (targetLink.startsWith('https://')) {
         steps.push(
           "  demo: 'htt://",
           { delete: 4 },
-          "ps://live',\n"
+          "ps://" + targetLink.slice(8) + "',\n"
+        );
+      } else if (targetLink.startsWith('http://')) {
+        steps.push(
+          "  demo: 'htt://",
+          { delete: 4 },
+          "tp://" + targetLink.slice(7) + "',\n"
+        );
+      } else {
+        steps.push(
+          "  demo: '" + targetLink + "',\n"
         );
       }
 
