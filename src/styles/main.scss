@@ -293,57 +293,21 @@ body,
 // ==========================================
 .project-card-dimension {
   width: 100%;
-  max-width: 580px;
-  aspect-ratio: 4 / 3.2;
-  height: auto !important;
+  aspect-ratio: 16 / 10;
+  min-height: 290px;
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease, border-color 0.3s ease;
-
-  .carousel-control-prev,
-  .carousel-control-next {
-    opacity: 0;
-    transition: opacity 0.25s ease;
-  }
 
   &:hover {
     transform: translateY(-6px) scale(1.01);
     border-color: var(--color-secondary) !important;
     box-shadow: var(--shadow-secondary-hover) !important;
-
-    .card-overlay {
-      background: linear-gradient(
-        to top,
-        rgba(var(--overlay-dark-hover-rgb), 0.95) 15%,
-        rgba(var(--overlay-dark-hover-rgb), 0.75) 60%,
-        rgba(var(--overlay-dark-hover-rgb), 0.4) 100%
-      );
-    }
-
-    .carousel-control-prev,
-    .carousel-control-next {
-      opacity: 1;
-    }
   }
-}
-
-.card-overlay {
-  background: linear-gradient(
-    to top,
-    rgba(var(--overlay-dark-rgb), 0.95) 20%,
-    rgba(var(--overlay-dark-rgb), 0.8) 60%,
-    rgba(var(--overlay-dark-rgb), 0.3) 100%
-  );
-  transition: background 0.3s ease;
-  z-index: 1;
 }
 
 .outer-control-btn {
-  width: 5% !important;
-  opacity: 0.8;
-  transition: opacity 0.2s ease;
-
-  &:hover {
-    opacity: 1;
-  }
+  opacity: 1 !important;
+  visibility: visible !important;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .text-shadow {

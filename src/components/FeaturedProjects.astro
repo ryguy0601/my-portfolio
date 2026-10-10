@@ -4,6 +4,7 @@ import TechBadgeList from './TechBadgeList.astro';
 import type { Project } from '../utils/projects';
 import { parseProjectImages } from '../utils/projects';
 import { splitLines } from '../utils/text';
+import { getBaseUrl } from '../utils/url';
 
 interface Props {
   projects: Project[] | null;
@@ -11,270 +12,858 @@ interface Props {
 }
 
 const { projects = [], showArchiveLink = true } = Astro.props;
-
-// Group into sets of 2 to give cards substantial horizontal room
-const ITEMS_PER_SLIDE = 2;
-const chunkedProjects: Project[][] = [];
-if (projects) {
-  for (let i = 0; i < projects.length; i += ITEMS_PER_SLIDE) {
-    chunkedProjects.push(projects.slice(i, i + ITEMS_PER_SLIDE));
-  }
-}
-
-// Check if pagination/carousel sliding is needed (> 2 projects)
-const hasMultiplePages = Boolean(projects && projects.length > ITEMS_PER_SLIDE);
+const baseUrl = getBaseUrl();
+const totalProjects = projects ? projects.length : 0;
 ---
 
 <!-- Featured Work Showcase Section -->
 <section class="position-relative py-5 bg-card border-top border-secondary overflow-hidden" style="z-index: 1;">
   <div class="container py-4">
-    
     <!-- Section Header -->
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3 mb-5">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3 mb-4 mb-md-5">
       <div>
         <h2 class="fw-bold text-gradient mb-1">Featured Work Showcase</h2>
-        <p class="text-muted mb-0">Immersive project cards scaling fluidly with a locked aspect ratio.</p>
+        <p class="text-muted mb-0">Immersive project cards adapting dynamically to your screen width.</p>
       </div>
 
       {showArchiveLink && (
-        <a href="/projects" class="btn btn-outline-secondary btn-sm px-3 text-accent d-inline-flex align-items-center gap-2 shadow-sm flex-shrink-0">
+        <a href={`${baseUrl}projects`} class="btn btn-outline-secondary btn-sm px-3 text-accent d-inline-flex align-items-center gap-2 shadow-sm flex-shrink-0">
           <span>Explore All Projects Archive</span>
           <span>&rarr;</span>
         </a>
       )}
     </div>
+  </div>
 
-    {projects && projects.length > 0 ? (
-      <div class="container-fluid px-lg-5 position-relative">
+  {projects && projects.length > 0 ? (
+    <div class="container-fluid px-3 px-md-4 px-lg-5 position-relative showcase-container" id="featuredShowcaseWrapper">
+      
+      <!-- Showcase Viewport (Clips sliding track) -->
+      <div class="showcase-viewport overflow-hidden position-relative" id="showcaseViewport">
         
-        <!-- Outer Carousel -->
-        <div id="portfolioOuterCarousel" class={`carousel slide project-carousel-wrapper ${hasMultiplePages ? '' : 'no-carousel'}`} data-bs-ride={hasMultiplePages ? 'carousel' : 'false'}>
-          
-          <div class="carousel-inner overflow-hidden py-3">
-            {chunkedProjects.map((group, groupIndex) => (
-              <div class={`carousel-item ${groupIndex === 0 ? 'active' : ''}`} data-bs-interval="6000">
-                <div class="row g-4 justify-content-center">
-                  {group.map((project, index) => {
-                    const images = parseProjectImages(project);
-                    const innerCarouselId = `projectCardCarousel_${project.id}`;
-                    const summaryPoints = splitLines(project.summary);
+        <!-- Sliding Track containing individual project cards -->
+        <div 
+          class="showcase-track d-flex" 
+          id="showcaseTrack"
+          data-total-projects={totalProjects}
+        >
+          {projects.map((project, index) => {
+            const images = parseProjectImages(project);
+            const summaryPoints = splitLines(project.summary);
 
-                    return (
-                      <div class="col-12 col-md-10 col-lg-6 d-flex justify-content-center">
-                        <div class="project-card-unit w-100 d-flex flex-column align-items-center" style={`animation-delay: ${index * 0.12}s;`}>
-                          
-                          <!-- Centered Title Above Card (Wraps naturally instead of truncating) -->
-                          <div class="project-header w-100 text-center mb-3 px-2 d-flex justify-content-center">
-                            <h3 class="fw-bold text-gradient mb-0 text-center text-wrap text-break">
-                              {project.title}
-                            </h3>
-                          </div>
+            return (
+              <div class="showcase-col flex-shrink-0" data-card-index={index}>
+                <div class="project-card-unit w-100 d-flex flex-column align-items-center">
+                  
+                  <!-- Centered Title Above Card with locked height for perfect row alignment -->
+                  <div class="project-header w-100 text-center mb-2 px-2 d-flex justify-content-center">
+                    <h3 class="fw-bold text-gradient mb-0 text-center text-wrap text-break project-title-text">
+                      {project.title}
+                    </h3>
+                  </div>
 
-                          <!-- Interactive Media Card Centered Below Title -->
-                          <div class="card bg-dark shadow-lg rounded-4 overflow-hidden border border-secondary project-card-dimension w-100 mx-auto animate-slide-fade position-relative">
-                            
-                            <!-- Inner Manual Image Carousel with Fade Transition -->
-                            {images.length > 0 ? (
-                              <div id={innerCarouselId} class="carousel slide carousel-fade position-absolute top-0 start-0 w-100 h-100 bg-dark" data-bs-interval="false">
-                                <div class="carousel-inner w-100 h-100">
-                                  {images.map((imgPath: string, imgIdx: number) => (
-                                    <div class={`carousel-item w-100 h-100 d-flex align-items-center justify-content-center bg-black ${imgIdx === 0 ? 'active' : ''}`}>
-                                      <img 
-                                        src={imgPath} 
-                                        class="d-block w-100 h-100 object-fit-contain p-2" 
-                                        alt={`${project.title} screenshot ${imgIdx + 1}`} 
-                                      />
-                                    </div>
-                                  ))}
-                                </div>
-
-                                {images.length > 1 && (
-                                  <>
-                                    <button class="carousel-control-prev inner-control-btn" type="button" data-bs-target={`#${innerCarouselId}`} data-bs-slide="prev" aria-label="Previous screenshot">
-                                      <span class="carousel-control-prev-icon bg-dark rounded-circle p-2 border border-secondary shadow" aria-hidden="true"></span>
-                                      <span class="visually-hidden">Previous</span>
-                                    </button>
-                                    <button class="carousel-control-next inner-control-btn" type="button" data-bs-target={`#${innerCarouselId}`} data-bs-slide="next" aria-label="Next screenshot">
-                                      <span class="carousel-control-next-icon bg-dark rounded-circle p-2 border border-secondary shadow" aria-hidden="true"></span>
-                                      <span class="visually-hidden">Next</span>
-                                    </button>
-                                  </>
-                                )}
-                              </div>
-                            ) : (
-                              <div class="position-absolute top-0 start-0 w-100 h-100 bg-dark d-flex align-items-center justify-content-center text-muted">
-                                <span>No Screenshot Provided</span>
-                              </div>
-                            )}
-
-                            <!-- Hover Overlay: Summary & Tech Stack Badges -->
-                            <div class="card-overlay position-absolute top-0 start-0 w-100 h-100 d-flex flex-column justify-content-end p-4 p-md-5">
-                              
-                              <!-- Multiline summary rendered as bulleted list -->
-                              {summaryPoints.length > 1 ? (
-                                <ul class="text-light mb-3 ps-3 flex-grow-0 text-shadow">
-                                  {summaryPoints.map((point: string) => (
-                                    <li class="mb-1">{point}</li>
-                                  ))}
-                                </ul>
-                              ) : (
-                                <p class="text-light mb-3 flex-grow-0 text-shadow">
-                                  {summaryPoints[0] || ''}
-                                </p>
-                              )}
-
-                              <!-- Universal Technology Icon Badges -->
-                              <div>
-                                <TechBadgeList techStack={project.tech_stack} boxSize={38} iconSize={20} />
-                              </div>
-
-                              <a
-                                href={`/projects/${project.id}`}
-                                class="btn btn-outline-light btn-sm align-self-start mt-3 d-inline-flex align-items-center gap-2 shadow-sm detail-preview-link"
-                              >
-                                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-                                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 5h10M9 12h10M9 19h10M5 5h.01M5 12h.01M5 19h.01" />
-                                </svg>
-                                <span>View Details</span>
-                              </a>
-
+                  <!-- Interactive Media Card Centered Below Title -->
+                  <div 
+                    class="card bg-dark shadow-lg rounded-4 overflow-hidden border border-secondary project-card-dimension w-100 mx-auto animate-slide-fade position-relative"
+                    tabindex="0"
+                    data-project-card
+                  >
+                    
+                    <!-- Inner Project Screenshots Gallery -->
+                    {images.length > 0 ? (
+                      <div class="project-media-gallery position-absolute top-0 start-0 w-100 h-100 bg-dark" data-project-gallery>
+                        <div class="project-media-slides w-100 h-100 position-relative overflow-hidden">
+                          {images.map((imgPath: string, imgIdx: number) => (
+                            <div 
+                              class={`project-media-slide position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center bg-black ${imgIdx === 0 ? 'is-active' : ''}`}
+                              data-slide-index={imgIdx}
+                            >
+                              <img 
+                                src={imgPath} 
+                                class="d-block w-100 h-100 object-fit-contain p-2" 
+                                alt={`${project.title} screenshot ${imgIdx + 1}`}
+                                loading={index < 4 && imgIdx === 0 ? 'eager' : 'lazy'} 
+                              />
                             </div>
-
-                          </div>
-
-                          <!-- Centered Action Buttons Below Card -->
-                          <div class="project-actions-footer w-100 d-flex flex-wrap align-items-center justify-content-center gap-2 mt-3 px-1">
-                              {project.live_url && (
-                                <a 
-                                  href={project.live_url} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer" 
-                                  class="btn btn-primary btn-sm px-3 d-inline-flex align-items-center gap-2 shadow-sm"
-                                >
-                                  <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                  </svg>
-                                  <span>Live Demo</span>
-                                </a>
-                              )}
-
-                              {project.github_url && (
-                                <a 
-                                  href={project.github_url} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer" 
-                                  class="btn btn-sm px-3 d-inline-flex align-items-center gap-2 shadow-sm custom-github-btn"
-                                >
-                                  <svg width="15" height="15" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
-                                    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.22 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
-                                  </svg>
-                                  <span>View Repository</span>
-                                </a>
-                              )}
-                          </div>
-
+                          ))}
                         </div>
+
+                        {images.length > 1 && (
+                          <>
+                            <span class="gallery-counter-badge position-absolute top-0 end-0 m-3 badge rounded-pill border border-secondary px-2 py-1 font-monospace shadow">
+                              <span class="current-slide">1</span> / {images.length}
+                            </span>
+                            <button class="gallery-nav-btn gallery-nav-prev" type="button" aria-label="Previous screenshot">
+                              <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                              </svg>
+                            </button>
+                            <button class="gallery-nav-btn gallery-nav-next" type="button" aria-label="Next screenshot">
+                              <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+                              </svg>
+                            </button>
+                          </>
+                        )}
                       </div>
-                    );
-                  })}
+                    ) : (
+                      <div class="position-absolute top-0 start-0 w-100 h-100 bg-dark d-flex align-items-center justify-content-center text-muted">
+                        <span>No Screenshot Provided</span>
+                      </div>
+                    )}
+
+                    <!-- Hover Overlay: Summary & Tech Stack Badges -->
+                    <div class="card-overlay position-absolute top-0 start-0 w-100 h-100 d-flex flex-column justify-content-between p-3 p-sm-3 p-md-4">
+                      
+                      <!-- Top Section: Description (anchored at top, fully visible in any viewport, scrollable if lengthy) -->
+                      <div class="project-overlay-summary pe-1 mb-2">
+                        {summaryPoints.length > 1 ? (
+                          <ul class="text-light mb-0 ps-3 text-shadow small">
+                            {summaryPoints.map((point: string) => (
+                              <li class="mb-1">{point}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p class="text-light mb-0 text-shadow small">
+                            {summaryPoints[0] || ''}
+                          </p>
+                        )}
+                      </div>
+
+                      <!-- Bottom Section: Tech Badges & View Details (pinned to bottom) -->
+                      <div class="project-overlay-footer flex-shrink-0 pt-2 border-top border-secondary border-opacity-25 d-flex flex-column gap-2">
+                        <div>
+                          <TechBadgeList techStack={project.tech_stack} boxSize={32} iconSize={16} />
+                        </div>
+
+                        <a
+                          href={`${baseUrl}projects/${project.id}`}
+                          class="btn btn-outline-light btn-sm align-self-start d-inline-flex align-items-center gap-2 shadow-sm detail-preview-link"
+                        >
+                          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5h10M9 12h10M9 19h10M5 5h.01M5 12h.01M5 19h.01" />
+                          </svg>
+                          <span>View Details</span>
+                        </a>
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                  <!-- Centered Action Buttons Below Card -->
+                  <div class="project-actions-footer w-100 d-flex flex-wrap align-items-center justify-content-center gap-2 mt-3 px-1">
+                    {project.live_url && (
+                      <a 
+                        href={project.live_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        class="btn btn-primary btn-sm px-2 px-sm-3 d-inline-flex align-items-center gap-1 shadow-sm flex-shrink-0"
+                      >
+                        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                        <span>Live Demo</span>
+                      </a>
+                    )}
+
+                    {project.github_url && (
+                      <a 
+                        href={project.github_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        class="btn btn-sm px-2 px-sm-3 d-inline-flex align-items-center gap-1 shadow-sm custom-github-btn flex-shrink-0"
+                      >
+                        <svg width="15" height="15" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                          <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.22 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+                        </svg>
+                        <span>Repository</span>
+                      </a>
+                    )}
+                  </div>
+
                 </div>
               </div>
-            ))}
-          </div>
-
-          <!-- Outer Carousel Arrows & Controls -->
-          {hasMultiplePages && (
-            <>
-              <button class="carousel-control-prev outer-control-btn" type="button" data-bs-target="#portfolioOuterCarousel" data-bs-slide="prev">
-                <span class="carousel-control-prev-icon bg-dark rounded-circle p-3 border border-secondary shadow" aria-hidden="true"></span>
-                <span class="visually-hidden">Previous</span>
-              </button>
-              <button class="carousel-control-next outer-control-btn" type="button" data-bs-target="#portfolioOuterCarousel" data-bs-slide="next">
-                <span class="carousel-control-next-icon bg-dark rounded-circle p-3 border border-secondary shadow" aria-hidden="true"></span>
-                <span class="visually-hidden">Next</span>
-              </button>
-            </>
-          )}
-
+            );
+          })}
         </div>
       </div>
-    ) : (
+
+      <!-- Outer Navigation Arrow Controls (Only displayed when multiple pages exist) -->
+      <button 
+        class="outer-control-btn prev-btn shadow" 
+        id="showcasePrevBtn"
+        type="button" 
+        aria-label="Previous featured projects slide"
+      >
+        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+        <span class="visually-hidden">Previous</span>
+      </button>
+
+      <button 
+        class="outer-control-btn next-btn shadow" 
+        id="showcaseNextBtn"
+        type="button" 
+        aria-label="Next featured projects slide"
+      >
+        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+        <span class="visually-hidden">Next</span>
+      </button>
+
+      <!-- Bottom Dynamic Indicators (Dots) -->
+      <div class="custom-carousel-indicators d-flex justify-content-center align-items-center mt-4 mb-1" id="showcaseIndicators">
+      </div>
+
+    </div>
+  ) : (
+    <div class="container py-4">
       <div class="row justify-content-center">
         <div class="col-lg-8">
           <div class="card bg-dark border border-secondary text-center p-5 rounded-4">
-            <p class="text-muted mb-0">No featured projects found. Go to the <a href="/admin" class="text-accent text-decoration-none">Admin Dashboard</a> and check "Feature on Homepage" for your projects!</p>
+            <p class="text-muted mb-0">No featured projects found. Go to the <a href={`${baseUrl}admin`} class="text-accent text-decoration-none">Admin Dashboard</a> and check "Feature on Homepage" for your projects!</p>
           </div>
         </div>
       </div>
-    )}
-  </div>
+    </div>
+  )}
 </section>
 
+<script>
+  function setupResponsiveShowcase() {
+    const wrapper = document.getElementById('featuredShowcaseWrapper');
+    if (!wrapper) return;
+    if (wrapper.dataset.initialized === 'true') return;
+    wrapper.dataset.initialized = 'true';
+
+    const track = document.getElementById('showcaseTrack');
+    const viewport = document.getElementById('showcaseViewport');
+    const prevBtn = document.getElementById('showcasePrevBtn');
+    const nextBtn = document.getElementById('showcaseNextBtn');
+    const indicatorsContainer = document.getElementById('showcaseIndicators');
+
+    if (!track || !viewport) return;
+
+    const cards = Array.from(track.querySelectorAll<HTMLElement>('.showcase-col'));
+    const totalCards = cards.length;
+    if (totalCards === 0) return;
+
+    let currentStep = 0;
+    let cardsPerPage = 1;
+    let maxShiftIndex = 0;
+    let totalSteps = 1;
+    let autoPlayTimer: number | null = null;
+
+    // Dynamically calculate capacity: how many cards fit across based on viewport width
+    function getCardsCapacity(): number {
+      const width = viewport.clientWidth || window.innerWidth;
+      if (width < 580) {
+        return 1; // 1 card across on mobile phones
+      } else if (width < 880) {
+        return 2; // 2 cards across on tablets
+      } else if (width < 1250) {
+        return 3; // 3 cards across on laptops & standard desktop
+      } else if (width < 1620) {
+        return 4; // 4 cards across on wide screens
+      } else {
+        return 5; // 5 cards across on ultra-wide screens
+      }
+    }
+
+    function renderIndicators() {
+      if (!indicatorsContainer) return;
+      indicatorsContainer.innerHTML = '';
+
+      if (totalSteps <= 1) {
+        indicatorsContainer.style.display = 'none';
+        prevBtn?.classList.remove('is-visible');
+        nextBtn?.classList.remove('is-visible');
+        return;
+      }
+
+      indicatorsContainer.style.display = 'flex';
+      prevBtn?.classList.add('is-visible');
+      nextBtn?.classList.add('is-visible');
+
+      for (let i = 0; i < totalSteps; i++) {
+        const dot = document.createElement('button');
+        dot.type = 'button';
+        dot.className = `carousel-dot ${i === currentStep ? 'active' : ''}`;
+        dot.setAttribute('aria-label', `View slide ${i + 1} of ${totalSteps}`);
+        dot.setAttribute('aria-current', i === currentStep ? 'true' : 'false');
+        dot.addEventListener('click', () => {
+          goToStep(i);
+          resetAutoPlay();
+        });
+        indicatorsContainer.appendChild(dot);
+      }
+    }
+
+    function goToStep(stepIndex: number) {
+      if (totalSteps <= 1) {
+        track.style.transform = 'translateX(0%)';
+        return;
+      }
+
+      currentStep = (stepIndex + totalSteps) % totalSteps;
+      const cardPercent = 100 / cardsPerPage;
+      const shiftPercent = currentStep * cardPercent;
+      track.style.transform = `translateX(-${shiftPercent}%)`;
+
+      if (indicatorsContainer) {
+        const dots = indicatorsContainer.querySelectorAll('.carousel-dot');
+        dots.forEach((dot, idx) => {
+          dot.classList.toggle('active', idx === currentStep);
+          dot.setAttribute('aria-current', idx === currentStep ? 'true' : 'false');
+        });
+      }
+    }
+
+    function updateLayout() {
+      const fitCount = getCardsCapacity();
+      // Put as many cards across as can fit, capped at totalCards so they fill the width evenly
+      cardsPerPage = Math.min(totalCards, fitCount);
+      if (cardsPerPage < 1) cardsPerPage = 1;
+
+      track.style.setProperty('--cards-per-page', String(cardsPerPage));
+      track.setAttribute('data-cards-per-page', String(cardsPerPage));
+
+      maxShiftIndex = Math.max(0, totalCards - cardsPerPage);
+      totalSteps = maxShiftIndex + 1;
+
+      if (currentStep >= totalSteps) {
+        currentStep = Math.max(0, totalSteps - 1);
+      }
+
+      renderIndicators();
+      goToStep(currentStep);
+    }
+
+    // Auto-advance timer (7 seconds)
+    function startAutoPlay() {
+      stopAutoPlay();
+      if (totalSteps <= 1) return;
+      autoPlayTimer = window.setInterval(() => {
+        goToStep(currentStep + 1);
+      }, 7000);
+    }
+
+    function stopAutoPlay() {
+      if (autoPlayTimer) {
+        clearInterval(autoPlayTimer);
+        autoPlayTimer = null;
+      }
+    }
+
+    function resetAutoPlay() {
+      stopAutoPlay();
+      startAutoPlay();
+    }
+
+    prevBtn?.addEventListener('click', (e) => {
+      e.preventDefault();
+      goToStep(currentStep - 1);
+      resetAutoPlay();
+    });
+
+    nextBtn?.addEventListener('click', (e) => {
+      e.preventDefault();
+      goToStep(currentStep + 1);
+      resetAutoPlay();
+    });
+
+    // Suppress card overlay details when hovering over outer page navigation arrows
+    [prevBtn, nextBtn].forEach((btn) => {
+      if (!btn) return;
+      btn.addEventListener('mouseenter', () => {
+        document.querySelectorAll('.card-overlay').forEach((overlay) => {
+          overlay.classList.add('suppress-details');
+        });
+      });
+      btn.addEventListener('mouseleave', () => {
+        document.querySelectorAll('.card-overlay').forEach((overlay) => {
+          overlay.classList.remove('suppress-details');
+        });
+      });
+    });
+
+    // Pause on hover
+    wrapper.addEventListener('mouseenter', stopAutoPlay);
+    wrapper.addEventListener('mouseleave', startAutoPlay);
+
+    // Touch swipe gestures
+    let touchStartX = 0;
+    let touchEndX = 0;
+
+    viewport.addEventListener('touchstart', (e) => {
+      touchStartX = e.touches[0].clientX;
+      touchEndX = touchStartX;
+      stopAutoPlay();
+    }, { passive: true });
+
+    viewport.addEventListener('touchmove', (e) => {
+      touchEndX = e.touches[0].clientX;
+    }, { passive: true });
+
+    viewport.addEventListener('touchend', () => {
+      const swipeDistance = touchEndX - touchStartX;
+      if (Math.abs(swipeDistance) > 40) {
+        if (swipeDistance < 0) {
+          goToStep(currentStep + 1);
+        } else {
+          goToStep(currentStep - 1);
+        }
+      }
+      startAutoPlay();
+    });
+
+    // Window resize listener
+    let resizeTimer: number;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(updateLayout, 60);
+    });
+
+    // Page visibility listener
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) stopAutoPlay();
+      else startAutoPlay();
+    });
+
+    // Touch / tap support for mobile viewports to toggle overlay
+    cards.forEach((col) => {
+      const card = col.querySelector<HTMLElement>('[data-project-card]');
+      const overlay = col.querySelector<HTMLElement>('.card-overlay');
+      if (!card || !overlay) return;
+
+      card.addEventListener('click', (e) => {
+        const target = e.target as HTMLElement;
+        if (target.closest('a, button, .gallery-nav-btn, .gallery-counter-badge')) return;
+        overlay.classList.toggle('is-active-overlay');
+      });
+    });
+
+    document.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-project-card]')) {
+        document.querySelectorAll('.card-overlay.is-active-overlay').forEach((el) => {
+          el.classList.remove('is-active-overlay');
+        });
+      }
+    });
+
+    updateLayout();
+    startAutoPlay();
+  }
+
+  function setupInnerGalleries() {
+    document.querySelectorAll<HTMLElement>('[data-project-gallery]').forEach((gallery) => {
+      if (gallery.dataset.initialized === 'true') return;
+      gallery.dataset.initialized = 'true';
+
+      const slides = gallery.querySelectorAll<HTMLElement>('.project-media-slide');
+      const counterCurrent = gallery.querySelector<HTMLElement>('.current-slide');
+      const prevBtn = gallery.querySelector<HTMLButtonElement>('.gallery-nav-prev');
+      const nextBtn = gallery.querySelector<HTMLButtonElement>('.gallery-nav-next');
+      if (slides.length <= 1) return;
+
+      let currentIndex = 0;
+
+      function goToSlide(newIndex: number) {
+        slides[currentIndex]?.classList.remove('is-active');
+        currentIndex = (newIndex + slides.length) % slides.length;
+        slides[currentIndex]?.classList.add('is-active');
+        if (counterCurrent) {
+          counterCurrent.textContent = String(currentIndex + 1);
+        }
+      }
+
+      prevBtn?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        goToSlide(currentIndex - 1);
+      });
+
+      nextBtn?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        goToSlide(currentIndex + 1);
+      });
+
+      // Suppress card overlay details strictly when hovering over inner gallery navigation arrows
+      [prevBtn, nextBtn].forEach((btn) => {
+        if (!btn) return;
+        btn.addEventListener('mouseenter', () => {
+          const card = btn.closest('.project-card-dimension');
+          const overlay = card?.querySelector('.card-overlay');
+          if (overlay) overlay.classList.add('suppress-details');
+        });
+        btn.addEventListener('mouseleave', () => {
+          const card = btn.closest('.project-card-dimension');
+          const overlay = card?.querySelector('.card-overlay');
+          if (overlay) overlay.classList.remove('suppress-details');
+        });
+      });
+    });
+  }
+
+  function init() {
+    setupResponsiveShowcase();
+    setupInnerGalleries();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+  document.addEventListener('astro:page-load', init);
+</script>
+
 <style>
+  .showcase-container {
+    user-select: none;
+    width: 100%;
+  }
+
+  .showcase-viewport {
+    width: 100%;
+    overflow: hidden;
+    position: relative;
+    padding: 6px 0 16px 0;
+  }
+
+  .showcase-track {
+    --cards-per-page: 1;
+    display: flex;
+    transition: transform 0.55s cubic-bezier(0.25, 1, 0.5, 1);
+    will-change: transform;
+    width: 100%;
+  }
+
+  /* SSR fallback media queries for cards per page */
+  @media (min-width: 580px) {
+    .showcase-track {
+      --cards-per-page: 2;
+    }
+  }
+
+  @media (min-width: 880px) {
+    .showcase-track {
+      --cards-per-page: 3;
+    }
+  }
+
+  @media (min-width: 1250px) {
+    .showcase-track {
+      --cards-per-page: 4;
+    }
+  }
+
+  @media (min-width: 1620px) {
+    .showcase-track {
+      --cards-per-page: 5;
+    }
+  }
+
+  .showcase-col {
+    flex: 0 0 calc(100% / var(--cards-per-page));
+    max-width: calc(100% / var(--cards-per-page));
+    width: calc(100% / var(--cards-per-page));
+    padding: 0 8px;
+    box-sizing: border-box;
+  }
+
+  @media (min-width: 880px) {
+    .showcase-col {
+      padding: 0 12px;
+    }
+  }
+
   .project-card-unit {
     max-width: 100%;
   }
 
-  .project-header h3 {
-    max-width: 100%;
+  .project-title-text {
+    font-size: clamp(0.95rem, 1.25vw, 1.25rem);
     line-height: 1.3;
-    white-space: normal;
-    word-wrap: break-word;
+    min-height: 2.6em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .project-card-dimension {
     width: 100%;
-    min-height: 520px;
     aspect-ratio: 16 / 10;
-  }
-
-  /* Keep inner arrows stacked ABOVE the hover overlay and always clickable */
-  .inner-control-btn {
-    z-index: 10 !important;
-    width: 52px;
-    height: 100%;
-    opacity: 0.7;
-    transition: opacity 0.2s ease, transform 0.2s ease;
-  }
-
-  .inner-control-btn:hover {
-    opacity: 1;
-    transform: scale(1.08);
-  }
-
-  /* Overlay starts hidden and slides up on hover */
-  .card-overlay {
-    background: var(--project-image-overlay);
-    opacity: 0;
-    visibility: hidden;
-    transform: translateY(12px);
-    transition: opacity 0.25s ease, transform 0.25s ease, visibility 0.25s ease;
-    backdrop-filter: blur(4px);
-    z-index: 5;
-    padding-left: clamp(1rem, 4vw, 3.5rem);
-    padding-right: clamp(1rem, 4vw, 3.5rem);
-  }
-
-  /* Reveal description and tech badges strictly on mouse hover */
-  .project-card-dimension:hover .card-overlay {
-    opacity: 1;
-    visibility: visible;
-    transform: translateY(0);
-  }
-
-  /* Suppress the overlay entirely if any arrow button is actively hovered */
-  .project-card-dimension:has(.inner-control-btn:hover) .card-overlay {
-    opacity: 0 !important;
-    visibility: hidden !important;
-    transform: translateY(12px) !important;
-    pointer-events: none;
+    min-height: 290px;
+    max-height: 480px;
   }
 
   @media (max-width: 768px) {
     .project-card-dimension {
-      min-height: 420px;
-      aspect-ratio: 4 / 3;
+      aspect-ratio: 16 / 10;
+      min-height: 280px;
     }
+  }
+
+  /* Inner Gallery Crossfade Transitions */
+  .project-media-gallery {
+    overflow: hidden;
+  }
+
+  .project-media-slide {
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.35s ease-in-out, visibility 0.35s ease-in-out;
+    pointer-events: none;
+  }
+
+  .project-media-slide.is-active {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+  }
+
+  /* Inner Screenshot Floating Control Buttons */
+  .gallery-nav-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(18, 18, 26, 0.78);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 15;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    opacity: 0.9;
+    padding: 0;
+  }
+
+  .gallery-nav-prev {
+    left: 12px;
+  }
+
+  .gallery-nav-next {
+    right: 12px;
+  }
+
+  .gallery-nav-btn:hover {
+    opacity: 1;
+    transform: translateY(-50%) scale(1.1);
+    background: rgba(var(--color-primary-rgb, 99, 102, 241), 0.85);
+    border-color: #ffffff;
+    box-shadow: 0 0 16px rgba(var(--color-primary-rgb, 99, 102, 241), 0.6);
+  }
+
+  .gallery-counter-badge {
+    z-index: 12;
+    font-size: 0.75rem;
+    backdrop-filter: blur(8px);
+    letter-spacing: 0.5px;
+    background-color: rgba(18, 18, 26, 0.75) !important;
+  }
+
+  /* Overlay starts hidden and reveals on hover, focus, or tap */
+  .card-overlay {
+    background: linear-gradient(
+      180deg,
+      rgba(10, 10, 18, 0.95) 0%,
+      rgba(14, 14, 24, 0.97) 65%,
+      rgba(10, 10, 18, 0.98) 100%
+    );
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(10px);
+    transition: opacity 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+                visibility 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 10;
+    pointer-events: none;
+    box-sizing: border-box;
+  }
+
+  /* Reveal description and tech badges on mouse hover, focus, or tap */
+  .project-card-dimension:hover .card-overlay,
+  .project-card-dimension:focus-within .card-overlay,
+  .project-card-unit:hover .card-overlay,
+  .card-overlay.is-active-overlay {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  /* Suppress details overlay strictly when hovering over the navigation arrows */
+  .project-card-dimension:has(.gallery-nav-btn:hover) .card-overlay,
+  .project-card-unit:has(.gallery-nav-btn:hover) .card-overlay,
+  .showcase-container:has(.outer-control-btn:hover) .card-overlay,
+  .card-overlay.suppress-details {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    transform: translateY(10px) !important;
+    pointer-events: none !important;
+    transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease !important;
+  }
+
+  /* Scrollable summary section anchored at top - NEVER clipped */
+  .project-overlay-summary {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(var(--color-primary-rgb, 99, 102, 241), 0.5) transparent;
+  }
+
+  .project-overlay-summary::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .project-overlay-summary::-webkit-scrollbar-thumb {
+    background: rgba(var(--color-primary-rgb, 99, 102, 241), 0.5);
+    border-radius: 4px;
+  }
+
+  .project-overlay-summary ul,
+  .project-overlay-summary p {
+    font-size: clamp(0.8rem, 0.95vw, 0.88rem);
+    line-height: 1.45;
+  }
+
+  /* Keep inner arrows and badges clickable above overlay */
+  .gallery-nav-btn,
+  .gallery-counter-badge {
+    pointer-events: auto;
+  }
+
+  /* Outer Carousel Navigation Controls (Arrows) - ONLY shown when multiple pages exist via .is-visible */
+  .outer-control-btn {
+    display: none;
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 48px;
+    height: 48px;
+    background: #12121e !important;
+    border: 2px solid rgba(var(--color-primary-rgb, 99, 102, 241), 0.85) !important;
+    border-radius: 50% !important;
+    color: #ffffff !important;
+    align-items: center;
+    justify-content: center;
+    opacity: 1 !important;
+    visibility: visible !important;
+    z-index: 25 !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7), 0 0 14px rgba(var(--color-primary-rgb, 99, 102, 241), 0.4) !important;
+    padding: 0;
+    cursor: pointer;
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+                background-color 0.2s ease,
+                border-color 0.2s ease,
+                box-shadow 0.2s ease;
+  }
+
+  /* Activated only when multiple pages exist - ALWAYS VISIBLE */
+  .outer-control-btn.is-visible {
+    display: flex !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+  }
+
+  .outer-control-btn.prev-btn {
+    left: 4px;
+  }
+
+  .outer-control-btn.next-btn {
+    right: 4px;
+  }
+
+  .outer-control-btn:hover {
+    opacity: 1 !important;
+    transform: translateY(-50%) scale(1.12);
+    border-color: #ffffff !important;
+    background-color: var(--color-primary) !important;
+    box-shadow: 0 0 24px rgba(var(--color-primary-rgb, 99, 102, 241), 0.85) !important;
+  }
+
+  .outer-control-btn:active {
+    transform: translateY(-50%) scale(0.96);
+  }
+
+  @media (min-width: 992px) {
+    .outer-control-btn.prev-btn {
+      left: 8px;
+    }
+    .outer-control-btn.next-btn {
+      right: 8px;
+    }
+  }
+
+  @media (min-width: 1400px) {
+    .outer-control-btn.prev-btn {
+      left: 14px;
+    }
+    .outer-control-btn.next-btn {
+      right: 14px;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .outer-control-btn {
+      width: 42px;
+      height: 42px;
+    }
+    .outer-control-btn.prev-btn {
+      left: 4px;
+    }
+    .outer-control-btn.next-btn {
+      right: 4px;
+    }
+  }
+
+  /* Dynamic Carousel Indicators (Dots) */
+  .custom-carousel-indicators {
+    gap: 8px;
+  }
+
+  .custom-carousel-indicators .carousel-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.28);
+    border: 2px solid transparent;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    margin: 0;
+    opacity: 0.7;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .custom-carousel-indicators .carousel-dot:hover {
+    opacity: 1;
+    background-color: rgba(255, 255, 255, 0.6);
+  }
+
+  .custom-carousel-indicators .carousel-dot.active {
+    width: 32px;
+    border-radius: 6px;
+    background-color: var(--color-primary);
+    opacity: 1;
+    box-shadow: 0 0 12px rgba(var(--color-primary-rgb, 99, 102, 241), 0.6);
   }
 
   /* GitHub Button Clean & Glowing Hover State */
