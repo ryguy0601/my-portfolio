@@ -104,7 +104,26 @@ const isCompact = config.compactMode ? 'compact-mode' : '';
 
     <!-- Paper Sheet Container -->
     <div class="d-flex justify-content-center mb-5">
-      <div id="public-resume-sheet" class={`resume-sheet ${styleClass} ${isCompact} bg-white text-dark shadow-lg rounded-1`}>
+      <div 
+        id="public-resume-sheet" 
+        class={`resume-sheet ${styleClass} ${isCompact} bg-white text-dark shadow-lg rounded-1`}
+        data-resume-data={JSON.stringify({
+          name: config.name,
+          location: config.location,
+          phone: config.phone,
+          email: config.email,
+          linkedin: config.linkedin,
+          github: config.github,
+          portfolio: config.portfolio,
+          summary: config.summary,
+          education: config.education,
+          style: config.style,
+          compactMode: config.compactMode,
+          selectedSkills: filteredSkills,
+          selectedExperiences: filteredExperiences,
+          selectedProjects: filteredProjects
+        })}
+      >
         
         <!-- Header -->
         <div class="text-center resume-header">
@@ -278,8 +297,7 @@ const isCompact = config.compactMode ? 'compact-mode' : '';
 </style>
 
 <script>
-  import html2canvas from 'html2canvas';
-  import { jsPDF } from 'jspdf';
+  import { downloadResumeDirectPdf } from '../utils/resumePdfGenerator';
 
   document.getElementById('public-print-btn')?.addEventListener('click', async () => {
     const sheet = document.getElementById('public-resume-sheet');
@@ -289,29 +307,15 @@ const isCompact = config.compactMode ? 'compact-mode' : '';
     if (btnText) btnText.textContent = 'Generating PDF...';
 
     try {
-      const canvas = await html2canvas(sheet, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff'
-      });
-
-      const imgData = canvas.toDataURL('image/jpeg', 0.98);
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'in',
-        format: 'letter'
-      });
-
-      const pdfWidth = 8.5;
-      const pdfHeight = 11.0;
-      const imgWidth = pdfWidth;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-      pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, Math.min(imgHeight, pdfHeight));
-      pdf.save('Ryan_Cuccurullo_Resume.pdf');
+      const rawData = sheet.getAttribute('data-resume-data');
+      if (rawData) {
+        const resumeData = JSON.parse(rawData);
+        await downloadResumeDirectPdf(resumeData, `${(resumeData.name || 'Resume').replace(/\s+/g, '_')}.pdf`);
+      } else {
+        window.print();
+      }
     } catch (e: any) {
-      console.error('PDF error:', e);
+      console.error('PDF generation error, falling back to window.print():', e);
       window.print();
     } finally {
       if (btnText) btnText.textContent = 'Download PDF';
