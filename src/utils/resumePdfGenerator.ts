@@ -376,29 +376,49 @@ export async function downloadResumeDirectPdf(data: ResumePdfData, filename?: st
     const projLineHeight = isCompact ? 10.5 : 11.5;
 
     for (const proj of projects) {
-      // Header: Title — Tech Stack | GitHub Link
+      // Header: Title — Tech Stack | GitHub Link (Right-Aligned)
+      const hasGithub = Boolean(proj.github_url);
+      const ghText = 'GitHub';
+      doc.setFont(fontFamily, 'normal');
+      doc.setFontSize(projFontSize - 0.5);
+      const ghW = hasGithub ? doc.getTextWidth(ghText) : 0;
+      const ghX = pageWidth - marginX - ghW;
+
+      // Draw Title
       doc.setFont(fontFamily, 'bold');
       doc.setFontSize(projFontSize + 0.5);
       doc.setTextColor(15, 23, 42);
       doc.text(proj.title || '', marginX, y + 6);
       const titleW = doc.getTextWidth(proj.title || '');
 
+      // Draw Tech Stack (ensuring it never overlaps the GitHub link)
       if (proj.tech_stack) {
         doc.setFont(fontFamily, 'normal');
         doc.setFontSize(projFontSize - 0.5);
         doc.setTextColor(100, 116, 139);
-        doc.text(` — ${proj.tech_stack}`, marginX + titleW, y + 6);
+
+        const techStartX = marginX + titleW;
+        const maxTechWidth = (hasGithub ? ghX - 10 : pageWidth - marginX) - techStartX;
+
+        if (maxTechWidth > 20) {
+          let techText = ` — ${proj.tech_stack}`;
+          if (doc.getTextWidth(techText) > maxTechWidth) {
+            while (techText.length > 4 && doc.getTextWidth(techText + '…') > maxTechWidth) {
+              techText = techText.slice(0, -1);
+            }
+            techText += '…';
+          }
+          doc.text(techText, techStartX, y + 6);
+        }
       }
 
-      if (proj.github_url) {
-        const ghText = 'GitHub';
+      // Draw GitHub link
+      if (hasGithub) {
         doc.setFont(fontFamily, 'normal');
         doc.setFontSize(projFontSize - 0.5);
         doc.setTextColor(29, 78, 216);
-        const ghW = doc.getTextWidth(ghText);
-        const ghX = pageWidth - marginX - ghW;
         doc.text(ghText, ghX, y + 6);
-        doc.link(ghX, y - 1, ghW, 9, { url: ensureHttp(proj.github_url) });
+        doc.link(ghX, y - 2, ghW, 11, { url: ensureHttp(proj.github_url) });
 
         doc.setDrawColor(29, 78, 216);
         doc.setLineWidth(0.5);
