@@ -32,8 +32,9 @@
     letter-spacing: 0.05em;
     color: #1e3a8a;
     border-bottom: 1px solid #93c5fd;
-    padding-bottom: 2px;
-    margin-bottom: 6px;
+    padding-bottom: 1px;
+    margin-top: 4px;
+    margin-bottom: 3px;
   }
 }
 
@@ -54,8 +55,9 @@
     letter-spacing: 0.08em;
     color: #111111;
     border-bottom: 1px solid #444444;
-    padding-bottom: 2px;
-    margin-bottom: 6px;
+    padding-bottom: 1px;
+    margin-top: 4px;
+    margin-bottom: 3px;
   }
 }
 
@@ -76,8 +78,9 @@
     letter-spacing: 0.06em;
     color: #334155;
     border-bottom: 1px solid #cbd5e1;
-    padding-bottom: 2px;
-    margin-bottom: 5px;
+    padding-bottom: 1px;
+    margin-top: 4px;
+    margin-bottom: 3px;
   }
 }
 
@@ -93,6 +96,18 @@ textarea::placeholder {
   opacity: 1 !important;
 }
 
+// Global resume sheet bullet list spacing
+.resume-sheet {
+  ul {
+    margin-top: 1px !important;
+    margin-bottom: 2px !important;
+  }
+
+  li {
+    margin-bottom: 1.5px !important;
+  }
+}
+
 // Compact Mode styles for single page fitting
 .resume-sheet.compact-mode {
   padding: 24px 30px !important;
@@ -103,8 +118,8 @@ textarea::placeholder {
   }
 
   .resume-section-title {
-    margin-top: 4px !important;
-    margin-bottom: 3px !important;
+    margin-top: 3px !important;
+    margin-bottom: 2px !important;
     padding-bottom: 1px !important;
   }
 
@@ -114,16 +129,16 @@ textarea::placeholder {
   }
 
   .mb-2 {
-    margin-bottom: 0.3rem !important;
+    margin-bottom: 0.25rem !important;
   }
 
   ul {
     margin-top: 1px !important;
-    margin-bottom: 3px !important;
+    margin-bottom: 2px !important;
   }
 
   li {
-    margin-bottom: 1px !important;
+    margin-bottom: 0px !important;
   }
 }
 

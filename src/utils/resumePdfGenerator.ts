@@ -252,15 +252,18 @@ export async function downloadResumeDirectPdf(data: ResumePdfData, filename?: st
 
   // Helper for Section Titles
   function drawSectionTitle(title: string) {
+    // Top margin before section title
+    y += isCompact ? 1 : 2;
+
     doc.setFont(fontFamily, 'bold');
     doc.setFontSize(8.5);
     doc.setTextColor(titleColor[0], titleColor[1], titleColor[2]);
-    doc.text(title.toUpperCase(), marginX, y + 8);
+    doc.text(title.toUpperCase(), marginX, y + 7);
 
     doc.setDrawColor(lineColor[0], lineColor[1], lineColor[2]);
     doc.setLineWidth(0.75);
-    doc.line(marginX, y + 11, pageWidth - marginX, y + 11);
-    y += isCompact ? 16 : 18;
+    doc.line(marginX, y + 10, pageWidth - marginX, y + 10);
+    y += isCompact ? 13 : 15;
   }
 
   // 1. Professional Summary
@@ -272,7 +275,7 @@ export async function downloadResumeDirectPdf(data: ResumePdfData, filename?: st
   if (summaryBullets.length > 0) {
     drawSectionTitle('Professional Summary');
     const bulletFontSize = isCompact ? 8.2 : 8.8;
-    const bulletLineHeight = isCompact ? 10.5 : 11.5;
+    const bulletLineHeight = isCompact ? 10.0 : 10.8;
 
     for (const b of summaryBullets) {
       const tokens = parseMarkdownTokens(b);
@@ -291,9 +294,9 @@ export async function downloadResumeDirectPdf(data: ResumePdfData, filename?: st
         const wrapped = wrapFormattedTokens(doc, tokens, contentWidth - 14, fontFamily, bulletFontSize);
         y = renderWrappedTokens(doc, marginX + 14, y + 6, wrapped, bulletLineHeight, fontFamily, bulletFontSize);
       }
-      y += isCompact ? 1.5 : 2.5;
+      y += isCompact ? 1.0 : 1.5;
     }
-    y += isCompact ? 2 : 4;
+    y += isCompact ? 1 : 2;
   }
 
   // 2. Technical Skills
@@ -307,16 +310,16 @@ export async function downloadResumeDirectPdf(data: ResumePdfData, filename?: st
   if (Object.keys(groupedSkills).length > 0) {
     drawSectionTitle('Technical Skills');
     const skillFontSize = isCompact ? 8 : 8.5;
-    const skillLineHeight = isCompact ? 10.5 : 11.5;
+    const skillLineHeight = isCompact ? 10.0 : 10.8;
 
     for (const [cat, skillList] of Object.entries(groupedSkills)) {
       const lineText = `**${cat}:** ${skillList.join(', ')}`;
       const tokens = parseMarkdownTokens(lineText);
       const wrapped = wrapFormattedTokens(doc, tokens, contentWidth, fontFamily, skillFontSize);
       y = renderWrappedTokens(doc, marginX, y + 6, wrapped, skillLineHeight, fontFamily, skillFontSize);
-      y += isCompact ? 1 : 2;
+      y += isCompact ? 0.8 : 1.2;
     }
-    y += isCompact ? 2 : 4;
+    y += isCompact ? 1 : 2;
   }
 
   // 3. Professional Experience
@@ -324,7 +327,7 @@ export async function downloadResumeDirectPdf(data: ResumePdfData, filename?: st
   if (experiences.length > 0) {
     drawSectionTitle('Professional Experience');
     const expFontSize = isCompact ? 8.2 : 8.8;
-    const expLineHeight = isCompact ? 10.5 : 11.5;
+    const expLineHeight = isCompact ? 10.0 : 10.8;
 
     for (const exp of experiences) {
       // Header: Company — Role | Dates
@@ -345,7 +348,7 @@ export async function downloadResumeDirectPdf(data: ResumePdfData, filename?: st
       doc.setTextColor(100, 116, 139);
       const dWidth = doc.getTextWidth(dateStr);
       doc.text(dateStr, pageWidth - marginX - dWidth, y + 6);
-      y += isCompact ? 11 : 12;
+      y += isCompact ? 10 : 11;
 
       // Bullets
       const expBullets = (exp.description || '')
@@ -362,9 +365,9 @@ export async function downloadResumeDirectPdf(data: ResumePdfData, filename?: st
         const tokens = parseMarkdownTokens(bullet);
         const wrapped = wrapFormattedTokens(doc, tokens, contentWidth - 14, fontFamily, expFontSize);
         y = renderWrappedTokens(doc, marginX + 14, y + 6, wrapped, expLineHeight, fontFamily, expFontSize);
-        y += isCompact ? 1.5 : 2;
+        y += isCompact ? 1.0 : 1.5;
       }
-      y += isCompact ? 2 : 3;
+      y += isCompact ? 1.5 : 2;
     }
   }
 
@@ -373,7 +376,7 @@ export async function downloadResumeDirectPdf(data: ResumePdfData, filename?: st
   if (projects.length > 0) {
     drawSectionTitle('Selected Projects');
     const projFontSize = isCompact ? 8.2 : 8.8;
-    const projLineHeight = isCompact ? 10.5 : 11.5;
+    const projLineHeight = isCompact ? 10.0 : 10.8;
 
     for (const proj of projects) {
       // Header: Title — Tech Stack | GitHub Link (Right-Aligned)
@@ -425,7 +428,7 @@ export async function downloadResumeDirectPdf(data: ResumePdfData, filename?: st
         doc.setLineWidth(0.5);
         doc.line(ghX, y + 7.5, ghX + ghW, y + 7.5);
       }
-      y += isCompact ? 11 : 12;
+      y += isCompact ? 10 : 11;
 
       // Project bullets
       const bullets = Array.isArray(proj.bullets) && proj.bullets.length > 0
@@ -444,9 +447,9 @@ export async function downloadResumeDirectPdf(data: ResumePdfData, filename?: st
         const tokens = parseMarkdownTokens(bullet);
         const wrapped = wrapFormattedTokens(doc, tokens, contentWidth - 14, fontFamily, projFontSize);
         y = renderWrappedTokens(doc, marginX + 14, y + 6, wrapped, projLineHeight, fontFamily, projFontSize);
-        y += isCompact ? 1.5 : 2;
+        y += isCompact ? 1.0 : 1.5;
       }
-      y += isCompact ? 2 : 3;
+      y += isCompact ? 1.5 : 2;
     }
   }
 
@@ -454,7 +457,7 @@ export async function downloadResumeDirectPdf(data: ResumePdfData, filename?: st
   if (data.education) {
     drawSectionTitle('Education');
     const eduFontSize = isCompact ? 8.2 : 8.8;
-    const eduLineHeight = isCompact ? 10.5 : 11.5;
+    const eduLineHeight = isCompact ? 10.0 : 10.8;
 
     const eduLines = data.education
       .split(/\r?\n/)
@@ -465,7 +468,7 @@ export async function downloadResumeDirectPdf(data: ResumePdfData, filename?: st
       const tokens = parseMarkdownTokens(line);
       const wrapped = wrapFormattedTokens(doc, tokens, contentWidth, fontFamily, eduFontSize);
       y = renderWrappedTokens(doc, marginX, y + 6, wrapped, eduLineHeight, fontFamily, eduFontSize);
-      y += 1.5;
+      y += isCompact ? 1.0 : 1.2;
     }
   }
 
