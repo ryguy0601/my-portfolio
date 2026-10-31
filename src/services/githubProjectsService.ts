@@ -65,6 +65,108 @@ const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg', '.avif']);
 
 /**
+ * Curated, high-impact descriptions and multi-bullet points for portfolio repositories.
+ * Used when a repository lacks a custom database description or has generic fallback text.
+ */
+export const REPO_PRESET_DESCRIPTIONS: Record<string, { summary: string; bullets: string[] }> = {
+  'visualcompare': {
+    summary: 'Multithreaded visual regression and DOM-aware alignment testing engine designed to catch UI discrepancies, layout shifts, and rendering bugs across production and staging environments.',
+    bullets: [
+      'Engineered a multithreaded visual regression and DOM-aware alignment testing engine using **Python**, **Playwright**, and **Pillow** to catch UI discrepancies and layout shifts across production and staging.',
+      'Implemented **Longest Common Subsequence (LCS)** dynamic programming algorithms to align corresponding DOM elements side-by-side prior to pixel matching, eliminating false positives from responsive layout reflows.',
+      'Built interactive CLI commands and a **Modern Slate Dashboard** generating pixel-difference heatmaps, bounding-box annotations, and automated regression reports.'
+    ]
+  },
+  'visualcompare-chrome-extension': {
+    summary: 'Chrome extension for real-time dual-site visual regression and interaction testing with synchronized scrolling, split-swipe curtain, and mirrored user actions.',
+    bullets: [
+      'Architected a **Chrome Extension (Manifest V3)** for live side-by-side visual comparison and regression audits between production and staging environments.',
+      'Engineered real-time cross-frame interaction mirroring, synchronizing mouse navigation, keyboard clicks, and scroll deltas across dual responsive web viewports.',
+      'Implemented an interactive split-swipe divider curtain, flicker toggle, and element-level DOM inspector with high-performance CSS hardware acceleration.'
+    ]
+  },
+  'seniorproject': {
+    summary: 'Full-stack cryptocurrency analytics and portfolio tracking platform featuring microservices, real-time market data ingestion, and Groq AI sentiment analysis.',
+    bullets: [
+      'Architected a full-stack financial analytics platform utilizing **React**, **TypeScript**, and **Tailwind CSS** for interactive market visualization and live user dashboards.',
+      'Engineered high-performance microservices combining a **Java Spring Boot** REST API and a **Python FastAPI** service to aggregate market metrics and RSS financial news.',
+      'Integrated **Groq AI (Llama 3)** pipelines to perform real-time sentiment analysis on breaking news headlines, scoring market confidence metrics across 50+ cryptocurrencies.'
+    ]
+  },
+  'my-portfolio': {
+    summary: 'Dynamic full-stack developer portfolio and administrative CMS featuring Astro SSR, Bootstrap 5, Supabase (PostgreSQL), dynamic GitHub synchronization, and an AI-powered resume builder.',
+    bullets: [
+      'Architected a responsive, server-rendered portfolio platform and administrative CMS with **Astro SSR**, **TypeScript**, **Bootstrap 5**, and **SCSS**.',
+      'Engineered an intelligent **GitHub API synchronization engine** supporting hybrid database caching, automated topic and language extraction, and remote demo asset resolution.',
+      'Designed an integrated **AI-Powered Resume & Cover Letter Builder** leveraging **Gemini API** for automated ATS keyword alignment, one-page constraints, and PDF/DOCX generation.',
+      'Implemented robust security with **Supabase (PostgreSQL)**, cookie session authentication, and **TOTP Two-Factor Authentication (MFA)**.'
+    ]
+  },
+  'betterprinttopdf': {
+    summary: 'Automated full-page screenshot capture and document assembly pipeline in Python using Selenium WebDriver, Pillow, and pypdf to stitch scroll-jacked web pages into vectorized PDF reports.',
+    bullets: [
+      'Developed an automated document generation pipeline in **Python** using **Selenium WebDriver**, **Pillow**, and **pypdf** to capture, stitch, and compile scroll-jacked web apps into high-resolution PDFs.',
+      'Implemented smart pre-capture hooks to dismiss cookie banners, auto-trigger dynamic sticky navigation offsets, and prevent viewport seam artifacts.',
+      'Built support for custom paper dimensions (Letter, A4, Tabloid) with automated DPI-aware coordinate normalization and vectorized metadata injection.'
+    ]
+  },
+  'aiplays2048': {
+    summary: 'Concurrent browser-based evolutionary neural agent arena simulating populations of autonomous heuristic agents evolving genetic strategies to solve 2048.',
+    bullets: [
+      'Built a concurrent browser arena using **JavaScript (ES6+)**, **HTML5 Canvas**, and **WebSockets** simulating evolutionary neural agents learning to solve 2048.',
+      'Implemented genetic algorithm operators including fitness-proportionate roulette selection, multi-point crossover breeding, and weight mutation.',
+      'Developed real-time telemetry visualizers to graph generational fitness curves, heuristic weights, corner-locking tendencies, and game longevity.'
+    ]
+  },
+  'omarchy-wallpaper-engine': {
+    summary: 'Interactive Times Square cyberpunk desktop wallpaper engine and telemetry widget for Omarchy Linux and Hyprland built with Quickshell, Qt Quick, and Wayland LayerShell.',
+    bullets: [
+      'Created an interactive desktop wallpaper engine and telemetry control center for **Hyprland** and **Omarchy Linux** using **Quickshell**, **Qt Quick (QML)**, and **Wayland LayerShell**.',
+      'Integrated animated cyberpunk shaders, live neon signage, interactive weather forecasts, and real-time CPU/GPU system resource telemetry.',
+      'Optimized render loop and Wayland surface handling to sustain fluid 60 FPS animations while consuming negligible idle system overhead.'
+    ]
+  },
+  'pintfinder': {
+    summary: 'JavaFX desktop application helping users discover, locate, rate, and review Guinness pints at local pubs with interactive Leaflet mapping and Firebase real-time persistence.',
+    bullets: [
+      'Co-developed a desktop application in **Java** and **JavaFX** connecting pub enthusiasts with top-rated venues serving quality Guinness pints.',
+      'Integrated interactive **Leaflet.js** map views via embedded WebViews with custom pin markers, venue details, and geolocation radius filters.',
+      'Implemented cloud data synchronization, user authentication, and community pint reviews using **Google Firebase Realtime Database**.'
+    ]
+  },
+  'qr_image': {
+    summary: 'High-contrast QR code generator web application built with Astro that produces valid, camera-scannable QR codes blended with custom artwork and logos.',
+    bullets: [
+      'Engineered a modern QR code generator with **Astro**, **TypeScript**, and **HTML5 Canvas** producing high-contrast, camera-scannable QR matrix codes.',
+      'Implemented Reed-Solomon error correction level controls (L, M, Q, H) allowing seamless embedding of custom logos, artwork, and branded watermarks.',
+      'Provided instantaneous browser preview, client-side SVG/PNG asset rendering, and zero-dependency vector exports.'
+    ]
+  },
+  'snake-ai-pytorch': {
+    summary: 'Deep Q-Learning reinforcement learning model in Python using PyTorch and Pygame to autonomously train an agent to master the classic Snake game.',
+    bullets: [
+      'Trained an autonomous Deep Q-Learning (DQN) agent in **Python** using **PyTorch** and **Pygame** to master classic Snake navigation.',
+      'Designed neural network architecture featuring state evaluation tensors (danger detection, food direction, body alignment) and Bellman optimality loss functions.',
+      'Visualized real-time training metrics, reward convergence curves, and policy adaptation over hundreds of evolutionary episodes.'
+    ]
+  },
+  'a_pathfinding_visualizer': {
+    summary: 'Interactive algorithmic pathfinding visualizer demonstrating A*, Dijkstra, Breadth-First Search, and Depth-First Search on dynamic 2D obstacle grids.',
+    bullets: [
+      'Engineered an interactive 2D graph traversal visualizer implementing **A* Search**, **Dijkstra\'s Algorithm**, **BFS**, and **DFS** with customizable Manhattan and Euclidean heuristics.',
+      'Developed procedural maze generators and interactive wall placement tools with real-time open-set and closed-set state animations.'
+    ]
+  },
+  'corpo': {
+    summary: 'Collaborative enterprise web platform featuring modern UI design, robust REST API endpoints, and database workflows.',
+    bullets: [
+      'Collaborated on a modern enterprise web platform, implementing responsive UI layouts and component architectures.',
+      'Engineered RESTful API integrations and database schema workflows to support scalable user operations.'
+    ]
+  }
+};
+
+/**
  * Returns GitHub API headers, automatically attaching Authorization if a token is available
  * in the environment or locally via the GitHub CLI (`gh auth token`).
  */
@@ -570,15 +672,26 @@ export class GitHubProjectsService {
       liveUrl = `https://${owner}.github.io/${repo.name}/`;
     }
 
+    const presetKey = repo.name.toLowerCase();
+    const preset = REPO_PRESET_DESCRIPTIONS[presetKey];
+    const defaultFallbackSummary = `Public ${repo.language ? `${repo.language} ` : ''}repository on GitHub (${repo.full_name}).`;
+
+    // Use custom GitHub description if present and informative, or fallback to our curated preset description
+    let finalSummary = repo.description?.trim();
+    if (!finalSummary || finalSummary.toLowerCase().startsWith('public') && finalSummary.includes('repository on github')) {
+      finalSummary = preset?.summary || defaultFallbackSummary;
+    }
+
+    const bullets = preset?.bullets || [finalSummary];
+
     return {
       id: slug,
       numeric_id: indexOffset + repo.id,
       title: formatRepoTitle(repo.name),
       repo_name: repo.name,
       slug,
-      summary:
-        repo.description?.trim() ||
-        `Public ${repo.language ? `${repo.language} ` : ''}repository on GitHub (${repo.full_name}).`,
+      summary: finalSummary,
+      bullets,
       content: `${repo.html_url}/blob/${repo.default_branch}/README.md`,
       tech_stack: stackItems.join(', '),
       live_url: liveUrl,
@@ -718,9 +831,16 @@ export class GitHubProjectsService {
           const hasDbImages =
             (Array.isArray(linkedDb.image_filenames) && linkedDb.image_filenames.length > 0) ||
             Boolean(linkedDb.image_url);
+          const hasDbSummary =
+            linkedDb.summary &&
+            !linkedDb.summary.toLowerCase().startsWith('public ') &&
+            !linkedDb.summary.includes('repository on github');
+
           return {
             ...baseGhProject,
             ...linkedDb,
+            summary: hasDbSummary ? linkedDb.summary : baseGhProject.summary,
+            bullets: baseGhProject.bullets || (linkedDb.summary ? [linkedDb.summary] : []),
             featured: featuredSet.has(r.name.toLowerCase()) || Boolean(linkedDb.featured),
             image_url: hasDbImages ? linkedDb.image_url : baseGhProject.image_url,
             image_filenames: hasDbImages ? linkedDb.image_filenames : baseGhProject.image_filenames,
