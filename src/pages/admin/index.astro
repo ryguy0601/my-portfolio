@@ -62,6 +62,32 @@ if (Astro.request.method === "POST") {
       });
     }
 
+    if (actionType === "fetch_github_repo_languages_ajax") {
+      const repoUrl = formData.get("github_url")?.toString()?.trim() || "";
+      if (!repoUrl) {
+        return new Response(JSON.stringify({ success: false, languages: [] }), {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      let fullName = "";
+      const match = repoUrl.match(/github\.com\/([^\/]+\/[^\/#?]+)/i);
+      if (match) {
+        fullName = match[1].replace(/\.git$/i, "");
+      } else if (repoUrl.includes("/")) {
+        fullName = repoUrl.replace(/\.git$/i, "");
+      } else {
+        fullName = `ryguy0601/${repoUrl}`;
+      }
+
+      const languages = await GitHubProjectsService.fetchRepoLanguages(fullName);
+      return new Response(JSON.stringify({ success: true, fullName, languages }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     if (actionType === "save_project") {
       const projectId = formData.get("project_id")?.toString();
       const title = formData.get("title")?.toString();
@@ -287,6 +313,7 @@ if (Astro.request.method === "POST") {
             customRepos,
           });
           if (error) throw error;
+          GitHubProjectsService.clearCache();
           successMessage = `Successfully added collaborated repository "${repoIdentifier}"!`;
         } else {
           successMessage = `Repository "${repoIdentifier}" is already linked.`;
@@ -303,6 +330,7 @@ if (Astro.request.method === "POST") {
           customRepos,
         });
         if (error) throw error;
+        GitHubProjectsService.clearCache();
         successMessage = `Removed collaborated repository "${repoIdentifier}".`;
       }
     } else if (actionType === "import_github_repo") {
@@ -888,7 +916,18 @@ if (editProject) {
             />
           </div>
           <div class="col-lg-4">
-            <label class="form-label text-light small">GitHub URL</label>
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <label class="form-label text-light small mb-0">GitHub URL</label>
+              <button
+                type="button"
+                id="fetch-github-langs-btn"
+                class="btn btn-link btn-sm p-0 text-decoration-none text-accent font-monospace"
+                style="font-size: 0.68rem;"
+                title="Automatically fetch and populate all repository languages from GitHub"
+              >
+                <i class="bi bi-arrow-repeat me-1"></i>Fetch Languages
+              </button>
+            </div>
             <input
               type="url"
               name="github_url"
@@ -896,6 +935,7 @@ if (editProject) {
               class="form-control form-control-sm bg-dark text-light border-secondary muted-placeholder"
               placeholder="https://github.com/..."
             />
+            <div id="github-url-status" class="small mt-1 text-muted d-none" style="font-size: 0.72rem;"></div>
           </div>
 
           <div class="col-12">
@@ -2689,6 +2729,115 @@ Detailed write-up of engineering decisions, technical trade-offs, and outcomes..
       updateRemoveButtons(imageContainer);
       const input = newRow.querySelector("input");
       if (input) input.focus();
+    });
+
+    // --- Automatic GitHub Languages Auto-Population for New/Edit Project ---
+    const fetchGithubLangsBtn = document.getElementById("fetch-github-langs-btn");
+    const githubUrlStatus = document.getElementById("github-url-status");
+    let lastFetchedGhUrl = "";
+
+    async function populateLanguagesFromGithub(url: string, silent = false) {
+      const cleanUrl = (url || "").trim();
+      if (!cleanUrl || !cleanUrl.toLowerCase().includes("github.com/")) return;
+      if (cleanUrl === lastFetchedGhUrl && silent) return;
+
+      if (githubUrlStatus) {
+        githubUrlStatus.classList.remove("d-none", "text-danger", "text-success");
+        githubUrlStatus.classList.add("text-info");
+        githubUrlStatus.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Fetching languages from GitHub...';
+      }
+      if (fetchGithubLangsBtn) {
+        fetchGithubLangsBtn.classList.add("opacity-50");
+      }
+
+      try {
+        const fd = new FormData();
+        fd.append("action_type", "fetch_github_repo_languages_ajax");
+        fd.append("github_url", cleanUrl);
+
+        const res = await fetch(window.location.pathname, { method: "POST", body: fd });
+        const data = await res.json();
+
+        if (data.success && Array.isArray(data.languages) && data.languages.length > 0) {
+          lastFetchedGhUrl = cleanUrl;
+          let addedCount = 0;
+
+          data.languages.forEach((lang: string) => {
+            if (!lang) return;
+            const existingInputs = Array.from(
+              techContainer?.querySelectorAll<HTMLInputElement>(".tech-stack-input") || []
+            );
+            const exists = existingInputs.some(
+              (inp) => inp.value.trim().toLowerCase() === lang.toLowerCase()
+            );
+            if (exists) return;
+
+            // Fill the first empty input if available, else append a new row
+            const emptyInput = existingInputs.find((inp) => !inp.value.trim());
+            if (emptyInput) {
+              emptyInput.value = lang;
+              const row = emptyInput.closest(".tech-row") as HTMLElement | null;
+              if (row) updateRowIcon(row, lang);
+              addedCount++;
+            } else if (techContainer) {
+              const newRow = createInputRow("tech_stack[]", "e.g., C#, React", true, true);
+              techContainer.appendChild(newRow);
+              updateRemoveButtons(techContainer);
+              const inp = newRow.querySelector<HTMLInputElement>(".tech-stack-input");
+              if (inp) {
+                inp.value = lang;
+                updateRowIcon(newRow, lang);
+                addedCount++;
+              }
+            }
+          });
+
+          if (githubUrlStatus) {
+            githubUrlStatus.classList.remove("text-info");
+            githubUrlStatus.classList.add("text-success");
+            githubUrlStatus.innerHTML = `<i class="bi bi-check-circle me-1"></i>Found ${data.languages.length} languages (${data.languages.join(", ")}).`;
+          }
+        } else {
+          if (githubUrlStatus) {
+            githubUrlStatus.classList.remove("text-info");
+            githubUrlStatus.classList.add("text-muted");
+            githubUrlStatus.innerHTML = "No languages returned from GitHub.";
+          }
+        }
+      } catch (err: any) {
+        if (githubUrlStatus) {
+          githubUrlStatus.classList.remove("text-info");
+          githubUrlStatus.classList.add("text-danger");
+          githubUrlStatus.innerHTML = "Could not fetch languages from GitHub.";
+        }
+      } finally {
+        if (fetchGithubLangsBtn) {
+          fetchGithubLangsBtn.classList.remove("opacity-50");
+        }
+      }
+    }
+
+    fetchGithubLangsBtn?.addEventListener("click", () => {
+      const url = projectGithubInput?.value?.trim() || "";
+      if (url) {
+        populateLanguagesFromGithub(url, false);
+      } else {
+        if (githubUrlStatus) {
+          githubUrlStatus.classList.remove("d-none", "text-info", "text-success");
+          githubUrlStatus.classList.add("text-warning");
+          githubUrlStatus.textContent = "Please enter a GitHub URL first.";
+        }
+      }
+    });
+
+    // Auto-fetch languages on blur or paste of GitHub URL input
+    projectGithubInput?.addEventListener("blur", () => {
+      const url = projectGithubInput.value.trim();
+      if (url) populateLanguagesFromGithub(url, true);
+    });
+    projectGithubInput?.addEventListener("change", () => {
+      const url = projectGithubInput.value.trim();
+      if (url) populateLanguagesFromGithub(url, true);
     });
 
     // --- Interactive Markdown Editor ---

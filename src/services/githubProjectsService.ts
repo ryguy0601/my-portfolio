@@ -1,6 +1,7 @@
 // src/services/githubProjectsService.ts
 import fs from 'node:fs';
 import path from 'node:path';
+import { execSync } from 'node:child_process';
 import { slugify } from '../utils/text';
 
 export type GitHubSyncMode = 'database' | 'hybrid' | 'github';
@@ -62,6 +63,39 @@ const repoLanguagesCache = new Map<string, { languages: string[]; fetchedAt: num
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg', '.avif']);
+
+/**
+ * Returns GitHub API headers, automatically attaching Authorization if a token is available
+ * in the environment or locally via the GitHub CLI (`gh auth token`).
+ */
+export function getGitHubHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    Accept: 'application/vnd.github+json',
+    'User-Agent': 'RyanCuccurullo-Portfolio',
+  };
+
+  let token =
+    (typeof process !== 'undefined' && process.env?.GITHUB_TOKEN) ||
+    (typeof import.meta !== 'undefined' && (import.meta as any).env?.GITHUB_TOKEN);
+
+  if (!token) {
+    try {
+      token = execSync('gh auth token', {
+        encoding: 'utf-8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        timeout: 2000,
+      }).trim();
+    } catch {
+      // Fallback silently if gh CLI is unavailable
+    }
+  }
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  return headers;
+}
 
 function isImageFilename(filename: string): boolean {
   const ext = path.extname(filename).toLowerCase();
@@ -130,10 +164,7 @@ async function fetchRemoteRepoDemoPics(
     const res = await fetch(
       `https://api.github.com/repos/${fullName}/contents/demoPics?ref=${encodeURIComponent(defaultBranch)}`,
       {
-        headers: {
-          Accept: 'application/vnd.github+json',
-          'User-Agent': 'RyanCuccurullo-Portfolio',
-        },
+        headers: getGitHubHeaders(),
       }
     );
 
@@ -272,10 +303,7 @@ export class GitHubProjectsService {
       const response = await fetch(
         `https://api.github.com/users/${encodeURIComponent(cleanUser)}/repos?type=public&sort=updated&per_page=100`,
         {
-          headers: {
-            Accept: 'application/vnd.github+json',
-            'User-Agent': 'RyanCuccurullo-Portfolio',
-          },
+          headers: getGitHubHeaders(),
         }
       );
 
@@ -343,10 +371,7 @@ export class GitHubProjectsService {
 
     try {
       const response = await fetch(`https://api.github.com/repos/${fullName}`, {
-        headers: {
-          Accept: 'application/vnd.github+json',
-          'User-Agent': 'RyanCuccurullo-Portfolio',
-        },
+        headers: getGitHubHeaders(),
       });
 
       if (!response.ok) {
@@ -438,10 +463,7 @@ export class GitHubProjectsService {
 
     try {
       const response = await fetch(`https://api.github.com/repos/${cleanRepo}/languages`, {
-        headers: {
-          Accept: 'application/vnd.github+json',
-          'User-Agent': 'RyanCuccurullo-Portfolio',
-        },
+        headers: getGitHubHeaders(),
       });
 
       if (!response.ok) {
@@ -715,5 +737,11 @@ export class GitHubProjectsService {
       projects: githubModeProjects,
       config,
     };
+  }
+
+  static clearCache(): void {
+    repoCache = null;
+    demoPicsCache.clear();
+    repoLanguagesCache.clear();
   }
 }
