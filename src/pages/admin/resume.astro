@@ -594,6 +594,19 @@ const groupedSkills = groupSkillsByCategory(skills || []);
     const rawSkills = JSON.parse(builderRoot.getAttribute('data-skills') || '[]');
     const savedConfig = JSON.parse(builderRoot.getAttribute('data-saved-config') || '{}');
 
+    // Helper: matches a project by any of its identifier variants (id, numeric_id, slug, repo_name)
+    function matchesProjectId(project: any, targetId: any): boolean {
+      if (!project || targetId === undefined || targetId === null) return false;
+      const t = String(targetId).trim().toLowerCase();
+      if (!t) return false;
+      return (
+        String(project.id || '').trim().toLowerCase() === t ||
+        String(project.numeric_id || '').trim().toLowerCase() === t ||
+        String(project.slug || '').trim().toLowerCase() === t ||
+        String(project.repo_name || '').trim().toLowerCase() === t
+      );
+    }
+
     const nameInput = document.getElementById('resume-name') as HTMLInputElement;
     const locationInput = document.getElementById('resume-location') as HTMLInputElement;
     const phoneInput = document.getElementById('resume-phone') as HTMLInputElement;
@@ -762,9 +775,23 @@ const groupedSkills = groupSkillsByCategory(skills || []);
       setSelectedStyle(config.style || 'modern');
 
       const hasCachedProjects = Array.isArray(config.selectedProjects) && config.selectedProjects.length > 0;
+      let matchedAnyProject = false;
       document.querySelectorAll<HTMLInputElement>('.resume-project-cb').forEach((cb, idx) => {
-        cb.checked = hasCachedProjects ? config.selectedProjects.map(String).includes(String(cb.value)) : idx < 3;
+        const proj = rawProjects.find((p: any) => matchesProjectId(p, cb.value));
+        const isMatched = hasCachedProjects && config.selectedProjects.some((targetId: any) => {
+          return String(cb.value).trim().toLowerCase() === String(targetId).trim().toLowerCase() ||
+                 (proj && matchesProjectId(proj, targetId));
+        });
+        if (isMatched) matchedAnyProject = true;
+        cb.checked = isMatched;
       });
+
+      // If cached project IDs were from legacy database numbers and matched nothing, default to top 3 projects
+      if (!matchedAnyProject) {
+        document.querySelectorAll<HTMLInputElement>('.resume-project-cb').forEach((cb, idx) => {
+          cb.checked = idx < 3;
+        });
+      }
 
       const hasCachedExperiences = Array.isArray(config.selectedExperiences) && config.selectedExperiences.length > 0;
       document.querySelectorAll<HTMLInputElement>('.resume-exp-cb').forEach(cb => {
@@ -988,14 +1015,14 @@ const groupedSkills = groupSkillsByCategory(skills || []);
       const selectedProjIds = Array.from(document.querySelectorAll<HTMLInputElement>('.resume-project-cb:checked')).map(cb => cb.value);
       if (prevProj) {
         prevProj.innerHTML = '';
-        rawProjects.filter((p: any) => selectedProjIds.includes(String(p.id))).forEach((proj: any) => {
+        rawProjects.filter((p: any) => selectedProjIds.some(id => matchesProjectId(p, id))).forEach((proj: any) => {
           const linkParts: string[] = [];
           if (proj.github_url) {
             linkParts.push(`<a href="${ensureHttp(proj.github_url)}" target="_blank" class="text-dark text-decoration-underline font-monospace">GitHub</a>`);
           }
 
           // If we have AI-tailored bullets for this project, use them!
-          const tailored = (customTailoredProjects || []).find((tp: any) => String(tp.id) === String(proj.id));
+          const tailored = (customTailoredProjects || []).find((tp: any) => matchesProjectId(tp, proj.id));
           const bullets = tailored && Array.isArray(tailored.bullets) && tailored.bullets.length > 0
             ? tailored.bullets
             : splitBullets(proj.summary || proj.content?.trim() || '');
@@ -1166,9 +1193,12 @@ const groupedSkills = groupSkillsByCategory(skills || []);
         customTailoredProjects = result.tailoredProjects;
       }
       if (Array.isArray(result.selectedProjectIds) && result.selectedProjectIds.length > 0) {
-        const idSet = new Set(result.selectedProjectIds.map(String));
         document.querySelectorAll<HTMLInputElement>('.resume-project-cb').forEach(cb => {
-          cb.checked = idSet.has(String(cb.value));
+          const proj = rawProjects.find((p: any) => matchesProjectId(p, cb.value));
+          cb.checked = result.selectedProjectIds.some((targetId: any) => {
+            return String(cb.value).trim().toLowerCase() === String(targetId).trim().toLowerCase() ||
+                   (proj && matchesProjectId(proj, targetId));
+          });
         });
       }
 
@@ -1338,7 +1368,7 @@ const groupedSkills = groupSkillsByCategory(skills || []);
       const expToPrint = rawExperiences.filter((e: any) => selectedExpIds.includes(String(e.id)));
 
       const selectedProjIds = data.selectedProjects || [];
-      const projToPrint = rawProjects.filter((p: any) => selectedProjIds.includes(String(p.id)));
+      const projToPrint = rawProjects.filter((p: any) => selectedProjIds.some(id => matchesProjectId(p, id)));
 
       const contactList: string[] = [];
       if (data.location) contactList.push(data.location);
@@ -1483,7 +1513,7 @@ const groupedSkills = groupSkillsByCategory(skills || []);
         if (Array.isArray(customTailoredProjects) && customTailoredProjects.length > 0) {
           selectedProjects = customTailoredProjects;
         } else {
-          selectedProjects = rawProjects.filter((p: any) => state.selectedProjects.includes(String(p.id)));
+          selectedProjects = rawProjects.filter((p: any) => state.selectedProjects.some(id => matchesProjectId(p, id)));
         }
         const selectedExperiences = rawExperiences.filter((e: any) => state.selectedExperiences.includes(String(e.id)));
 
