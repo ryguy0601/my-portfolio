@@ -236,6 +236,7 @@ if (Astro.request.method === "POST") {
       const { error } = await GitHubProjectsService.saveConfig(supabase, {
         excludedRepos: updatedExcluded,
       });
+      GitHubProjectsService.clearCache();
 
       return new Response(
         JSON.stringify({
@@ -262,6 +263,7 @@ if (Astro.request.method === "POST") {
       const { error } = await GitHubProjectsService.saveConfig(supabase, {
         featuredRepos: updatedFeatured,
       });
+      GitHubProjectsService.clearCache();
 
       return new Response(
         JSON.stringify({
@@ -287,6 +289,7 @@ if (Astro.request.method === "POST") {
       const { error } = await GitHubProjectsService.saveConfig(supabase, {
         customLanguages: updatedCustomLangs,
       });
+      GitHubProjectsService.clearCache();
 
       return new Response(
         JSON.stringify({
@@ -742,22 +745,26 @@ if (editProject) {
                           </button>
                         )}
                         <!-- Featured Checkbox Badge -->
-                        <label
-                          class={`form-check-label badge font-monospace py-1 px-2 d-inline-flex align-items-center gap-1 rounded-pill gh-featured-label ${isFeatured ? "bg-warning bg-opacity-25 text-warning border border-warning" : "bg-dark text-muted border border-secondary"}`}
-                          style="cursor: pointer; font-size: 0.68rem;"
-                          title="Mark repository as Featured on the home page showcase"
+                        <button
+                          type="button"
+                          class={`btn btn-sm py-0 px-2 d-inline-flex align-items-center gap-1 rounded-pill gh-featured-btn font-monospace ${isFeatured ? "btn-warning text-dark border-warning" : "btn-outline-secondary text-muted"}`}
+                          style="font-size: 0.68rem; line-height: 1.5;"
+                          data-repo-name={repo.name}
+                          data-featured={isFeatured ? "true" : "false"}
+                          title="Toggle featured showcase on home page"
                         >
                           <input
                             type="checkbox"
-                            class="form-check-input mt-0 gh-featured-checkbox d-none"
+                            class="gh-featured-checkbox d-none"
                             name="featured_repos[]"
                             value={repo.name}
                             checked={isFeatured}
                             data-repo-name={repo.name}
+                            tabindex="-1"
                           />
-                          <i class={`bi ${isFeatured ? "bi-star-fill text-warning" : "bi-star"}`}></i>
-                          <span class="gh-featured-text">{isFeatured ? "Featured" : "Feature"}</span>
-                        </label>
+                          <i class={`bi ${isFeatured ? "bi-star-fill text-dark" : "bi-star text-muted"}`}></i>
+                          <span class="gh-featured-text fw-semibold">{isFeatured ? "Featured" : "Feature"}</span>
+                        </button>
 
                         {isLinked ? (
                           <span
@@ -3272,34 +3279,38 @@ Detailed write-up of engineering decisions, technical trade-offs, and outcomes..
       }
     });
 
-    // Featured Checkbox Badges for GitHub Repos: Instant AJAX Toggling & Label Styling
-    const ghFeaturedCheckboxes = document.querySelectorAll<HTMLInputElement>(".gh-featured-checkbox");
-    ghFeaturedCheckboxes.forEach((cb) => {
-      cb.addEventListener("change", async () => {
-        const repoName = cb.dataset.repoName;
+    // Featured Badge Buttons for GitHub Repos: Instant AJAX Toggling & Visual Feedback
+    const ghFeaturedButtons = document.querySelectorAll<HTMLButtonElement>(".gh-featured-btn");
+    ghFeaturedButtons.forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        const repoName = btn.dataset.repoName;
         if (!repoName) return;
-        const label = cb.closest<HTMLLabelElement>(".gh-featured-label");
-        const icon = label?.querySelector("i");
-        const textSpan = label?.querySelector(".gh-featured-text");
 
-        if (cb.checked) {
-          label?.classList.remove("bg-dark", "text-muted", "border-secondary");
-          label?.classList.add("bg-warning", "bg-opacity-25", "text-warning", "border-warning");
-          if (icon) {
-            icon.className = "bi bi-star-fill text-warning";
-          }
+        const isCurrentlyFeatured = btn.dataset.featured === "true";
+        const willBeFeatured = !isCurrentlyFeatured;
+        const cb = btn.querySelector<HTMLInputElement>(".gh-featured-checkbox");
+        const icon = btn.querySelector("i");
+        const textSpan = btn.querySelector(".gh-featured-text");
+
+        // Optimistic UI update
+        btn.dataset.featured = willBeFeatured ? "true" : "false";
+        if (cb) cb.checked = willBeFeatured;
+
+        if (willBeFeatured) {
+          btn.classList.remove("btn-outline-secondary", "text-muted");
+          btn.classList.add("btn-warning", "text-dark", "border-warning");
+          if (icon) icon.className = "bi bi-star-fill text-dark";
           if (textSpan) textSpan.textContent = "Featured";
         } else {
-          label?.classList.remove("bg-warning", "bg-opacity-25", "text-warning", "border-warning");
-          label?.classList.add("bg-dark", "text-muted", "border-secondary");
-          if (icon) {
-            icon.className = "bi bi-star";
-          }
+          btn.classList.remove("btn-warning", "text-dark", "border-warning");
+          btn.classList.add("btn-outline-secondary", "text-muted");
+          if (icon) icon.className = "bi bi-star text-muted";
           if (textSpan) textSpan.textContent = "Feature";
         }
 
         if (ghSaveBadge) {
-          ghSaveBadge.textContent = "Saving...";
+          ghSaveBadge.textContent = `Saving ${repoName}...`;
           ghSaveBadge.classList.remove("d-none");
         }
 
@@ -3307,14 +3318,29 @@ Detailed write-up of engineering decisions, technical trade-offs, and outcomes..
           const fd = new FormData();
           fd.append("action_type", "toggle_github_featured_ajax");
           fd.append("repo_name", repoName);
-          fd.append("featured", cb.checked ? "true" : "false");
+          fd.append("featured", willBeFeatured ? "true" : "false");
 
-          await fetch(window.location.pathname, { method: "POST", body: fd });
+          const res = await fetch(window.location.pathname, { method: "POST", body: fd });
+          if (!res.ok) throw new Error("Request failed");
           if (ghSaveBadge) {
-            ghSaveBadge.textContent = `${repoName}: ${cb.checked ? "★ Featured" : "Unfeatured"}`;
+            ghSaveBadge.textContent = `${repoName}: ${willBeFeatured ? "★ Marked as Featured" : "Unfeatured"}`;
           }
-        } catch {
-          if (ghSaveBadge) ghSaveBadge.textContent = "Click Save GitHub Settings";
+        } catch (err) {
+          // Revert optimistic update on failure
+          btn.dataset.featured = isCurrentlyFeatured ? "true" : "false";
+          if (cb) cb.checked = isCurrentlyFeatured;
+          if (isCurrentlyFeatured) {
+            btn.classList.remove("btn-outline-secondary", "text-muted");
+            btn.classList.add("btn-warning", "text-dark", "border-warning");
+            if (icon) icon.className = "bi bi-star-fill text-dark";
+            if (textSpan) textSpan.textContent = "Featured";
+          } else {
+            btn.classList.remove("btn-warning", "text-dark", "border-warning");
+            btn.classList.add("btn-outline-secondary", "text-muted");
+            if (icon) icon.className = "bi bi-star text-muted";
+            if (textSpan) textSpan.textContent = "Feature";
+          }
+          if (ghSaveBadge) ghSaveBadge.textContent = "Failed to toggle featured status";
         }
       });
     });
