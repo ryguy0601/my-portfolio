@@ -29,6 +29,7 @@ export interface GitHubRepoSummary {
   language: string | null;
   languages?: string[];
   topics: string[];
+  has_pages?: boolean;
   stargazers_count: number;
   forks_count: number;
   default_branch: string;
@@ -292,6 +293,7 @@ export class GitHubProjectsService {
           description: r.description || null,
           homepage: r.homepage || null,
           language: r.language || null,
+          has_pages: Boolean(r.has_pages),
           topics: Array.isArray(r.topics) ? r.topics : [],
           stargazers_count: Number(r.stargazers_count || 0),
           forks_count: Number(r.forks_count || 0),
@@ -428,6 +430,15 @@ export class GitHubProjectsService {
     const demoImages = await this.resolveRepoDemoImages(repo);
     const slug = slugify(repo.name) || repo.name.toLowerCase();
 
+    // Resolve live demo URL:
+    // 1. Explicit repo.homepage (if configured in GitHub settings)
+    // 2. Automated GitHub Pages URL if repo has GitHub Pages enabled (e.g. https://<owner>.github.io/<repo>/)
+    let liveUrl = repo.homepage?.trim() || null;
+    if (!liveUrl && repo.has_pages) {
+      const owner = repo.full_name.split('/')[0] || 'ryguy0601';
+      liveUrl = `https://${owner}.github.io/${repo.name}/`;
+    }
+
     return {
       id: slug,
       numeric_id: indexOffset + repo.id,
@@ -439,7 +450,7 @@ export class GitHubProjectsService {
         `Public ${repo.language ? `${repo.language} ` : ''}repository on GitHub (${repo.full_name}).`,
       content: `${repo.html_url}/blob/${repo.default_branch}/README.md`,
       tech_stack: stackItems.join(', '),
-      live_url: repo.homepage?.trim() || null,
+      live_url: liveUrl,
       github_url: repo.html_url,
       featured: isFeatured,
       is_github_live: true,
