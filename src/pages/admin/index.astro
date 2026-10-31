@@ -2739,6 +2739,9 @@ Detailed write-up of engineering decisions, technical trade-offs, and outcomes..
     });
 
     // --- Automatic GitHub Languages Auto-Population for New/Edit Project ---
+    const projectGithubInput = document.querySelector<HTMLInputElement>(
+      'input[name="github_url"]',
+    );
     const fetchGithubLangsBtn = document.getElementById("fetch-github-langs-btn");
     const githubUrlStatus = document.getElementById("github-url-status");
     let lastFetchedGhUrl = "";
@@ -2881,9 +2884,6 @@ Detailed write-up of engineering decisions, technical trade-offs, and outcomes..
     ) as HTMLInputElement | null;
     const mdReadmeStatus = document.getElementById("md-readme-status");
     const mdClearBtn = document.getElementById("md-btn-clear");
-    const projectGithubInput = document.querySelector<HTMLInputElement>(
-      'input[name="github_url"]',
-    );
 
     let mdCurrentMode: "write" | "preview" | "split" = "write";
     let isFullscreen = false;
