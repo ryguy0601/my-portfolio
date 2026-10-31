@@ -4,17 +4,19 @@ import AdminLayout from '../../layouts/AdminLayout.astro';
 import { supabase, getAdminCounts } from '../../utils/supabase';
 import { groupSkillsByCategory } from '../../utils/skills';
 import { ResumeService } from '../../services/resumeService';
+import { GitHubProjectsService } from '../../services/githubProjectsService';
 import '../../styles/resume-styles.scss';
 
-// Fetch data & counts for tab counters (including skills)
-const [{ data: projects }, { data: experiences }, { data: skills }, adminCounts, savedConfig] = await Promise.all([
-  supabase.from('projects').select('*').order('id', { ascending: false }),
+// Fetch data & counts for tab counters (including skills and unified projects)
+const [portfolioProjectsResult, { data: experiences }, { data: skills }, adminCounts, savedConfig] = await Promise.all([
+  GitHubProjectsService.getPortfolioProjects(supabase),
   supabase.from('work_experience').select('*').order('order_index', { ascending: true }),
   supabase.from('skills').select('*').order('category', { ascending: true }).order('order_index', { ascending: true }),
   getAdminCounts(supabase),
   ResumeService.getConfig(supabase)
 ]);
 
+const projects = portfolioProjectsResult?.projects || [];
 const safeProjectsJson = JSON.stringify(projects || []);
 const safeExperiencesJson = JSON.stringify(experiences || []);
 const safeSkillsJson = JSON.stringify(skills || []);

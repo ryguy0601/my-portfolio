@@ -13,6 +13,7 @@ export interface GitHubPortfolioConfig {
   excludedRepos: string[];
   featuredRepos?: string[];
   customLanguages?: Record<string, string[]>;
+  customRepos?: string[];
   updated_at?: string;
 }
 
@@ -45,6 +46,7 @@ export const DEFAULT_GITHUB_CONFIG: GitHubPortfolioConfig = {
   excludedRepos: [],
   featuredRepos: [],
   customLanguages: {},
+  customRepos: [],
 };
 
 // In-memory cache for GitHub API responses, repo languages, and repo demoPics
@@ -189,6 +191,9 @@ export class GitHubProjectsService {
             data.variables.customLanguages && typeof data.variables.customLanguages === 'object'
               ? data.variables.customLanguages
               : {},
+          customRepos: Array.isArray(data.variables.customRepos)
+            ? data.variables.customRepos
+            : [],
         };
       }
     } catch (err) {
@@ -220,6 +225,9 @@ export class GitHubProjectsService {
           config.customLanguages !== undefined
             ? config.customLanguages
             : current.customLanguages || {},
+        customRepos: Array.isArray(config.customRepos)
+          ? config.customRepos
+          : current.customRepos || [],
         updated_at: new Date().toISOString(),
       };
 
@@ -312,6 +320,107 @@ export class GitHubProjectsService {
     } catch (err) {
       console.error('Failed to fetch public GitHub repositories:', err);
       return repoCache?.repos || [];
+    }
+  }
+
+  /**
+   * Fetches metadata for an individual GitHub repository (e.g. from an external URL like 'https://github.com/JderenthalCS/Corpo'
+   * or a full name like 'JderenthalCS/Corpo').
+   */
+  static async fetchSingleRepo(repoUrlOrFullName: string): Promise<GitHubRepoSummary | null> {
+    const raw = (repoUrlOrFullName || '').trim();
+    if (!raw) return null;
+
+    let fullName = '';
+    const match = raw.match(/github\.com\/([^\/]+)\/([^\/#?]+)/i);
+    if (match) {
+      fullName = `${match[1]}/${match[2].replace(/\.git$/i, '')}`;
+    } else if (raw.includes('/')) {
+      fullName = raw.replace(/\.git$/i, '');
+    } else {
+      fullName = `ryguy0601/${raw}`;
+    }
+
+    try {
+      const response = await fetch(`https://api.github.com/repos/${fullName}`, {
+        headers: {
+          Accept: 'application/vnd.github+json',
+          'User-Agent': 'RyanCuccurullo-Portfolio',
+        },
+      });
+
+      if (!response.ok) {
+        console.error(`GitHub API returned status ${response.status} for ${fullName}`);
+        // Fallback gracefully if rate-limited: parse repository name from URL
+        const parts = fullName.split('/');
+        const owner = parts[0];
+        const repoName = parts[1] || fullName;
+        return {
+          id: Math.abs(slugify(fullName).split('').reduce((acc, char) => (acc << 5) - acc + char.charCodeAt(0), 0)),
+          name: repoName,
+          full_name: fullName,
+          private: false,
+          fork: false,
+          archived: false,
+          html_url: `https://github.com/${fullName}`,
+          description: null,
+          homepage: null,
+          language: null,
+          has_pages: false,
+          topics: [],
+          stargazers_count: 0,
+          forks_count: 0,
+          default_branch: 'main',
+          updated_at: new Date().toISOString(),
+          pushed_at: new Date().toISOString(),
+        };
+      }
+
+      const r = await response.json();
+      if (!r || r.private) return null;
+
+      return {
+        id: r.id,
+        name: r.name,
+        full_name: r.full_name,
+        private: false,
+        fork: Boolean(r.fork),
+        archived: Boolean(r.archived),
+        html_url: r.html_url,
+        description: r.description || null,
+        homepage: r.homepage || null,
+        language: r.language || null,
+        has_pages: Boolean(r.has_pages),
+        topics: Array.isArray(r.topics) ? r.topics : [],
+        stargazers_count: Number(r.stargazers_count || 0),
+        forks_count: Number(r.forks_count || 0),
+        default_branch: r.default_branch || 'main',
+        updated_at: r.updated_at || '',
+        pushed_at: r.pushed_at || '',
+      };
+    } catch (err) {
+      console.error(`Failed to fetch repo ${fullName}:`, err);
+      const parts = fullName.split('/');
+      const repoName = parts[1] || fullName;
+      return {
+        id: Math.abs(slugify(fullName).split('').reduce((acc, char) => (acc << 5) - acc + char.charCodeAt(0), 0)),
+        name: repoName,
+        full_name: fullName,
+        private: false,
+        fork: false,
+        archived: false,
+        html_url: `https://github.com/${fullName}`,
+        description: null,
+        homepage: null,
+        language: null,
+        has_pages: false,
+        topics: [],
+        stargazers_count: 0,
+        forks_count: 0,
+        default_branch: 'main',
+        updated_at: new Date().toISOString(),
+        pushed_at: new Date().toISOString(),
+      };
     }
   }
 
@@ -492,6 +601,22 @@ export class GitHubProjectsService {
     }
 
     const rawRepos = await this.fetchPublicRepos(config.username);
+
+    // Fetch and merge any manually linked custom/collaborated GitHub repos (e.g. 'https://github.com/JderenthalCS/Corpo')
+    const customRepoEntries = Array.isArray(config.customRepos) ? config.customRepos : [];
+    if (customRepoEntries.length > 0) {
+      const existingNames = new Set(rawRepos.map((r) => r.name.toLowerCase()));
+      const customSummaries = await Promise.all(
+        customRepoEntries.map((entry) => this.fetchSingleRepo(entry))
+      );
+      for (const cs of customSummaries) {
+        if (cs && !existingNames.has(cs.name.toLowerCase())) {
+          rawRepos.push(cs);
+          existingNames.add(cs.name.toLowerCase());
+        }
+      }
+    }
+
     const excludedSet = new Set((config.excludedRepos || []).map((r) => r.toLowerCase()));
     const featuredSet = new Set((config.featuredRepos || []).map((r) => r.toLowerCase()));
     const customLangsMap = config.customLanguages || {};

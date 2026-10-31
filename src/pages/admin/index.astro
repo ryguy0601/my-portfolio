@@ -269,6 +269,42 @@ if (Astro.request.method === "POST") {
         }),
         { status: error ? 500 : 200, headers: { "Content-Type": "application/json" } }
       );
+    } else if (actionType === "add_custom_github_repo") {
+      const repoInput = formData.get("custom_repo_url")?.toString()?.trim() || "";
+      if (repoInput) {
+        let repoIdentifier = repoInput;
+        const match = repoInput.match(/github\.com\/([^\/]+\/[^\/#?]+)/i);
+        if (match) {
+          repoIdentifier = match[1].replace(/\.git$/i, '');
+        }
+
+        const currentCfg = await GitHubProjectsService.getConfig(supabase);
+        const customRepos = Array.isArray(currentCfg.customRepos) ? [...currentCfg.customRepos] : [];
+
+        if (!customRepos.some((r) => r.toLowerCase() === repoIdentifier.toLowerCase())) {
+          customRepos.push(repoIdentifier);
+          const { error } = await GitHubProjectsService.saveConfig(supabase, {
+            customRepos,
+          });
+          if (error) throw error;
+          successMessage = `Successfully added collaborated repository "${repoIdentifier}"!`;
+        } else {
+          successMessage = `Repository "${repoIdentifier}" is already linked.`;
+        }
+      }
+    } else if (actionType === "remove_custom_github_repo") {
+      const repoIdentifier = formData.get("repo_name")?.toString()?.trim() || "";
+      if (repoIdentifier) {
+        const currentCfg = await GitHubProjectsService.getConfig(supabase);
+        const customRepos = (currentCfg.customRepos || []).filter(
+          (r) => r.toLowerCase() !== repoIdentifier.toLowerCase()
+        );
+        const { error } = await GitHubProjectsService.saveConfig(supabase, {
+          customRepos,
+        });
+        if (error) throw error;
+        successMessage = `Removed collaborated repository "${repoIdentifier}".`;
+      }
     } else if (actionType === "import_github_repo") {
       const repoName = formData.get("repo_name")?.toString()?.trim() || "";
       const repoUrl = formData.get("repo_url")?.toString()?.trim() || "";
@@ -361,6 +397,21 @@ const [
 const publicGithubRepos = await GitHubProjectsService.fetchPublicRepos(
   githubConfig.username,
 );
+
+// Merge any manually added collaborated repositories (e.g. from GitHub URL)
+const customReposList = Array.isArray(githubConfig.customRepos) ? githubConfig.customRepos : [];
+if (customReposList.length > 0) {
+  const existingNames = new Set(publicGithubRepos.map((r) => r.name.toLowerCase()));
+  const customSummaries = await Promise.all(
+    customReposList.map((entry) => GitHubProjectsService.fetchSingleRepo(entry))
+  );
+  for (const cs of customSummaries) {
+    if (cs && !existingNames.has(cs.name.toLowerCase())) {
+      publicGithubRepos.push(cs);
+      existingNames.add(cs.name.toLowerCase());
+    }
+  }
+}
 
 // Fetch all languages in parallel for each public repository
 await Promise.all(
@@ -521,6 +572,36 @@ if (editProject) {
           </div>
         </div>
 
+        <!-- Direct Link / Collaborated Repository Adder -->
+        <div class="p-3 mb-3 rounded-3 border border-secondary border-opacity-50" style="background: rgba(var(--body-bg-rgb), 0.7);">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <i class="bi bi-link-45deg text-accent fs-5"></i>
+            <span class="fw-semibold text-light small font-monospace">ADD COLLABORATED / EXTERNAL GITHUB REPOSITORY</span>
+          </div>
+          <p class="text-muted small mb-2" style="font-size: 0.75rem;">
+            Contributed to a group project or partnered on someone else's repo? Paste the GitHub link or <code>owner/repo</code> below to link it into your portfolio, resume builder, and AI optimizer.
+          </p>
+          <div class="input-group input-group-sm">
+            <span class="input-group-text bg-dark border-secondary text-muted font-monospace" style="font-size: 0.75rem;">
+              https://github.com/
+            </span>
+            <input
+              type="text"
+              id="custom-collab-repo-input"
+              class="form-control bg-dark text-light border-secondary font-monospace"
+              placeholder="e.g. JderenthalCS/Corpo or https://github.com/owner/project"
+              style="font-size: 0.78rem;"
+            />
+            <button
+              type="button"
+              class="btn btn-outline-primary btn-sm px-3 font-monospace"
+              id="add-collab-repo-btn"
+            >
+              <i class="bi bi-plus-circle me-1"></i>Add to Projects
+            </button>
+          </div>
+        </div>
+
         <!-- All Pulled Public GitHub Repositories with Per-Repo Show/Hide Toggle Switches -->
         <div class="pt-3 border-top border-secondary border-opacity-25">
           <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
@@ -566,6 +647,10 @@ if (editProject) {
               const allEffectiveLangs = customLangsConfig.length > 0 ? customLangsConfig : detectedLangsList;
               const effectiveLangsStr = allEffectiveLangs.join(", ") || "GitHub";
 
+              const isCustomLinked = (githubConfig.customRepos || []).some(
+                (cr) => cr.toLowerCase() === repo.full_name.toLowerCase() || cr.toLowerCase() === repo.name.toLowerCase()
+              );
+
               return (
                 <div class="col">
                   <div
@@ -602,6 +687,11 @@ if (editProject) {
                             >
                               {repo.name}
                             </label>
+                            {isCustomLinked && (
+                              <span class="badge bg-primary bg-opacity-25 text-primary border border-primary border-opacity-50 font-monospace" style="font-size: 0.6rem;">
+                                Collab
+                              </span>
+                            )}
                             {repo.fork && (
                               <span class="badge bg-dark border border-secondary text-muted font-monospace" style="font-size: 0.6rem;">
                                 fork
@@ -612,6 +702,17 @@ if (editProject) {
                       </div>
 
                       <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                        {isCustomLinked && (
+                          <button
+                            type="button"
+                            class="btn btn-outline-danger btn-sm py-0 px-1 gh-remove-collab-btn"
+                            style="font-size: 0.65rem;"
+                            data-repo-name={repo.full_name || repo.name}
+                            title="Remove this collaborated repository link"
+                          >
+                            <i class="bi bi-trash"></i>
+                          </button>
+                        )}
                         <!-- Featured Checkbox Badge -->
                         <label
                           class={`form-check-label badge font-monospace py-1 px-2 d-inline-flex align-items-center gap-1 rounded-pill gh-featured-label ${isFeatured ? "bg-warning bg-opacity-25 text-warning border border-warning" : "bg-dark text-muted border border-secondary"}`}
@@ -1420,7 +1521,7 @@ Detailed write-up of engineering decisions, technical trade-offs, and outcomes..
     <!-- Active Projects Grid -->
     <div>
       <h4 class="text-light h6 mb-3 fw-bold">
-        Active Portfolio Projects ({projects?.length || 0})
+        Curated Supabase Projects ({projects?.length || 0})
       </h4>
       <div
         class="scroll-grid-container p-2 border border-secondary border-opacity-25 rounded-4 bg-dark bg-opacity-25"
@@ -3117,6 +3218,49 @@ Detailed write-up of engineering decisions, technical trade-offs, and outcomes..
         } finally {
           btn.disabled = false;
           btn.textContent = "Save";
+        }
+      });
+    });
+
+    // Add Collaborated / External GitHub Repository
+    const addCollabBtn = document.getElementById("add-collab-repo-btn");
+    const collabInput = document.getElementById("custom-collab-repo-input") as HTMLInputElement | null;
+    addCollabBtn?.addEventListener("click", async () => {
+      const val = collabInput?.value?.trim();
+      if (!val) return;
+      addCollabBtn.setAttribute("disabled", "true");
+      addCollabBtn.textContent = "Adding...";
+
+      try {
+        const fd = new FormData();
+        fd.append("action_type", "add_custom_github_repo");
+        fd.append("custom_repo_url", val);
+
+        await fetch(window.location.pathname, { method: "POST", body: fd });
+        window.location.reload();
+      } catch {
+        addCollabBtn.removeAttribute("disabled");
+        addCollabBtn.textContent = "Add to Projects";
+      }
+    });
+
+    // Remove Collaborated Repository Link
+    document.querySelectorAll<HTMLButtonElement>(".gh-remove-collab-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const repoName = btn.dataset.repoName;
+        if (!repoName) return;
+        if (!confirm(`Remove collaborated repository "${repoName}"?`)) return;
+
+        btn.disabled = true;
+        try {
+          const fd = new FormData();
+          fd.append("action_type", "remove_custom_github_repo");
+          fd.append("repo_name", repoName);
+
+          await fetch(window.location.pathname, { method: "POST", body: fd });
+          window.location.reload();
+        } catch {
+          btn.disabled = false;
         }
       });
     });

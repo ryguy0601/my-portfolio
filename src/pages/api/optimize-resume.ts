@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { supabase } from '../../utils/supabase';
 import { scrapeJobPage, callGeminiOptimization, callGeminiRefinement } from '../../services/geminiService';
+import { GitHubProjectsService } from '../../services/githubProjectsService';
 
 export const POST: APIRoute = async ({ request }) => {
   try {
@@ -18,12 +19,14 @@ export const POST: APIRoute = async ({ request }) => {
       });
     }
 
-    // Fetch skills, experiences, and projects from Supabase
-    const [{ data: skills }, { data: experiences }, { data: projects }] = await Promise.all([
+    // Fetch skills, experiences, and active portfolio projects
+    const [{ data: skills }, { data: experiences }, portfolioProjectsResult] = await Promise.all([
       supabase.from('skills').select('*').order('category', { ascending: true }),
       supabase.from('work_experience').select('*').order('order_index', { ascending: true }),
-      supabase.from('projects').select('*').order('id', { ascending: false })
+      GitHubProjectsService.getPortfolioProjects(supabase)
     ]);
+
+    const projects = portfolioProjectsResult?.projects || [];
 
     // If this is a conversation refinement request:
     if (instructions && previousResult) {

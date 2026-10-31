@@ -1,5 +1,6 @@
 // src/utils/supabase.ts
 import { createClient } from '@supabase/supabase-js';
+import { GitHubProjectsService } from '../services/githubProjectsService';
 
 const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL || '';
 const supabaseKey = import.meta.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -19,24 +20,29 @@ export interface AdminCounts {
 /**
  * Fetches accurate record counts across projects, experience, skills, and links tables
  * in parallel for AdminLayout tabs and headers.
+ * Correctly accounts for active portfolio project mode (database vs hybrid vs github).
  */
 export async function getAdminCounts(client: any = supabase): Promise<AdminCounts> {
   const sb = client || supabase;
   try {
     const [
-      { count: projects },
+      portfolioResult,
       { count: experience },
       { count: skills },
       { count: links }
     ] = await Promise.all([
-      sb.from('projects').select('*', { count: 'exact', head: true }),
+      GitHubProjectsService.getPortfolioProjects(sb).catch(() => ({ projects: [] })),
       sb.from('work_experience').select('*', { count: 'exact', head: true }),
       sb.from('skills').select('*', { count: 'exact', head: true }),
       sb.from('project_experience').select('*', { count: 'exact', head: true })
     ]);
 
+    const activeProjectCount = Array.isArray(portfolioResult?.projects)
+      ? portfolioResult.projects.length
+      : 0;
+
     return {
-      projects: projects ?? 0,
+      projects: activeProjectCount,
       experience: experience ?? 0,
       skills: skills ?? 0,
       links: links ?? 0
