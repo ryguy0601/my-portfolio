@@ -17,10 +17,10 @@ const totalProjects = projects ? projects.length : 0;
 ---
 
 <!-- Featured Work Showcase Section -->
-<section class="position-relative py-5 bg-card border-top border-secondary overflow-hidden" style="z-index: 1;">
+<section id="featured-projects" class="position-relative py-5 bg-card border-top border-secondary overflow-hidden" style="z-index: 1;">
   <div class="container py-4">
     <!-- Section Header -->
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3 mb-4 mb-md-5">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3 mb-3">
       <div>
         <h2 class="fw-bold text-gradient mb-1">Featured Work Showcase</h2>
         <p class="text-muted mb-0">Immersive project cards adapting dynamically to your screen width.</p>
@@ -32,6 +32,17 @@ const totalProjects = projects ? projects.length : 0;
           <span>&rarr;</span>
         </a>
       )}
+    </div>
+
+    <!-- Active Skill Filter Banner (Populated via JS when a ticker skill is clicked) -->
+    <div id="skillFilterBanner" class="align-items-center gap-2 mb-4 d-none">
+      <span class="text-muted small">Filtering projects by:</span>
+      <span class="badge bg-primary text-white px-3 py-2 rounded-pill font-monospace d-inline-flex align-items-center gap-2 shadow-sm">
+        <i class="bi bi-tag-fill"></i>
+        <span id="activeFilterSkillName"></span>
+        <button type="button" id="clearSkillFilterBtn" class="btn-close btn-close-white ms-1" aria-label="Clear filter" style="font-size: 0.65rem;"></button>
+      </span>
+      <span id="filterMatchesCount" class="text-secondary small font-monospace"></span>
     </div>
   </div>
 
@@ -52,7 +63,12 @@ const totalProjects = projects ? projects.length : 0;
             const summaryPoints = splitLines(project.summary);
 
             return (
-              <div class="showcase-col flex-shrink-0" data-card-index={index}>
+              <div 
+                class="showcase-col flex-shrink-0" 
+                data-card-index={index}
+                data-project-title={project.title}
+                data-tech-stack={project.tech_stack || ''}
+              >
                 <div class="project-card-unit w-100 d-flex flex-column align-items-center">
                   
                   <!-- Centered Title Above Card with locked height for perfect row alignment -->
@@ -324,14 +340,18 @@ const totalProjects = projects ? projects.length : 0;
 
     function updateLayout() {
       const fitCount = getCardsCapacity();
-      // Put as many cards across as can fit, capped at totalCards so they fill the width evenly
-      cardsPerPage = Math.min(totalCards, fitCount);
+      // Count currently visible cards (in case of filter)
+      const visibleCards = cards.filter((col) => col.style.display !== 'none');
+      const visibleCount = visibleCards.length;
+
+      // Put as many cards across as can fit, capped at visibleCount so they fill the width evenly
+      cardsPerPage = Math.min(Math.max(1, visibleCount), fitCount);
       if (cardsPerPage < 1) cardsPerPage = 1;
 
       track.style.setProperty('--cards-per-page', String(cardsPerPage));
       track.setAttribute('data-cards-per-page', String(cardsPerPage));
 
-      maxShiftIndex = Math.max(0, totalCards - cardsPerPage);
+      maxShiftIndex = Math.max(0, visibleCount - cardsPerPage);
       totalSteps = maxShiftIndex + 1;
 
       if (currentStep >= totalSteps) {
@@ -454,6 +474,78 @@ const totalProjects = projects ? projects.length : 0;
         });
       }
     });
+
+    // Skill filter state & function
+    const filterBanner = document.getElementById('skillFilterBanner');
+    const filterSkillNameEl = document.getElementById('activeFilterSkillName');
+    const filterCountEl = document.getElementById('filterMatchesCount');
+    const clearFilterBtn = document.getElementById('clearSkillFilterBtn');
+
+    function applySkillFilter(skillName: string | null) {
+      if (!skillName || skillName.trim() === '') {
+        // Clear filter
+        cards.forEach((col) => {
+          col.style.display = '';
+        });
+        if (filterBanner) {
+          filterBanner.classList.add('d-none');
+          filterBanner.classList.remove('d-flex');
+        }
+      } else {
+        const query = skillName.trim().toLowerCase();
+        let matches = 0;
+
+        cards.forEach((col) => {
+          const stack = (col.getAttribute('data-tech-stack') || '').toLowerCase();
+          const title = (col.getAttribute('data-project-title') || '').toLowerCase();
+          // Check if skill is in tech_stack tags or in title
+          const stackItems = stack.split(',').map((s) => s.trim());
+          const isMatch = stackItems.some((s) => s === query || s.includes(query) || query.includes(s)) || title.includes(query);
+
+          if (isMatch) {
+            col.style.display = '';
+            matches++;
+          } else {
+            col.style.display = 'none';
+          }
+        });
+
+        if (filterBanner && filterSkillNameEl) {
+          filterSkillNameEl.textContent = skillName;
+          if (filterCountEl) {
+            filterCountEl.textContent = `(${matches} project${matches === 1 ? '' : 's'})`;
+          }
+          filterBanner.classList.remove('d-none');
+          filterBanner.classList.add('d-flex');
+        }
+      }
+
+      currentStep = 0;
+      updateLayout();
+      goToStep(0);
+    }
+
+    clearFilterBtn?.addEventListener('click', () => {
+      applySkillFilter(null);
+      // Remove query param without reload
+      const url = new URL(window.location.href);
+      url.searchParams.delete('skill');
+      window.history.replaceState({}, '', url.toString());
+    });
+
+    // Listen for custom skill-filter events dispatched by the ticker or elsewhere
+    window.addEventListener('filter-by-skill', ((e: CustomEvent) => {
+      const skill = e.detail?.skill;
+      if (skill) {
+        applySkillFilter(skill);
+      }
+    }) as EventListener);
+
+    // Check if initial URL contains ?skill=
+    const initialSkillParam = new URLSearchParams(window.location.search).get('skill');
+    if (initialSkillParam) {
+      applySkillFilter(initialSkillParam);
+    }
 
     updateLayout();
     startAutoPlay();

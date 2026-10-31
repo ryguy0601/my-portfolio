@@ -1,0 +1,35 @@
+---
+// src/pages/404.astro
+import Layout from '../layouts/Layout.astro';
+import { getBaseUrl } from '../utils/url';
+import '../styles/main.scss';
+
+const baseUrl = getBaseUrl();
+---
+
+<Layout title="404 — Page Not Found | Ryan Cuccurullo">
+  <div class="min-vh-100 d-flex align-items-center justify-content-center px-3">
+    <div class="card bg-card border border-secondary rounded-2 p-5" style="max-width: 520px; width: 100%;">
+      <div class="font-monospace text-accent small mb-2">ERROR // 404</div>
+      <h1 class="h3 fw-bold text-light mb-2">Page not found</h1>
+      <p class="text-muted small mb-4">
+        The requested route does not exist or has been moved.
+      </p>
+
+      <div class="d-flex flex-wrap gap-2 font-monospace">
+        <a href={baseUrl} class="btn btn-primary btn-sm px-3 py-2 rounded-1">
+          &larr; Home
+        </a>
+        <a href={`${baseUrl}projects`} class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-1 text-light">
+          Projects
+        </a>
+        <a href="https://github.com/ryguy0601" target="_blank" rel="noopener noreferrer" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-1 text-light">
+          GitHub
+        </a>
+        <a href="https://www.linkedin.com/in/ryan-cuccurullo-48b242261/" target="_blank" rel="noopener noreferrer" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-1 text-light">
+          LinkedIn
+        </a>
+      </div>
+    </div>
+  </div>
+</Layout>

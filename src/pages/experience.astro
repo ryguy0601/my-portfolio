@@ -1,0 +1,77 @@
+---
+// src/pages/experience.astro
+import Layout from '../layouts/Layout.astro';
+import { supabase } from '../utils/supabase';
+import { getBaseUrl } from '../utils/url';
+import { splitLines } from '../utils/text';
+
+const baseUrl = getBaseUrl();
+
+const { data: experiences, error } = await supabase
+  .from('work_experience')
+  .select('*')
+  .order('order_index', { ascending: true });
+
+const expList = experiences || [];
+---
+
+<Layout hasHero={false} title="Experience — Ryan Cuccurullo">
+  <div class="container py-5">
+    <div class="row justify-content-center">
+      <div class="col-12 col-lg-9">
+        
+        <!-- Header (Clean left-aligned) -->
+        <div class="mb-5 pb-4 border-bottom border-secondary">
+          <div class="font-monospace text-accent small mb-1" style="font-size: 0.78rem;">CAREER // WORK HISTORY</div>
+          <h1 class="h2 fw-bold text-light mb-2">Work Experience</h1>
+          <p class="text-muted mb-0" style="max-width: 620px;">
+            Enterprise engineering, internal tooling, and web infrastructure work.
+          </p>
+        </div>
+
+        {error && (
+          <div class="card p-4 border-danger bg-card text-light mb-4 rounded-2">
+            Unable to load work experience from database.
+          </div>
+        )}
+
+        <!-- Experience Entries -->
+        <div class="d-flex flex-column gap-4">
+          {expList.map((exp: any) => {
+            const bullets = splitLines(exp.description);
+
+            return (
+              <div class="card bg-card border border-secondary rounded-2 p-4">
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 pb-3 mb-3 border-bottom border-secondary">
+                  <div>
+                    <h2 class="h5 fw-bold text-light mb-1">{exp.role}</h2>
+                    <div class="font-monospace text-accent small">{exp.company}</div>
+                  </div>
+                  <div class="font-monospace text-muted small">
+                    {exp.start_date} — {exp.end_date || 'Present'}
+                  </div>
+                </div>
+
+                <!-- Bullets -->
+                <ul class="text-muted ps-3 mb-0 d-flex flex-column gap-2" style="font-size: 0.94rem; line-height: 1.65;">
+                  {bullets.map((bullet: string) => (
+                    <li>{bullet}</li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
+
+        <!-- Footer Action -->
+        <div class="mt-5 pt-3 border-top border-secondary d-flex justify-content-between align-items-center">
+          <a href={baseUrl} class="font-monospace text-muted text-decoration-none small">&larr; Back home</a>
+          <a href={`${baseUrl}resume`} class="btn btn-primary btn-sm px-3 py-2 rounded-1 font-monospace">
+            View Full Resume &rarr;
+          </a>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</Layout>

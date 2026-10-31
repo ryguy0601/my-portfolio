@@ -13,6 +13,7 @@ import {
   extractFolderAndFilenames,
 } from "../../utils/projects";
 import { extractUniqueCategories } from "../../utils/skills";
+import { GitHubProjectsService } from "../../services/githubProjectsService";
 
 let errorMessage = "";
 let successMessage = "";
@@ -124,23 +125,263 @@ if (Astro.request.method === "POST") {
       const { error } = await supabase.from("projects").delete().eq("id", id);
       if (error) throw error;
       return Astro.redirect("/admin");
+    } else if (actionType === "save_github_config") {
+      const mode = (formData.get("github_mode")?.toString() || "database") as
+        | "database"
+        | "hybrid"
+        | "github";
+      const username =
+        formData.get("github_username")?.toString()?.trim() || "ryguy0601";
+      const hideForks = formData.get("hide_forks") === "on";
+      const hideProfileReadme = formData.get("hide_profile_readme") === "on";
+
+      // If checkboxes were submitted from the repo visibility list, compute excludedRepos from unchecked repos
+      const allRepoNames = formData
+        .getAll("all_repo_names[]")
+        .map((r) => r.toString().trim())
+        .filter(Boolean);
+      const visibleRepoNames = new Set(
+        formData
+          .getAll("visible_repos[]")
+          .map((r) => r.toString().trim().toLowerCase())
+          .filter(Boolean)
+      );
+
+      const featuredRepoNames = formData
+        .getAll("featured_repos[]")
+        .map((r) => r.toString().trim())
+        .filter(Boolean);
+
+      let excludedRepos: string[] = [];
+      if (allRepoNames.length > 0) {
+        excludedRepos = allRepoNames.filter(
+          (name) => !visibleRepoNames.has(name.toLowerCase())
+        );
+      } else {
+        const excludedRaw = formData.get("excluded_repos")?.toString() || "";
+        excludedRepos = splitCommaList(excludedRaw);
+      }
+
+      // Check for any custom languages overrides submitted
+      const currentConfig = await GitHubProjectsService.getConfig(supabase);
+      const updatedCustomLanguages: Record<string, string[]> = {
+        ...(currentConfig.customLanguages || {}),
+      };
+
+      for (const name of allRepoNames) {
+        const rawLangs = formData.get(`custom_langs_${name}`)?.toString();
+        if (rawLangs !== undefined) {
+          const split = splitCommaList(rawLangs);
+          if (split.length > 0) {
+            updatedCustomLanguages[name] = split;
+          } else {
+            delete updatedCustomLanguages[name];
+            delete updatedCustomLanguages[name.toLowerCase()];
+          }
+        }
+      }
+
+      const { error } = await GitHubProjectsService.saveConfig(supabase, {
+        mode,
+        username,
+        hideForks,
+        hideProfileReadme,
+        excludedRepos,
+        featuredRepos: featuredRepoNames,
+        customLanguages: updatedCustomLanguages,
+      });
+      if (error) throw error;
+      successMessage = `Saved GitHub settings (${mode.toUpperCase()} mode, ${allRepoNames.length - excludedRepos.length} visible, ${featuredRepoNames.length} featured).`;
+    } else if (actionType === "toggle_github_repo_ajax") {
+      const repoName = formData.get("repo_name")?.toString()?.trim() || "";
+      const visible = formData.get("visible") === "true";
+      const currentCfg = await GitHubProjectsService.getConfig(supabase);
+      const excluded = new Set(
+        (currentCfg.excludedRepos || []).map((r) => r.toLowerCase())
+      );
+
+      if (visible) {
+        excluded.delete(repoName.toLowerCase());
+      } else {
+        excluded.add(repoName.toLowerCase());
+      }
+
+      const updatedExcluded = Array.from(excluded);
+      const { error } = await GitHubProjectsService.saveConfig(supabase, {
+        excludedRepos: updatedExcluded,
+      });
+
+      return new Response(
+        JSON.stringify({
+          success: !error,
+          excludedRepos: updatedExcluded,
+        }),
+        { status: error ? 500 : 200, headers: { "Content-Type": "application/json" } }
+      );
+    } else if (actionType === "toggle_github_featured_ajax") {
+      const repoName = formData.get("repo_name")?.toString()?.trim() || "";
+      const featured = formData.get("featured") === "true";
+      const currentCfg = await GitHubProjectsService.getConfig(supabase);
+      const featuredSet = new Set(
+        (currentCfg.featuredRepos || []).map((r) => r.toLowerCase())
+      );
+
+      if (featured) {
+        featuredSet.add(repoName.toLowerCase());
+      } else {
+        featuredSet.delete(repoName.toLowerCase());
+      }
+
+      const updatedFeatured = Array.from(featuredSet);
+      const { error } = await GitHubProjectsService.saveConfig(supabase, {
+        featuredRepos: updatedFeatured,
+      });
+
+      return new Response(
+        JSON.stringify({
+          success: !error,
+          featuredRepos: updatedFeatured,
+        }),
+        { status: error ? 500 : 200, headers: { "Content-Type": "application/json" } }
+      );
+    } else if (actionType === "save_github_repo_languages_ajax") {
+      const repoName = formData.get("repo_name")?.toString()?.trim() || "";
+      const rawLangs = formData.get("languages")?.toString() || "";
+      const currentCfg = await GitHubProjectsService.getConfig(supabase);
+      const updatedCustomLangs = { ...(currentCfg.customLanguages || {}) };
+
+      const splitLangs = splitCommaList(rawLangs);
+      if (splitLangs.length > 0) {
+        updatedCustomLangs[repoName] = splitLangs;
+      } else {
+        delete updatedCustomLangs[repoName];
+        delete updatedCustomLangs[repoName.toLowerCase()];
+      }
+
+      const { error } = await GitHubProjectsService.saveConfig(supabase, {
+        customLanguages: updatedCustomLangs,
+      });
+
+      return new Response(
+        JSON.stringify({
+          success: !error,
+          customLanguages: updatedCustomLangs,
+        }),
+        { status: error ? 500 : 200, headers: { "Content-Type": "application/json" } }
+      );
+    } else if (actionType === "import_github_repo") {
+      const repoName = formData.get("repo_name")?.toString()?.trim() || "";
+      const repoUrl = formData.get("repo_url")?.toString()?.trim() || "";
+      const repoDesc = formData.get("repo_desc")?.toString()?.trim() || "";
+      let repoLang = formData.get("repo_lang")?.toString()?.trim() || "GitHub";
+      const repoHomepage =
+        formData.get("repo_homepage")?.toString()?.trim() || null;
+      const defaultBranch =
+        formData.get("default_branch")?.toString()?.trim() || "main";
+      const fullName = formData.get("full_name")?.toString()?.trim() || "";
+
+      if (repoName && repoUrl) {
+        // Fetch all languages from GitHub for rich tech stack tags
+        const allRepoLangs = await GitHubProjectsService.fetchRepoLanguages(fullName || `ryguy0601/${repoName}`);
+        if (allRepoLangs.length > 0) {
+          const combined = [repoLang, ...allRepoLangs].filter(Boolean);
+          const uniqueLangs: string[] = [];
+          for (const l of combined) {
+            for (const item of splitCommaList(l)) {
+              if (item && !uniqueLangs.some((u) => u.toLowerCase() === item.toLowerCase())) {
+                uniqueLangs.push(item);
+              }
+            }
+          }
+          if (uniqueLangs.length > 0) repoLang = uniqueLangs.join(", ");
+        }
+
+        const demoImages = await GitHubProjectsService.resolveRepoDemoImages({
+          id: 0,
+          name: repoName,
+          full_name: fullName || `ryguy0601/${repoName}`,
+          private: false,
+          fork: false,
+          archived: false,
+          html_url: repoUrl,
+          description: repoDesc,
+          homepage: repoHomepage,
+          language: repoLang,
+          topics: [],
+          stargazers_count: 0,
+          forks_count: 0,
+          default_branch: defaultBranch,
+          updated_at: "",
+          pushed_at: "",
+        });
+        const payload = {
+          title: repoName
+            .replace(/[-_]+/g, " ")
+            .replace(/([a-z])([A-Z])/g, "$1 $2")
+            .replace(/\b\w/g, (c) => c.toUpperCase()),
+          slug: slugify(repoName),
+          summary:
+            repoDesc ||
+            `Public ${repoLang} repository imported from GitHub (${fullName || repoName}).`,
+          content: `${repoUrl}/blob/${defaultBranch}/README.md`,
+          tech_stack: repoLang,
+          live_url: repoHomepage || null,
+          github_url: repoUrl,
+          featured: false,
+          image_url: demoImages[0] || null,
+          image_filenames: demoImages.length > 0 ? demoImages : null,
+        };
+        const { error } = await supabase.from("projects").insert([payload]);
+        if (error) throw error;
+        successMessage = `Imported "${repoName}" from GitHub with all languages (${repoLang})!`;
+      }
     }
   } catch (err: any) {
     errorMessage = err.message || "An unexpected database error occurred.";
   }
 }
 
-// 2. FETCH PROJECTS, SKILLS, AND COUNTS DIRECTLY FROM DB
-const [{ data: projects }, { data: skillsData }, adminCounts] =
-  await Promise.all([
-    supabase.from("projects").select("*").order("id", { ascending: false }),
-    supabase
-      .from("skills")
-      .select("name, category")
-      .order("category", { ascending: true })
-      .order("name", { ascending: true }),
-    getAdminCounts(),
-  ]);
+// 2. FETCH PROJECTS, SKILLS, GITHUB CONFIG & REPOS, AND COUNTS DIRECTLY FROM DB
+const [
+  { data: projects },
+  { data: skillsData },
+  adminCounts,
+  githubConfig,
+] = await Promise.all([
+  supabase.from("projects").select("*").order("id", { ascending: false }),
+  supabase
+    .from("skills")
+    .select("name, category")
+    .order("category", { ascending: true })
+    .order("name", { ascending: true }),
+  getAdminCounts(),
+  GitHubProjectsService.getConfig(supabase),
+]);
+
+const publicGithubRepos = await GitHubProjectsService.fetchPublicRepos(
+  githubConfig.username,
+);
+
+// Fetch all languages in parallel for each public repository
+await Promise.all(
+  publicGithubRepos.map(async (repo) => {
+    if (!repo.languages) {
+      repo.languages = await GitHubProjectsService.fetchRepoLanguages(repo.full_name);
+    }
+  })
+);
+
+const linkedGithubUrls = new Set(
+  (projects || [])
+    .map((p) =>
+      (p.github_url || "")
+        .trim()
+        .toLowerCase()
+        .replace(/\/+$/, "")
+        .replace(/\.git$/, ""),
+    )
+    .filter(Boolean),
+);
 
 const existingSkills = skillsData || [];
 const dbCategories = extractUniqueCategories(existingSkills);
@@ -188,6 +429,317 @@ if (editProject) {
       id="admin-icon-map"
       set:html={JSON.stringify(techIconMap)}
     />
+
+    <!-- GitHub Public Repository Sync & Per-Repo Toggle Control Panel -->
+    <div class="card bg-card border border-secondary p-4 rounded-4 shadow-sm">
+      <form method="POST" id="github-config-form">
+        <input type="hidden" name="action_type" value="save_github_config" />
+
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3 pb-3 border-bottom border-secondary border-opacity-25">
+          <div class="d-flex align-items-center gap-3">
+            <div class="d-flex align-items-center justify-content-center rounded-3 border border-secondary px-3 py-2" style="background: rgba(var(--color-primary-rgb), 0.1);">
+              <i class="bi bi-github fs-4 text-accent"></i>
+            </div>
+            <div>
+              <div class="d-flex flex-wrap align-items-center gap-2">
+                <h3 class="h5 mb-0 fw-bold text-light">GitHub Public Repository Integration</h3>
+                <span class="badge rounded-pill font-monospace small" style="background: rgba(var(--color-primary-rgb), 0.15); color: var(--color-primary); border: 1px solid rgba(var(--color-primary-rgb), 0.35);">
+                  Mode: {githubConfig.mode.toUpperCase()}
+                </span>
+                <span class="badge rounded-pill bg-dark border border-secondary text-muted font-monospace small">
+                  <i class="bi bi-folder2-open me-1 text-accent"></i>Screenshots: /demoPics
+                </span>
+              </div>
+              <p class="text-muted small mb-0 mt-1">
+                Pulls strictly <strong>public</strong> repositories and automatically loads screenshots from each repo's <code>/demoPics</code> folder (or local <code>/public/demoPics/&lt;repo&gt;</code>). Toggle individual repositories below to control which ones appear on your portfolio.
+              </p>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-sm px-3 py-2 fw-semibold font-monospace">
+            <i class="bi bi-floppy me-1"></i>Save GitHub Settings
+          </button>
+        </div>
+
+        <div class="row g-3 align-items-center mb-3">
+          <div class="col-md-5">
+            <label class="form-label text-light small fw-semibold">Portfolio Project Source Mode</label>
+            <select name="github_mode" class="form-select form-select-sm bg-dark text-light border-secondary font-monospace">
+              <option value="database" selected={githubConfig.mode === "database"}>
+                Database Only (Curated Portfolio Projects)
+              </option>
+              <option value="hybrid" selected={githubConfig.mode === "hybrid"}>
+                Hybrid (Database Projects + Checked Public GitHub Repos)
+              </option>
+              <option value="github" selected={githubConfig.mode === "github"}>
+                GitHub Live Mode (Pull All Checked Public GitHub Repos)
+              </option>
+            </select>
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label text-light small fw-semibold">GitHub Username</label>
+            <div class="input-group input-group-sm">
+              <span class="input-group-text bg-dark border-secondary text-muted">@</span>
+              <input
+                type="text"
+                name="github_username"
+                value={githubConfig.username}
+                class="form-control bg-dark text-light border-secondary font-monospace"
+                placeholder="ryguy0601"
+                required
+              />
+            </div>
+          </div>
+
+          <div class="col-md-4 d-flex flex-wrap gap-3 pt-md-4">
+            <div class="form-check mb-0">
+              <input
+                class="form-check-input bg-dark border-secondary"
+                type="checkbox"
+                name="hide_forks"
+                id="hideForksCheck"
+                checked={githubConfig.hideForks}
+              />
+              <label class="form-check-label text-light small" for="hideForksCheck">
+                Hide Forked Repos
+              </label>
+            </div>
+
+            <div class="form-check mb-0">
+              <input
+                class="form-check-input bg-dark border-secondary"
+                type="checkbox"
+                name="hide_profile_readme"
+                id="hideProfileCheck"
+                checked={githubConfig.hideProfileReadme}
+              />
+              <label class="form-check-label text-light small" for="hideProfileCheck">
+                Hide Profile Repo ({githubConfig.username})
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- All Pulled Public GitHub Repositories with Per-Repo Show/Hide Toggle Switches -->
+        <div class="pt-3 border-top border-secondary border-opacity-25">
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+            <div class="d-flex align-items-center gap-2">
+              <span class="font-monospace small text-accent fw-bold">
+                PULLED PUBLIC GITHUB REPOSITORIES ({publicGithubRepos.length})
+              </span>
+              <span id="gh-toggle-save-status" class="badge bg-dark border border-secondary text-muted font-monospace d-none" style="font-size: 0.68rem;">
+                Saved
+              </span>
+            </div>
+
+            <div class="d-flex align-items-center gap-2">
+              <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 font-monospace" id="gh-check-all-btn" style="font-size: 0.72rem;">
+                Check All
+              </button>
+              <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2 font-monospace" id="gh-uncheck-all-btn" style="font-size: 0.72rem;">
+                Uncheck All
+              </button>
+            </div>
+          </div>
+
+          <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-2" style="max-height: 480px; overflow-y: auto; padding-right: 4px;">
+            {publicGithubRepos.map((repo) => {
+              const cleanRepoUrl = repo.html_url.trim().toLowerCase().replace(/\/+$/, "");
+              const isLinked = linkedGithubUrls.has(cleanRepoUrl);
+              const isExcluded = (githubConfig.excludedRepos || []).some(
+                (ex) => ex.toLowerCase() === repo.name.toLowerCase()
+              );
+              const isVisible = !isExcluded;
+              const isFeatured = (githubConfig.featuredRepos || []).some(
+                (f) => f.toLowerCase() === repo.name.toLowerCase()
+              );
+
+              // Gather all detected languages from GitHub + topics
+              const detectedLangsList = repo.languages && repo.languages.length > 0
+                ? repo.languages
+                : (repo.language ? [repo.language] : []);
+              
+              // Custom languages override if configured
+              const customLangsConfig = (githubConfig.customLanguages && (githubConfig.customLanguages[repo.name] || githubConfig.customLanguages[repo.name.toLowerCase()])) || [];
+              const customLangsStr = customLangsConfig.join(", ");
+              const allEffectiveLangs = customLangsConfig.length > 0 ? customLangsConfig : detectedLangsList;
+              const effectiveLangsStr = allEffectiveLangs.join(", ") || "GitHub";
+
+              return (
+                <div class="col">
+                  <div
+                    class={`p-2 px-3 rounded-3 border d-flex flex-column gap-2 gh-repo-toggle-card ${isVisible ? "border-secondary" : "border-secondary border-opacity-25 opacity-50"}`}
+                    style="background: rgba(var(--body-bg-rgb), 0.55);"
+                    data-repo-card={repo.name}
+                  >
+                    <input type="hidden" name="all_repo_names[]" value={repo.name} />
+
+                    <div class="d-flex justify-content-between align-items-center gap-2">
+                      <div class="d-flex align-items-center gap-2 text-truncate">
+                        <!-- Show / Hide Visibility Switch -->
+                        <div class="form-check form-switch mb-0 flex-shrink-0">
+                          <input
+                            class="form-check-input gh-repo-visibility-switch"
+                            type="checkbox"
+                            role="switch"
+                            name="visible_repos[]"
+                            value={repo.name}
+                            id={`gh-repo-switch-${repo.name}`}
+                            data-repo-name={repo.name}
+                            checked={isVisible}
+                            title="Toggle whether this GitHub repository is shown on the portfolio"
+                            style="cursor: pointer;"
+                          />
+                        </div>
+
+                        <div class="text-truncate">
+                          <div class="d-flex align-items-center gap-2">
+                            <label
+                              for={`gh-repo-switch-${repo.name}`}
+                              class="fw-semibold text-light small text-truncate mb-0"
+                              style="cursor: pointer;"
+                            >
+                              {repo.name}
+                            </label>
+                            {repo.fork && (
+                              <span class="badge bg-dark border border-secondary text-muted font-monospace" style="font-size: 0.6rem;">
+                                fork
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                        <!-- Featured Checkbox Badge -->
+                        <label
+                          class={`form-check-label badge font-monospace py-1 px-2 d-inline-flex align-items-center gap-1 rounded-pill gh-featured-label ${isFeatured ? "bg-warning bg-opacity-25 text-warning border border-warning" : "bg-dark text-muted border border-secondary"}`}
+                          style="cursor: pointer; font-size: 0.68rem;"
+                          title="Mark repository as Featured on the home page showcase"
+                        >
+                          <input
+                            type="checkbox"
+                            class="form-check-input mt-0 gh-featured-checkbox d-none"
+                            name="featured_repos[]"
+                            value={repo.name}
+                            checked={isFeatured}
+                            data-repo-name={repo.name}
+                          />
+                          <i class={`bi ${isFeatured ? "bi-star-fill text-warning" : "bi-star"}`}></i>
+                          <span class="gh-featured-text">{isFeatured ? "Featured" : "Feature"}</span>
+                        </label>
+
+                        {isLinked ? (
+                          <span
+                            class="badge rounded-pill font-monospace"
+                            style="font-size: 0.65rem; background: rgba(var(--color-primary-rgb), 0.15); color: var(--color-primary); border: 1px solid rgba(var(--color-primary-rgb), 0.35);"
+                            title="Already in your Supabase projects table"
+                          >
+                            In DB
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            class="btn btn-outline-secondary btn-sm py-0 px-2 font-monospace gh-quick-import-btn"
+                            style="font-size: 0.66rem;"
+                            data-repo-name={repo.name}
+                            data-full-name={repo.full_name}
+                            data-repo-url={repo.html_url}
+                            data-repo-desc={repo.description || ""}
+                            data-repo-lang={effectiveLangsStr}
+                            data-repo-homepage={repo.homepage || ""}
+                            data-default-branch={repo.default_branch}
+                            title="Copy into Supabase Projects table for custom editing"
+                          >
+                            + DB
+                          </button>
+                        )}
+                        <a
+                          href={repo.html_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="btn btn-outline-secondary btn-sm py-0 px-1 text-muted"
+                          style="font-size: 0.68rem;"
+                          title="Open on GitHub"
+                        >
+                          <i class="bi bi-box-arrow-up-right"></i>
+                        </a>
+                      </div>
+                    </div>
+
+                    <!-- Languages Tags and Manual Customization Trigger -->
+                    <div class="d-flex flex-column gap-1 pt-1 border-top border-secondary border-opacity-25">
+                      <div class="d-flex flex-wrap align-items-center justify-content-between gap-1">
+                        <div class="d-flex flex-wrap align-items-center gap-1 text-truncate" style="font-size: 0.68rem;">
+                          <span class="text-muted font-monospace"><i class="bi bi-code-slash me-1"></i>Langs:</span>
+                          {allEffectiveLangs.slice(0, 4).map((lang) => (
+                            <span class="badge bg-dark border border-secondary text-accent font-monospace" style="font-size: 0.62rem;">
+                              {lang}
+                            </span>
+                          ))}
+                          {allEffectiveLangs.length > 4 && (
+                            <span class="badge bg-dark border border-secondary text-muted font-monospace" style="font-size: 0.62rem;">
+                              +{allEffectiveLangs.length - 4} more
+                            </span>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          class="btn btn-link btn-sm p-0 text-decoration-none text-muted font-monospace gh-edit-langs-btn"
+                          style="font-size: 0.65rem;"
+                          data-repo-name={repo.name}
+                          data-langs={effectiveLangsStr}
+                          title="Manually edit or add languages for this repo"
+                        >
+                          <i class="bi bi-pencil-square me-1"></i>Edit
+                        </button>
+                      </div>
+
+                      <!-- Inline Quick-Edit Languages Box (Toggleable via button) -->
+                      <div class="gh-langs-editor-box d-none pt-1" id={`langs-box-${repo.name}`}>
+                        <div class="input-group input-group-sm">
+                          <input
+                            type="text"
+                            name={`custom_langs_${repo.name}`}
+                            class="form-control form-control-sm bg-dark text-light border-secondary font-monospace gh-custom-langs-input"
+                            style="font-size: 0.72rem;"
+                            value={customLangsStr || detectedLangsList.join(", ")}
+                            placeholder="e.g. TypeScript, React, Python"
+                            data-repo-name={repo.name}
+                          />
+                          <button
+                            type="button"
+                            class="btn btn-outline-primary btn-sm font-monospace gh-save-langs-btn"
+                            style="font-size: 0.68rem;"
+                            data-repo-name={repo.name}
+                          >
+                            Save
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </form>
+
+      <!-- Hidden form for 1-click "+ DB" import button -->
+      <form method="POST" id="gh-single-import-form" class="d-none">
+        <input type="hidden" name="action_type" value="import_github_repo" />
+        <input type="hidden" name="repo_name" id="imp-repo-name" />
+        <input type="hidden" name="full_name" id="imp-full-name" />
+        <input type="hidden" name="repo_url" id="imp-repo-url" />
+        <input type="hidden" name="repo_desc" id="imp-repo-desc" />
+        <input type="hidden" name="repo_lang" id="imp-repo-lang" />
+        <input type="hidden" name="repo_homepage" id="imp-repo-homepage" />
+        <input type="hidden" name="default_branch" id="imp-default-branch" />
+      </form>
+    </div>
 
     <!-- Project Form Card -->
     <div class="card bg-card border border-secondary p-4 rounded-4 shadow-sm">
@@ -814,7 +1366,7 @@ Detailed write-up of engineering decisions, technical trade-offs, and outcomes..
                 name="image_folder"
                 value={existingFolder}
                 class="form-control form-control-sm bg-dark text-light border-secondary mb-2 muted-placeholder"
-                placeholder="Folder path e.g. /images/projects/demo"
+                placeholder="Folder path e.g. /demoPics/my-repo"
               />
               <div id="image-inputs-container" class="d-flex flex-column gap-2">
                 {
@@ -2402,6 +2954,186 @@ Detailed write-up of engineering decisions, technical trade-offs, and outcomes..
             "\n| Column 1 | Column 2 |\n| --- | --- |\n| Item 1 | Detail 1 |\n| Item 2 | Detail 2 |\n",
           );
         else if (action === "hr") insertMarkdown("\n\n---\n\n");
+      });
+    });
+
+    // GitHub Pulled Repositories: Instant Per-Repo Toggle Switches & Bulk Check/Uncheck
+    const ghSwitches = document.querySelectorAll<HTMLInputElement>(".gh-repo-visibility-switch");
+    const ghSaveBadge = document.getElementById("gh-toggle-save-status");
+    const ghCheckAllBtn = document.getElementById("gh-check-all-btn");
+    const ghUncheckAllBtn = document.getElementById("gh-uncheck-all-btn");
+
+    const updateRepoCardStyle = (sw: HTMLInputElement) => {
+      const card = sw.closest<HTMLElement>(".gh-repo-toggle-card");
+      if (!card) return;
+      if (sw.checked) {
+        card.classList.remove("border-opacity-25", "opacity-50");
+      } else {
+        card.classList.add("border-opacity-25", "opacity-50");
+      }
+    };
+
+    ghSwitches.forEach((sw) => {
+      sw.addEventListener("change", async () => {
+        updateRepoCardStyle(sw);
+        const repoName = sw.dataset.repoName;
+        if (!repoName) return;
+
+        if (ghSaveBadge) {
+          ghSaveBadge.textContent = "Saving...";
+          ghSaveBadge.classList.remove("d-none");
+        }
+
+        try {
+          const fd = new FormData();
+          fd.append("action_type", "toggle_github_repo_ajax");
+          fd.append("repo_name", repoName);
+          fd.append("visible", sw.checked ? "true" : "false");
+
+          await fetch(window.location.pathname, { method: "POST", body: fd });
+          if (ghSaveBadge) {
+            ghSaveBadge.textContent = `${repoName}: ${sw.checked ? "Shown" : "Hidden"}`;
+          }
+        } catch {
+          if (ghSaveBadge) ghSaveBadge.textContent = "Click Save GitHub Settings";
+        }
+      });
+    });
+
+    ghCheckAllBtn?.addEventListener("click", () => {
+      ghSwitches.forEach((sw) => {
+        sw.checked = true;
+        updateRepoCardStyle(sw);
+      });
+      if (ghSaveBadge) {
+        ghSaveBadge.textContent = "All checked — click Save GitHub Settings";
+        ghSaveBadge.classList.remove("d-none");
+      }
+    });
+
+    ghUncheckAllBtn?.addEventListener("click", () => {
+      ghSwitches.forEach((sw) => {
+        sw.checked = false;
+        updateRepoCardStyle(sw);
+      });
+      if (ghSaveBadge) {
+        ghSaveBadge.textContent = "All unchecked — click Save GitHub Settings";
+        ghSaveBadge.classList.remove("d-none");
+      }
+    });
+
+    // Featured Checkbox Badges for GitHub Repos: Instant AJAX Toggling & Label Styling
+    const ghFeaturedCheckboxes = document.querySelectorAll<HTMLInputElement>(".gh-featured-checkbox");
+    ghFeaturedCheckboxes.forEach((cb) => {
+      cb.addEventListener("change", async () => {
+        const repoName = cb.dataset.repoName;
+        if (!repoName) return;
+        const label = cb.closest<HTMLLabelElement>(".gh-featured-label");
+        const icon = label?.querySelector("i");
+        const textSpan = label?.querySelector(".gh-featured-text");
+
+        if (cb.checked) {
+          label?.classList.remove("bg-dark", "text-muted", "border-secondary");
+          label?.classList.add("bg-warning", "bg-opacity-25", "text-warning", "border-warning");
+          if (icon) {
+            icon.className = "bi bi-star-fill text-warning";
+          }
+          if (textSpan) textSpan.textContent = "Featured";
+        } else {
+          label?.classList.remove("bg-warning", "bg-opacity-25", "text-warning", "border-warning");
+          label?.classList.add("bg-dark", "text-muted", "border-secondary");
+          if (icon) {
+            icon.className = "bi bi-star";
+          }
+          if (textSpan) textSpan.textContent = "Feature";
+        }
+
+        if (ghSaveBadge) {
+          ghSaveBadge.textContent = "Saving...";
+          ghSaveBadge.classList.remove("d-none");
+        }
+
+        try {
+          const fd = new FormData();
+          fd.append("action_type", "toggle_github_featured_ajax");
+          fd.append("repo_name", repoName);
+          fd.append("featured", cb.checked ? "true" : "false");
+
+          await fetch(window.location.pathname, { method: "POST", body: fd });
+          if (ghSaveBadge) {
+            ghSaveBadge.textContent = `${repoName}: ${cb.checked ? "★ Featured" : "Unfeatured"}`;
+          }
+        } catch {
+          if (ghSaveBadge) ghSaveBadge.textContent = "Click Save GitHub Settings";
+        }
+      });
+    });
+
+    // Custom Languages Quick-Edit Toggle & AJAX Save
+    document.querySelectorAll<HTMLButtonElement>(".gh-edit-langs-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const repoName = btn.dataset.repoName;
+        if (!repoName) return;
+        const box = document.getElementById(`langs-box-${repoName}`);
+        if (box) {
+          box.classList.toggle("d-none");
+          const input = box.querySelector<HTMLInputElement>("input");
+          if (!box.classList.contains("d-none") && input) {
+            input.focus();
+          }
+        }
+      });
+    });
+
+    document.querySelectorAll<HTMLButtonElement>(".gh-save-langs-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const repoName = btn.dataset.repoName;
+        if (!repoName) return;
+        const box = document.getElementById(`langs-box-${repoName}`);
+        const input = box?.querySelector<HTMLInputElement>("input");
+        const languages = input?.value || "";
+
+        btn.disabled = true;
+        btn.textContent = "...";
+
+        if (ghSaveBadge) {
+          ghSaveBadge.textContent = "Saving languages...";
+          ghSaveBadge.classList.remove("d-none");
+        }
+
+        try {
+          const fd = new FormData();
+          fd.append("action_type", "save_github_repo_languages_ajax");
+          fd.append("repo_name", repoName);
+          fd.append("languages", languages);
+
+          await fetch(window.location.pathname, { method: "POST", body: fd });
+          if (ghSaveBadge) {
+            ghSaveBadge.textContent = `${repoName}: Languages updated`;
+          }
+          if (box) box.classList.add("d-none");
+        } catch {
+          if (ghSaveBadge) ghSaveBadge.textContent = "Error saving languages";
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "Save";
+        }
+      });
+    });
+
+    // 1-Click "+ DB" Quick Import Button for Pulled GitHub Repos
+    const singleImportForm = document.getElementById("gh-single-import-form") as HTMLFormElement | null;
+    document.querySelectorAll<HTMLButtonElement>(".gh-quick-import-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        if (!singleImportForm) return;
+        (document.getElementById("imp-repo-name") as HTMLInputElement).value = btn.dataset.repoName || "";
+        (document.getElementById("imp-full-name") as HTMLInputElement).value = btn.dataset.fullName || "";
+        (document.getElementById("imp-repo-url") as HTMLInputElement).value = btn.dataset.repoUrl || "";
+        (document.getElementById("imp-repo-desc") as HTMLInputElement).value = btn.dataset.repoDesc || "";
+        (document.getElementById("imp-repo-lang") as HTMLInputElement).value = btn.dataset.repoLang || "GitHub";
+        (document.getElementById("imp-repo-homepage") as HTMLInputElement).value = btn.dataset.repoHomepage || "";
+        (document.getElementById("imp-default-branch") as HTMLInputElement).value = btn.dataset.defaultBranch || "main";
+        singleImportForm.submit();
       });
     });
   });

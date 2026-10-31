@@ -186,46 +186,74 @@ body,
   background-color: var(--body-bg) !important;
 }
 
-// Ensure Bootstrap cards look great with subtle gradient accents in dark mode
-.card {
-  background-color: var(--card-bg);
+.bg-card {
+  background-color: var(--card-bg) !important;
+}
+
+.border-secondary {
+  border-color: var(--card-border-color) !important;
+}
+
+.form-control,
+.input-group-text {
+  background-color: var(--projects-control-bg, var(--card-bg));
   color: var(--body-color);
   border-color: var(--card-border-color);
-  transition: transform var(--transition-interactive), border-color var(--transition-interactive);
+
+  &::placeholder {
+    color: var(--color-text-muted-mid) !important;
+    opacity: 1;
+  }
+
+  &:focus {
+    background-color: var(--card-bg);
+    color: var(--body-color);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 0.2rem rgba(var(--color-primary-rgb), 0.15);
+  }
+}
+
+// Ensure Bootstrap cards look crisp and grounded with subtle translucency
+.card {
+  background-color: rgba(var(--card-bg-rgb, 20, 22, 27), 0.62) !important;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  color: var(--body-color);
+  border-color: var(--card-border-color);
+  transition: border-color var(--transition-interactive), background-color var(--transition-interactive);
   overflow-x: auto;
 
   &:hover {
+    background-color: rgba(var(--card-bg-rgb, 20, 22, 27), 0.78) !important;
     border-color: var(--color-primary);
-    transform: translateY(-2px);
   }
 }
 
 .admin-card {
-  border-left: 4px solid var(--color-primary);
-  background: linear-gradient(180deg, var(--card-bg) 0%, var(--admin-card-tint) 100%);
+  border-left: 3px solid var(--color-primary);
+  background: var(--card-bg);
 }
 
-// Gradient Text Utility
+// Clean Text Utility (Replaces harsh neon gradients with crisp typography)
 .text-gradient {
-  background: var(--gradient-text);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--body-color);
   display: inline-block;
 }
 
-// Gradient Buttons
+// Crisp Solid Buttons
 .btn-primary {
-  background: var(--gradient-primary) !important;
-  border: none !important;
+  background: var(--color-primary) !important;
+  color: var(--color-on-accent) !important;
+  font-weight: 600;
+  border: 1px solid var(--color-primary) !important;
   box-shadow: var(--shadow-primary-button);
   transition: var(--button-hover-transition);
 
   &:hover {
     background: var(--button-primary-hover-bg) !important;
+    border-color: var(--button-primary-hover-bg) !important;
     color: var(--button-primary-hover-color) !important;
-    opacity: 0.9;
     box-shadow: var(--shadow-primary-button-hover);
-    transform: var(--button-hover-transform);
   }
 }
 
@@ -236,7 +264,7 @@ body,
   &:hover {
     background: var(--button-secondary-hover-bg);
     color: var(--button-secondary-hover-color);
-    transform: var(--button-hover-transform);
+    border-color: var(--color-secondary);
   }
 }
 
@@ -248,7 +276,7 @@ body,
 
 // Accent utility helper
 .text-accent {
-  color: var(--color-secondary) !important;
+  color: var(--color-primary) !important;
 }
 
 // ==========================================

@@ -248,6 +248,28 @@ export const techIconMap: Record<string, string> = {
   'rollup': 'rollupdotjs',
   'turborepo': 'turborepo',
   'nuget': 'nuget',
+  'processing': 'processingfoundation',
+  'hyprland': 'archlinux',
+  'quickshell': 'qt',
+  'webassembly': 'webassembly',
+  'wasm': 'webassembly',
+  'recharts': 'react',
+  'tailwind': 'tailwindcss',
+  'tailwindcss': 'tailwindcss',
+  'tailwind css': 'tailwindcss',
+  'lucide': 'lucide',
+  'totp': 'bi:shield-lock',
+  '2fa': 'bi:shield-lock',
+  'jwt': 'jsonwebtokens',
+  'maven': 'apachemaven',
+  'pillow': 'python',
+  'beautifulsoup': 'python',
+  'beautiful soup': 'python',
+  'bs4': 'python',
+  'tkinter': 'python',
+  'genetic algorithms': 'bi:cpu',
+  'reinforcement learning': 'pytorch',
+  'ai': 'bi:cpu',
   'composer': 'composer',
   'pip': 'pypi',
   'pypi': 'pypi',
@@ -316,6 +338,32 @@ export const techIconMap: Record<string, string> = {
   'discord': 'discord',
 
   // ==========================================
+  // Additional Project & System Technologies
+  // ==========================================
+  'qt': 'qt',
+  'qml': 'qt',
+  'wayland': 'wayland',
+  'github pages': 'githubpages',
+  'gh pages': 'githubpages',
+  'chrome extension': 'googlechrome',
+  'chrome extension api': 'googlechrome',
+  'chrome': 'googlechrome',
+  'websockets': 'socketdotio',
+  'websocket': 'socketdotio',
+  'socket.io': 'socketdotio',
+  'canvas': 'html5',
+  'html5 canvas': 'html5',
+  'cava': 'bi:soundwave',
+  'pillow': 'python',
+  'pil': 'python',
+  'pixelmatch': 'bi:layers-half',
+  'tkinter': 'python',
+  'pypdf': 'bi:file-earmark-pdf',
+  'pypdf2': 'bi:file-earmark-pdf',
+  'scrapy': 'bi:bug',
+  'groq': 'bi:cpu-fill',
+
+  // ==========================================
   // Bootstrap Icons (Abstract/System Concepts)
   // ==========================================
   'terminal': 'bi:terminal',
@@ -352,18 +400,12 @@ export const techIconMap: Record<string, string> = {
 
 /**
  * Resolves a technology string into an icon URL or fallback representation.
+ * Always provides a symbol (falling back to a clean code/terminal icon if unmapped)
+ * so every skill displays inside a uniform symbol box.
  */
 export function getTechInfo(techName: string): TechInfo {
   const clean = techName.trim().toLowerCase();
-  const entry = techIconMap[clean];
-
-  if (!entry) {
-    return {
-      name: techName.trim(),
-      hasIcon: false,
-      iconUrl: '',
-    };
-  }
+  const entry = techIconMap[clean] || 'bi:code-square';
 
   // 1. Embedded Data URI
   if (entry.startsWith('data:')) {

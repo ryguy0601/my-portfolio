@@ -1,90 +1,154 @@
 ---
 // src/pages/index.astro
 import Layout from '../layouts/Layout.astro';
-import FeaturedProjects from '../components/FeaturedProjects.astro';
+import TechBadgeList from '../components/TechBadgeList.astro';
+import NoImagePlaceholder from '../components/NoImagePlaceholder.astro';
 import { supabase } from '../utils/supabase';
 import { getBaseUrl } from '../utils/url';
+import { getTechInfo } from '../utils/techIcons';
+import { parseProjectImages } from '../utils/projects';
+import { splitLines } from '../utils/text';
+import { GitHubProjectsService } from '../services/githubProjectsService';
 import '../styles/index.scss';
 
-// Fetch only featured projects from the database (including live_url)
-const { data: featuredProjects, error } = await supabase
-  .from('projects')
-  .select('*')
-  .eq('featured', true)
-  .order('id', { ascending: false });
+// Fetch all projects according to the active GitHub/Database mode configured in Admin
+const { projects: allProjectsData } = await GitHubProjectsService.getPortfolioProjects(supabase);
 
-// Fetch real projects from Supabase to feed the terminal
-const { data: dbProjects } = await supabase
-  .from('projects')
-  .select('title, tech_stack, live_url, github_url')
-  .order('id', { ascending: false })
-  .limit(5);
+const featuredCandidates = (allProjectsData || []).filter((p: any) => p.featured);
+const featuredProjects = featuredCandidates.length > 0 ? featuredCandidates : (allProjectsData || []).slice(0, 6);
+
+const dbProjects = (allProjectsData || []).slice(0, 5);
+const totalProjectsCount = (allProjectsData || []).length;
+
+// Fetch all skills for the ticker
+const { data: skillsData } = await supabase
+  .from('skills')
+  .select('*')
+  .order('category', { ascending: true })
+  .order('order_index', { ascending: true });
+
+// Fetch work experience
+const { data: experiencesData } = await supabase
+  .from('work_experience')
+  .select('*')
+  .order('order_index', { ascending: true });
+
+// Combine skills table with any additional tech_stack items used on projects so no skill is ever left out
+const normalizeSkillKey = (raw: string) => {
+  const k = raw.trim().toLowerCase().replace(/\s+/g, '');
+  if (k === 'html5' || k === 'html') return 'html';
+  if (k === 'css3' || k === 'css') return 'css';
+  if (k === 'node.js' || k === 'nodejs' || k === 'node') return 'node';
+  return k;
+};
+
+const seenSkillNames = new Set<string>();
+const combinedSkillNames: string[] = [];
+
+for (const s of skillsData || []) {
+  const clean = s.name?.trim();
+  const key = clean ? normalizeSkillKey(clean) : '';
+  if (clean && !seenSkillNames.has(key)) {
+    seenSkillNames.add(key);
+    combinedSkillNames.push(clean);
+  }
+}
+
+for (const p of allProjectsData || []) {
+  const techs = (p.tech_stack || '').split(',').map((t: string) => t.trim()).filter(Boolean);
+  for (const t of techs) {
+    const key = normalizeSkillKey(t);
+    if (!seenSkillNames.has(key)) {
+      seenSkillNames.add(key);
+      combinedSkillNames.push(t);
+    }
+  }
+}
+
+const allSkills = combinedSkillNames.map((name) => {
+  const icon = getTechInfo(name);
+  return {
+    name,
+    iconUrl: icon.iconUrl
+  };
+});
 
 const safeProjectsJson = JSON.stringify(dbProjects || []);
 const baseUrl = getBaseUrl();
 ---
 
-<Layout hasHero={true} title="Ryan Cuccurullo — Software Engineer Portfolio">
-  <!-- Interactive Mouse-Tracking Background Canvas (Fullscreen Layer) -->
-  <canvas id="hero-canvas" class="position-fixed top-0 start-0 w-100 h-100 pointer-events-none" style="z-index: 0; opacity: 0.85;" data-canvas-style="loading"></canvas>
-
-  <!-- Professional Full-Height Hero Banner Section -->
-  <section class="hero-section hero-gradient-bg position-relative overflow-hidden w-100 d-flex align-items-center" style="z-index: 1;">
-    <!-- Responsive Fluid Ambient Background Glow Accents -->
-    <div class="position-absolute top-0 start-0 translate-middle-y rounded-circle bg-primary opacity-10 pointer-events-none animate-pulse-slow" style="width: clamp(300px, 40vw, 650px); height: clamp(300px, 40vw, 650px); z-index: -1; filter: blur(clamp(50px, 8vw, 100px));"></div>
-    <div class="position-absolute bottom-0 end-0 translate-middle-y rounded-circle bg-secondary opacity-10 pointer-events-none animate-pulse-slow" style="width: clamp(300px, 40vw, 650px); height: clamp(300px, 40vw, 650px); z-index: -1; filter: blur(clamp(50px, 8vw, 100px)); animation-delay: 2s;"></div>
-    
-    <div class="container hero-wrapper">
-      <div class="row align-items-center justify-content-between g-4 g-lg-5">
+<Layout hasHero={true} title="Ryan Cuccurullo — Software Engineer">
+  <!-- Hero Section -->
+  <section class="hero-section position-relative w-100 d-flex align-items-center border-bottom border-secondary" style="z-index: 1;">
+    <div class="container py-5">
+      <div class="row align-items-center justify-content-between g-5">
         
-        <!-- Left Column: Text Content -->
-        <div class="col-lg-6 text-center text-lg-start">
-          <div class="mb-3">
-            <span class="badge rounded-pill px-3 py-2 bg-dark border border-secondary text-accent fw-normal text-wrap shadow-sm" style="font-size: clamp(0.8rem, 1.1vw, 0.95rem);">
-              <i class="bi bi-code-slash me-1"></i> Software Engineer &bull; Full-Stack & AI
-            </span>
+        <!-- Left Column: Direct Engineering Bio -->
+        <div class="col-lg-6">
+          <div class="d-inline-flex align-items-center gap-2 px-2 py-1 mb-3 border border-secondary rounded-1 bg-card font-monospace" style="font-size: 0.78rem; color: var(--color-text-muted-light);">
+            <span class="status-dot"></span>
+            <span>LONG ISLAND, NY &bull; FULL-STACK & AUTOMATION</span>
           </div>
 
-          <h1 class="fw-bold mb-3 tracking-tight" style="font-size: clamp(2.2rem, 4.5vw, 4rem);">
-            Hi, I'm <span class="text-gradient">Ryan Cuccurullo</span>.
+          <h1 class="fw-bold mb-3 text-light tracking-tight" style="font-size: clamp(2.25rem, 4vw, 3.5rem); letter-spacing: -0.03em; line-height: 1.1;">
+            Ryan Cuccurullo
           </h1>
 
-          <p class="lead text-muted mb-4 mx-auto mx-lg-0" style="font-size: clamp(0.95rem, 1.3vw, 1.2rem); max-width: 580px;">
-            Computer Programming graduate from Farmingdale State College specializing in scalable web applications, 
-            enterprise automation, and AI-powered solutions.
+          <p class="text-muted mb-4" style="font-size: 1.08rem; line-height: 1.65; max-width: 540px;">
+            Software engineer building internal enterprise software, browser automation pipelines, and full-stack web applications. 
+            B.S. in Computer Programming &amp; Information Systems from Farmingdale State College.
           </p>
 
-          <!-- Interactive Action Buttons -->
-          <div class="d-flex flex-column flex-sm-row justify-content-center justify-content-lg-start gap-3">
-            <a href={`${baseUrl}projects`} class="btn btn-primary btn-lg px-4 shadow-sm custom-btn-primary" style="font-size: clamp(0.95rem, 1.2vw, 1.05rem);">
-              <span>View All Projects</span> 
-              <span class="arrow-icon ms-1">&rarr;</span>
+          <!-- Action Buttons -->
+          <div class="d-flex flex-wrap align-items-center gap-2 mb-4">
+            <a href={`${baseUrl}projects`} class="btn btn-primary px-4 py-2 rounded-1 d-inline-flex align-items-center gap-2" style="font-size: 0.92rem;">
+              <span>Browse Projects ({totalProjectsCount || 9})</span>
+              <i class="bi bi-arrow-right"></i>
             </a>
-            <a href="https://github.com/ryguy0601" target="_blank" rel="noopener noreferrer" class="btn btn-outline-secondary btn-lg px-4 shadow-sm custom-btn-github d-inline-flex align-items-center justify-content-center gap-2" style="font-size: clamp(0.95rem, 1.2vw, 1.05rem);">
-              <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
-                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.22 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
-              </svg>
-              <span>GitHub Profile</span>
+            <a href={`${baseUrl}experience`} class="btn btn-outline-secondary px-3 py-2 rounded-1 text-light" style="font-size: 0.92rem;">
+              Work Experience
             </a>
+            <a href={`${baseUrl}resume`} class="btn btn-outline-secondary px-3 py-2 rounded-1 text-light" style="font-size: 0.92rem;">
+              Resume
+            </a>
+          </div>
+
+          <!-- Core Focus Areas -->
+          <div class="row g-2 pt-3 border-top border-secondary" style="max-width: 520px;">
+            <div class="col-4">
+              <div class="font-monospace small text-muted" style="font-size: 0.72rem;">STACK</div>
+              <div class="fw-semibold text-light small">.NET / Python / TS</div>
+            </div>
+            <div class="col-4 border-start border-secondary ps-3">
+              <div class="font-monospace small text-muted" style="font-size: 0.72rem;">CURRENT</div>
+              <div class="fw-semibold text-light small">American Regent</div>
+            </div>
+            <div class="col-4 border-start border-secondary ps-3">
+              <div class="font-monospace small text-muted" style="font-size: 0.72rem;">EDUCATION</div>
+              <div class="fw-semibold text-light small">B.S. CPIS (SUNY)</div>
+            </div>
           </div>
         </div>
 
-        <!-- Right Column: Large-Format Interactive Terminal Workbench -->
+        <!-- Right Column: Terminal Workbench -->
         <div class="col-lg-6 d-flex justify-content-center justify-content-lg-end">
-          <div class="card terminal-card shadow-lg border border-secondary p-3 rounded-4 w-100" style="max-width: 580px;">
-            <div class="card-header bg-transparent border-bottom border-secondary d-flex align-items-center gap-2 pb-2 mb-2">
-              <span class="rounded-circle bg-danger d-inline-block" style="width: 11px; height: 11px;"></span>
-              <span class="rounded-circle bg-warning d-inline-block" style="width: 11px; height: 11px;"></span>
-              <span class="rounded-circle bg-success d-inline-block" style="width: 11px; height: 11px;"></span>
-              <small class="text-muted ms-2 font-monospace" style="font-size: 0.85rem;">ryan@portfolio ~ zsh</small>
+          <div class="card terminal-card border border-secondary rounded-2 w-100 shadow-sm" style="max-width: 560px; background: rgba(var(--body-bg-rgb), 0.68) !important; backdrop-filter: blur(4px);">
+            <div class="card-header bg-transparent border-bottom border-secondary d-flex align-items-center justify-content-between py-2 px-3">
+              <div class="d-flex align-items-center gap-2">
+                <span class="rounded-circle d-inline-block" style="width: 10px; height: 10px; background: var(--color-danger);"></span>
+                <span class="rounded-circle d-inline-block" style="width: 10px; height: 10px; background: var(--color-warning);"></span>
+                <span class="rounded-circle d-inline-block" style="width: 10px; height: 10px; background: var(--color-success);"></span>
+                <small class="text-muted ms-2 font-monospace" style="font-size: 0.78rem;">~/work/projects.ts</small>
+              </div>
+              <span class="font-monospace text-muted" style="font-size: 0.72rem;">zsh</span>
             </div>
-            <div class="card-body terminal-body font-monospace text-muted p-2">
+            <div class="card-body terminal-body font-monospace text-muted p-3">
               <pre 
                 class="mb-0 m-0 p-0 terminal-pre" 
                 id="terminal-container"
                 data-projects={safeProjectsJson}
                 style="background: transparent; font-family: inherit; white-space: pre-wrap; word-break: break-word; overflow-x: hidden;"
-              ><span id="terminal-text"></span><span class="terminal-cursor">|</span></pre>
+              ><span id="terminal-text"></span><span class="terminal-cursor">_</span></pre>
             </div>
           </div>
         </div>
@@ -93,223 +157,548 @@ const baseUrl = getBaseUrl();
     </div>
   </section>
 
-  <!-- Render Featured Projects Component (passes projects with live_url included) -->
-  <FeaturedProjects projects={featuredProjects} />
+  <!-- Skills Ticker Section (Click any skill to filter projects) -->
+  <section class="skills-ticker-section py-2 border-bottom border-secondary overflow-hidden position-relative" style="z-index: 2; background: rgba(var(--card-bg-rgb), 0.58); backdrop-filter: blur(4px);">
+    <div class="ticker-wrapper d-flex align-items-center">
+      <div class="px-3 py-1 border-end border-secondary font-monospace small text-muted flex-shrink-0 d-none d-sm-flex align-items-center gap-2" style="font-size: 0.75rem;">
+        <span>FILTER BY TECH</span>
+        <span>&rarr;</span>
+      </div>
+
+      <div class="ticker-track-container overflow-hidden position-relative flex-grow-1">
+        <div class="ticker-track d-flex align-items-center gap-2 py-1">
+          {[...allSkills, ...allSkills].map((skill) => (
+            <button 
+              type="button" 
+              class="ticker-item d-inline-flex align-items-center gap-2 px-3 py-1 rounded-1 bg-body border border-secondary flex-shrink-0 text-start text-decoration-none"
+              data-skill-name={skill.name}
+              title={`View projects built with ${skill.name}`}
+            >
+              {skill.iconUrl ? (
+                <img src={skill.iconUrl} alt={skill.name} class="ticker-icon" width="14" height="14" loading="lazy" />
+              ) : (
+                <i class="bi bi-terminal text-muted" style="font-size: 0.8rem;"></i>
+              )}
+              <span class="ticker-name font-monospace text-light" style="font-size: 0.8rem;">{skill.name}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Selected Projects Section (Full-Bleed Image Carousel with Left-to-Right Gradient Fade) -->
+  <section class="py-5 border-bottom border-secondary position-relative" style="z-index: 1;">
+    <div class="container py-3">
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-3 mb-4">
+        <div>
+          <div class="font-monospace text-accent small mb-1" style="font-size: 0.78rem;">01 // SELECTED WORK</div>
+          <h2 class="h3 fw-bold text-light mb-0">Featured Projects</h2>
+        </div>
+
+        <div class="d-flex align-items-center gap-3">
+          {featuredProjects && featuredProjects.length > 1 && (
+            <div class="d-flex align-items-center gap-2">
+              <button
+                class="btn btn-sm carousel-nav-btn d-inline-flex align-items-center justify-content-center"
+                type="button"
+                data-bs-target="#featuredProjectsCarousel"
+                data-bs-slide="prev"
+                aria-label="Previous project"
+              >
+                <i class="bi bi-chevron-left"></i>
+              </button>
+              <button
+                class="btn btn-sm carousel-nav-btn d-inline-flex align-items-center justify-content-center"
+                type="button"
+                data-bs-target="#featuredProjectsCarousel"
+                data-bs-slide="next"
+                aria-label="Next project"
+              >
+                <i class="bi bi-chevron-right"></i>
+              </button>
+            </div>
+          )}
+
+          <a href={`${baseUrl}projects`} class="font-monospace text-light text-decoration-none small d-inline-flex align-items-center gap-2 hover-underline">
+            <span>View all {totalProjectsCount || 9} projects</span>
+            <span>&rarr;</span>
+          </a>
+        </div>
+      </div>
+
+      {featuredProjects && featuredProjects.length > 0 ? (
+        <div
+          id="featuredProjectsCarousel"
+          class="carousel slide carousel-fade featured-showcase-carousel rounded-2 overflow-hidden border border-secondary shadow-lg"
+          data-bs-ride="carousel"
+          data-bs-interval="6500"
+        >
+          <!-- Slide Indicators -->
+          {featuredProjects.length > 1 && (
+            <div class="carousel-indicators featured-carousel-indicators mb-3">
+              {featuredProjects.map((_: any, idx: number) => (
+                <button
+                  type="button"
+                  data-bs-target="#featuredProjectsCarousel"
+                  data-bs-slide-to={idx}
+                  class={idx === 0 ? "active" : ""}
+                  aria-current={idx === 0 ? "true" : undefined}
+                  aria-label={`Slide ${idx + 1}`}
+                ></button>
+              ))}
+            </div>
+          )}
+
+          <div class="carousel-inner">
+            {featuredProjects.map((project: any, idx: number) => {
+              const images = parseProjectImages(project);
+              const coverImage = images[0] || null;
+              const summaryPoints = splitLines(project.summary);
+              const detailUrl = `${baseUrl}projects/${project.id}`;
+
+              return (
+                <div class={`carousel-item ${idx === 0 ? "active" : ""}`}>
+                  <article
+                    class="featured-slide-frame position-relative w-100 overflow-hidden d-flex align-items-center"
+                    data-project-slide
+                    data-images={JSON.stringify(images)}
+                  >
+                    
+                    <!-- Full-Section Background Project Image -->
+                    <div class="featured-slide-bg position-absolute top-0 start-0 w-100 h-100">
+                      {coverImage ? (
+                        <img
+                          src={coverImage}
+                          alt={project.title}
+                          class="w-100 h-100 object-fit-cover featured-slide-img"
+                          data-slide-main-img
+                          loading={idx === 0 ? "eager" : "lazy"}
+                        />
+                      ) : (
+                        <NoImagePlaceholder title={project.title} size="lg" />
+                      )}
+                    </div>
+
+                    <!-- Multi-Photo Switcher Controls (Bottom Right over Image) -->
+                    {images.length > 1 && (
+                      <div class="photo-switcher-bar position-absolute bottom-0 end-0 m-3 m-md-4 px-2 py-1 rounded-1 d-flex align-items-center gap-2 font-monospace">
+                        <button
+                          type="button"
+                          class="btn btn-sm p-0 photo-step-btn d-inline-flex align-items-center justify-content-center"
+                          data-photo-prev
+                          title="Previous screenshot"
+                          aria-label="Previous screenshot"
+                        >
+                          <i class="bi bi-chevron-left"></i>
+                        </button>
+                        <div class="d-flex align-items-center gap-1 px-1">
+                          {images.map((imgUrl: string, imgIdx: number) => (
+                            <button
+                              type="button"
+                              class={`photo-dot-btn ${imgIdx === 0 ? "active" : ""}`}
+                              data-photo-index={imgIdx}
+                              data-photo-src={imgUrl}
+                              title={`Screenshot ${imgIdx + 1} of ${images.length}`}
+                              aria-label={`View screenshot ${imgIdx + 1}`}
+                            ></button>
+                          ))}
+                        </div>
+                        <span class="photo-counter-label text-muted px-1" data-photo-counter>
+                          1/{images.length}
+                        </span>
+                        <button
+                          type="button"
+                          class="btn btn-sm p-0 photo-step-btn d-inline-flex align-items-center justify-content-center"
+                          data-photo-next
+                          title="Next screenshot"
+                          aria-label="Next screenshot"
+                        >
+                          <i class="bi bi-chevron-right"></i>
+                        </button>
+                      </div>
+                    )}
+
+                    <!-- Left-to-Right Gradient Overlay (Compact on Left -> Rapidly Transparent Towards Picture on Right) -->
+                    <div class="featured-slide-gradient position-absolute top-0 start-0 w-100 h-100 pointer-events-none"></div>
+
+                    <!-- Narrower Left-Hand Content Panel -->
+                    <div class="featured-slide-content position-relative p-4 p-md-5">
+                      <div class="d-inline-flex align-items-center gap-2 font-monospace small text-accent mb-2" style="font-size: 0.74rem;">
+                        <span>PROJECT 0{idx + 1} / 0{featuredProjects.length}</span>
+                        {images.length > 1 && (
+                          <>
+                            <span>&bull;</span>
+                            <span>{images.length} PHOTOS</span>
+                          </>
+                        )}
+                      </div>
+
+                      <h3 class="h3 fw-bold text-light mb-3 tracking-tight">
+                        <a href={detailUrl} class="text-light text-decoration-none stretched-link-title">
+                          {project.title}
+                        </a>
+                      </h3>
+
+                      {summaryPoints.length > 1 ? (
+                        <ul class="text-muted small ps-3 mb-4 d-flex flex-column gap-1" style="line-height: 1.55;">
+                          {summaryPoints.slice(0, 3).map((point: string) => (
+                            <li>{point}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p class="text-muted mb-4" style="font-size: 0.92rem; line-height: 1.6;">
+                          {summaryPoints[0] || project.summary}
+                        </p>
+                      )}
+
+                      <div class="mb-4">
+                        <TechBadgeList techStack={project.tech_stack} boxSize={32} iconSize={17} />
+                      </div>
+
+                      <div class="d-flex flex-wrap align-items-center gap-2 pt-1">
+                        <a href={detailUrl} class="btn btn-primary btn-sm px-3 py-2 rounded-1 font-monospace d-inline-flex align-items-center gap-2">
+                          <span>Inspect Project</span>
+                          <i class="bi bi-arrow-right"></i>
+                        </a>
+                        {project.live_url && (
+                          <a href={project.live_url} target="_blank" rel="noopener noreferrer" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-1 font-monospace text-light d-inline-flex align-items-center gap-2">
+                            <span>Live Demo</span>
+                            <i class="bi bi-box-arrow-up-right"></i>
+                          </a>
+                        )}
+                        {project.github_url && (
+                          <a href={project.github_url} target="_blank" rel="noopener noreferrer" class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-1 font-monospace text-light d-inline-flex align-items-center gap-2">
+                            <i class="bi bi-github"></i>
+                            <span>Source</span>
+                          </a>
+                        )}
+                      </div>
+                    </div>
+
+                  </article>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <div class="card p-4 bg-card border border-secondary text-muted font-monospace small">
+          No featured projects configured.
+        </div>
+      )}
+    </div>
+  </section>
+
+  <!-- Work Experience Section -->
+  {experiencesData && experiencesData.length > 0 && (
+    <section class="py-5 border-bottom border-secondary position-relative" style="z-index: 1;">
+      <div class="container py-3">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-3 mb-4">
+          <div>
+            <div class="font-monospace text-accent small mb-1" style="font-size: 0.78rem;">02 // EXPERIENCE</div>
+            <h2 class="h3 fw-bold text-light mb-0">Where I've Worked</h2>
+          </div>
+          <a href={`${baseUrl}experience`} class="font-monospace text-light text-decoration-none small d-inline-flex align-items-center gap-2 hover-underline">
+            <span>Full work history</span>
+            <span>&rarr;</span>
+          </a>
+        </div>
+
+        <div class="d-flex flex-column gap-3">
+          {experiencesData.map((exp: any) => {
+            const bullets = splitLines(exp.description);
+            return (
+              <div class="card p-4 bg-card border border-secondary rounded-2">
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-1 mb-3 pb-2 border-bottom border-secondary">
+                  <div>
+                    <span class="fw-bold text-light">{exp.role}</span>
+                    <span class="text-muted mx-2">&middot;</span>
+                    <span class="font-monospace text-accent small">{exp.company}</span>
+                  </div>
+                  <div class="font-monospace text-muted small">
+                    {exp.start_date} — {exp.end_date || 'Present'}
+                  </div>
+                </div>
+
+                <ul class="text-muted small ps-3 mb-0 d-flex flex-column gap-2" style="line-height: 1.6;">
+                  {bullets.map((bullet: string) => (
+                    <li>{bullet}</li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  )}
+
+  <!-- Footer / Contact -->
+  <footer class="py-5 position-relative" style="z-index: 1;">
+    <div class="container py-2">
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-4">
+        <div>
+          <div class="font-monospace text-light fw-semibold mb-1">Ryan Cuccurullo</div>
+          <p class="text-muted small mb-0">
+            Software Engineer based in Long Island, NY.
+          </p>
+        </div>
+
+        <div class="d-flex flex-wrap gap-3 font-monospace small">
+          <a href="mailto:ryan.cuccu@gmail.com" class="text-muted text-decoration-none hover-light">
+            ryan.cuccu@gmail.com
+          </a>
+          <span class="text-secondary">&middot;</span>
+          <a href="https://github.com/ryguy0601" target="_blank" rel="noopener noreferrer" class="text-muted text-decoration-none hover-light">
+            GitHub
+          </a>
+          <span class="text-secondary">&middot;</span>
+          <a href="https://www.linkedin.com/in/ryan-cuccurullo-48b242261/" target="_blank" rel="noopener noreferrer" class="text-muted text-decoration-none hover-light">
+            LinkedIn
+          </a>
+          <span class="text-secondary">&middot;</span>
+          <a href={`${baseUrl}resume`} class="text-muted text-decoration-none hover-light">
+            Resume
+          </a>
+        </div>
+      </div>
+    </div>
+  </footer>
 </Layout>
 
-<!-- Page-Specific Styling for Hero & Canvas -->
 <style>
-  html, body {
-    overflow-x: hidden !important;
-    margin: 0;
-    padding: 0;
-    width: 100%;
+  .blueprint-bg {
+    background-image: 
+      linear-gradient(to right, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+    background-size: 48px 48px;
   }
 
   .hero-section {
-    min-height: 100vh;
-    min-height: 100svh;
-    padding-top: 80px;
-    padding-bottom: 2rem;
-    box-sizing: border-box;
+    min-height: 78vh;
+    padding-top: 84px;
+    padding-bottom: 2.5rem;
   }
 
-  .hero-wrapper {
-    position: relative;
-    z-index: 2;
-  }
-
-  .terminal-pre {
-    white-space: pre-wrap !important;
-    word-break: break-word !important;
-    overflow-x: hidden !important;
-  }
-
-  .custom-btn-primary {
-    transition: transform 0.2s ease, box-shadow 0.2s ease !important;
-    
-    &:hover {
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-primary-button-hover) !important;
-      
-      .arrow-icon {
-        transform: translateX(4px);
-      }
-    }
-  }
-
-  .arrow-icon {
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--color-primary);
     display: inline-block;
-    transition: transform 0.2s ease;
   }
 
-  .custom-btn-github {
-    background-color: rgba(var(--card-bg-rgb), 0.6) !important;
-    border-color: rgba(var(--color-secondary-rgb), 0.3) !important;
-    color: var(--body-color) !important;
-    transition: all 0.2s ease !important;
+  /* Ticker */
+  .ticker-track-container {
+    mask-image: linear-gradient(to right, transparent, black 3%, black 97%, transparent);
+    -webkit-mask-image: linear-gradient(to right, transparent, black 3%, black 97%, transparent);
+  }
+
+  .ticker-track {
+    width: max-content;
+    animation: tickerScroll 95s linear infinite;
+  }
+
+  .ticker-track:hover {
+    animation-play-state: paused;
+  }
+
+  @keyframes tickerScroll {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+
+  .ticker-item {
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+    cursor: pointer;
+    outline: none;
+    background-color: rgba(var(--body-bg-rgb), 0.7) !important;
 
     &:hover {
-      background-color: rgba(var(--color-secondary-rgb), 0.1) !important;
-      border-color: var(--color-secondary) !important;
-      color: var(--color-secondary) !important;
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-secondary-hover) !important;
+      border-color: var(--color-primary) !important;
+      background-color: var(--tech-symbol-bg) !important;
     }
   }
-</style>
 
-<style>
-  #hero-canvas[data-canvas-style="none"] {
-    display: none !important;
+  .ticker-icon {
+    filter: brightness(0) invert(1);
+    opacity: 0.85;
+  }
+
+  /* Featured Projects Full-Bleed Carousel */
+  .featured-showcase-carousel {
+    background-color: rgba(var(--card-bg-rgb, 20, 22, 27), 0.65);
+    border-color: var(--projects-card-border, var(--card-border-color)) !important;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+
+  .featured-slide-frame {
+    min-height: 580px;
+  }
+
+  .featured-slide-bg {
+    z-index: 0;
+  }
+
+  .featured-slide-img {
+    object-position: right center;
+    transition: transform 0.6s ease, opacity 0.2s ease;
+  }
+
+  .featured-showcase-carousel:hover .featured-slide-img {
+    transform: scale(1.015);
+  }
+
+  /* Compact left-to-right gradient: covers narrow text column on the left and quickly opens up to the full image */
+  .featured-slide-gradient {
+    z-index: 1;
+    background: linear-gradient(
+      90deg,
+      rgba(var(--body-bg-rgb, 12, 13, 16), 0.96) 0%,
+      rgba(var(--body-bg-rgb, 12, 13, 16), 0.9) 24%,
+      rgba(var(--body-bg-rgb, 12, 13, 16), 0.55) 42%,
+      rgba(var(--body-bg-rgb, 12, 13, 16), 0.12) 58%,
+      rgba(var(--body-bg-rgb, 12, 13, 16), 0) 72%
+    );
+  }
+
+  .featured-slide-content {
+    z-index: 2;
+    width: 100%;
+    max-width: 440px;
+  }
+
+  /* Multi-photo switcher pill on bottom-right of slide */
+  .photo-switcher-bar {
+    z-index: 4;
+    background-color: rgba(var(--body-bg-rgb, 12, 13, 16), 0.84);
+    border: 1px solid var(--card-border-color);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    font-size: 0.74rem;
+  }
+
+  .photo-step-btn {
+    width: 24px;
+    height: 24px;
+    color: var(--color-text-muted-light);
+    border-radius: 3px;
+    transition: color 0.15s ease, background-color 0.15s ease;
+
+    &:hover {
+      color: var(--color-primary);
+      background-color: rgba(var(--card-bg-rgb), 0.9);
+    }
+  }
+
+  .photo-dot-btn {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    border: none;
+    padding: 0;
+    background-color: var(--color-text-muted-mid);
+    opacity: 0.5;
+    transition: all 0.15s ease;
+
+    &:hover {
+      opacity: 0.9;
+    }
+
+    &.active {
+      width: 16px;
+      border-radius: 4px;
+      background-color: var(--color-primary);
+      opacity: 1;
+    }
+  }
+
+  .photo-counter-label {
+    font-size: 0.72rem;
+  }
+
+  .carousel-nav-btn {
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--card-border-color);
+    background-color: rgba(var(--card-bg-rgb), 0.75);
+    color: var(--body-color);
+    border-radius: var(--radius-sm);
+    transition: all 0.15s ease;
+
+    &:hover {
+      border-color: var(--color-primary);
+      color: var(--color-primary);
+      background-color: var(--card-bg);
+    }
+  }
+
+  .featured-carousel-indicators {
+    z-index: 3;
+    justify-content: flex-start;
+    margin-left: 3rem;
+    margin-right: auto;
+  }
+
+  .featured-carousel-indicators [data-bs-target] {
+    width: 24px;
+    height: 3px;
+    border-radius: 2px;
+    background-color: var(--color-text-muted-mid);
+    opacity: 0.45;
+    border: none;
+    transition: all 0.2s ease;
+  }
+
+  .featured-carousel-indicators .active {
+    width: 36px;
+    background-color: var(--color-primary);
+    opacity: 1;
+  }
+
+  @media (max-width: 767.98px) {
+    .featured-slide-frame {
+      min-height: 440px;
+    }
+
+    .featured-slide-gradient {
+      background: linear-gradient(
+        90deg,
+        rgba(var(--body-bg-rgb, 12, 13, 16), 0.96) 0%,
+        rgba(var(--body-bg-rgb, 12, 13, 16), 0.88) 60%,
+        rgba(var(--body-bg-rgb, 12, 13, 16), 0.55) 100%
+      );
+    }
+
+    .featured-carousel-indicators {
+      margin-left: 1.5rem;
+    }
+  }
+
+  .stretched-link-title:hover {
+    color: var(--color-primary) !important;
+  }
+
+  .hover-light:hover {
+    color: var(--body-color) !important;
+  }
+
+  .hover-underline:hover {
+    text-decoration: underline !important;
+  }
+
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 </style>
 
-<!-- Client-side script handling typing, syntax highlighting, and dynamic resize canvas scaling -->
 <script>
   document.addEventListener("DOMContentLoaded", () => {
-    // --- 1. Dynamic Resize Particle Network ---
-// --- 1. Dynamic Resize Particle Network ---
-const canvas = document.getElementById("hero-canvas") as HTMLCanvasElement;
-if (canvas) {
-  const ctx = canvas.getContext("2d");
-  let width = (canvas.width = window.innerWidth);
-  let height = (canvas.height = window.innerHeight);
-
-  // Read CSS variables directly from :root
-  const rootStyles = getComputedStyle(document.documentElement);
-  const primaryRgb = rootStyles.getPropertyValue("--canvas-particle-primary-rgb").trim() || "232, 62, 159";
-  const secondaryRgb = rootStyles.getPropertyValue("--canvas-particle-secondary-rgb").trim() || "155, 93, 229";
-  const gridRgb = rootStyles.getPropertyValue("--canvas-grid-color-rgb").trim() || primaryRgb;
-  const canvasStyle = rootStyles.getPropertyValue("--canvas-style").trim() || "particles";
-  const colorPalette = [primaryRgb, secondaryRgb];
-  canvas.dataset.canvasStyle = canvasStyle;
-  canvas.style.display = canvasStyle === "none" ? "none" : "block";
-
-  interface Particle {
-    x: number;
-    y: number;
-    vx: number;
-    vy: number;
-    size: number;
-    color: string;
-  }
-
-  const particles: Particle[] = [];
-  
-  function initParticles() {
-    particles.length = 0; 
-    const particleCount = Math.floor((width * height) / 9000);
-    for (let i = 0; i < particleCount; i++) {
-      particles.push({
-        x: Math.random() * width,
-        y: Math.random() * height,
-        vx: (Math.random() - 0.5) * 1.0,
-        vy: (Math.random() - 0.5) * 1.0,
-        size: Math.random() * 1.8 + 1.2,
-        color: colorPalette[Math.floor(Math.random() * colorPalette.length)]
-      });
-    }
-  }
-
-  initParticles();
-
-  window.addEventListener("resize", () => {
-    width = canvas.width = window.innerWidth;
-    height = canvas.height = window.innerHeight;
-    initParticles();
-  });
-
-  const mouse = { x: -1000, y: -1000, radius: 160 };
-
-  window.addEventListener("mousemove", (e) => {
-    mouse.x = e.clientX;
-    mouse.y = e.clientY;
-  });
-
-  window.addEventListener("mouseleave", () => {
-    mouse.x = -1000;
-    mouse.y = -1000;
-  });
-
-  function animateCanvas() {
-    if (!ctx) return;
-    if (canvasStyle === "none") return;
-    ctx.clearRect(0, 0, width, height);
-
-    if (canvasStyle === "grid") {
-      ctx.strokeStyle = `rgba(${gridRgb}, 0.18)`;
-      ctx.lineWidth = 1;
-      const gridSize = 48;
-      for (let x = 0; x <= width; x += gridSize) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, height);
-        ctx.stroke();
-      }
-      for (let y = 0; y <= height; y += gridSize) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(width, y);
-        ctx.stroke();
-      }
-      requestAnimationFrame(animateCanvas);
-      return;
-    }
-
-    for (let i = 0; i < particles.length; i++) {
-      let p = particles[i];
-      p.x += p.vx;
-      p.y += p.vy;
-
-      if (p.x < 0 || p.x > width) p.vx *= -1;
-      if (p.y < 0 || p.y > height) p.vy *= -1;
-
-      let dx = mouse.x - p.x;
-      let dy = mouse.y - p.y;
-      let dist = Math.sqrt(dx * dx + dy * dy);
-      if (dist < mouse.radius) {
-        let angle = Math.atan2(dy, dx);
-        let force = (mouse.radius - dist) / mouse.radius;
-        p.x -= Math.cos(angle) * force * 3;
-        p.y -= Math.sin(angle) * force * 3;
-      }
-
-      // Draw particle using its assigned CSS variable RGB value
-      ctx.fillStyle = `rgba(${p.color}, 0.85)`;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Dynamic two-stop gradient between the two connected particles
-      if (canvasStyle !== "dots") for (let j = i + 1; j < particles.length; j++) {
-        let p2 = particles[j];
-        let ndx = p.x - p2.x;
-        let ndy = p.y - p2.y;
-        let ndist = Math.sqrt(ndx * ndx + ndy * ndy);
-
-        if (ndist < 130) {
-          const alpha = 0.45 * (1 - ndist / 130);
-          
-          const gradient = ctx.createLinearGradient(p.x, p.y, p2.x, p2.y);
-          gradient.addColorStop(0, `rgba(${p.color}, ${alpha})`);
-          gradient.addColorStop(1, `rgba(${p2.color}, ${alpha})`);
-
-          ctx.strokeStyle = gradient;
-          ctx.lineWidth = 0.8;
-          ctx.beginPath();
-          ctx.moveTo(p.x, p.y);
-          ctx.lineTo(p2.x, p2.y);
-          ctx.stroke();
-        }
-      }
-    }
-    requestAnimationFrame(animateCanvas);
-  }
-  animateCanvas();
-}
-
-    // --- 2. Terminal Engine (Strictly DB Projects + General Dev Themes with Typos) ---
     const terminal = document.getElementById("terminal-text");
     const container = document.getElementById("terminal-container");
     if (!terminal || !container) return;
@@ -328,117 +717,26 @@ if (canvas) {
         ? p.tech_stack.split(',').map((t) => `'${t.trim()}'`).join(', ')
         : "'TypeScript', 'Astro'";
 
-      const steps: Step[] = [
-        "const dbProject = {\n",
-        "  sourcce: 'Live Supa",
-        { delete: 14 },
-        "e: 'Live Supabase DB',\n",
-        "  title: '" + p.title + "',\n",
-        "  stack: [" + formattedStack + "],\n"
-      ];
+      const targetLink = p.live_url?.trim() || p.github_url?.trim() || 'local';
 
-      const targetLink = p.live_url?.trim() || p.github_url?.trim() || '404';
-
-      if (targetLink === '404') {
-        steps.push(
-          "  demo: '403",
-          { delete: 1 },
-          "4',\n"
-        );
-      } else if (targetLink.startsWith('https://')) {
-        steps.push(
-          "  demo: 'htt://",
-          { delete: 4 },
-          "ps://" + targetLink.slice(8) + "',\n"
-        );
-      } else if (targetLink.startsWith('http://')) {
-        steps.push(
-          "  demo: 'htt://",
-          { delete: 4 },
-          "tp://" + targetLink.slice(7) + "',\n"
-        );
-      } else {
-        steps.push(
-          "  demo: '" + targetLink + "',\n"
-        );
-      }
-
-      steps.push(
-        "  verified: truu",
-        { delete: 2 },
-        "ue,\n",
-        "  status: 'Deployed & Ready'\n",
+      return [
+        "export const project = {\n",
+        `  name: '${p.title}',\n`,
+        `  stack: [${formattedStack}],\n`,
+        `  url: '${targetLink}',\n`,
+        "  status: 'production'\n",
         "};"
-      );
-
-      return steps;
+      ];
     });
 
-    const generalVariations: Step[][] = [
+    const terminalVariations: Step[][] = dbProjectVariations.length > 0 ? dbProjectVariations : [
       [
-        "const devDay = {\n",
-        "  caffeineLevel: '100%",
-        { delete: 4 },
-        "99.9%',\n",
-        "  dailyGoal: 'Write clean code, crush buggs",
-        { delete: 2 },
-        "s',\n",
-        "  gitCommit: 'git push --focre",
-        { delete: 3 },
-        "rce origin main',\n",
-        "  coffeeToCodeRatio: Infinity,\n",
-        "  status: 'Compiling Solutions'\n",
-        "};"
-      ],
-      [
-        "const philosophy = {\n",
-        "  approach: 'Simplicity over complexx",
-        { delete: 1 },
-        "ity',\n",
-        "  mindset: 'Always be leanring",
-        { delete: 5 },
-        "rning',\n",
-        "  favoriteTool: 'The right one for the jobb",
-        { delete: 1 },
-        "',\n",
-        "  testsPassing: true,\n",
-        "  readyForProd: true\n",
-        "};"
-      ],
-      [
-        "const sysCheck = {\n",
-        "  terminal: 'zsh',\n",
-        "  shellTheme: 'dark-modde",
-        { delete: 2 },
-        "e',\n",
-        "  latency: '12ms',\n",
-        "  uptime: 'All day, evrey",
-        { delete: 3 },
-        "ery day',\n",
-        "  battery: 'Fully charged & ready'\n",
-        "};"
-      ],
-      [
-        "const engineer = {\n",
+        "export const engineer = {\n",
         "  name: 'Ryan Cuccurullo',\n",
-        "  role: 'Full-Stack Develpoer",
-        { delete: 4 },
-        "oper',\n",
-        "  focus: ['Full-Stack', 'Automaion",
-        { delete: 4 },
-        "tion', 'AI Solutions'],\n",
-        "  motto: 'Make it work, make it quikc",
-        { delete: 3 },
-        "ick, make it clean',\n",
-        "  openToWork: true,\n",
-        "  status: 'Ready to Build'\n",
+        "  location: 'Long Island, NY',\n",
+        "  stack: ['C#', '.NET', 'Python', 'TypeScript'],\n",
         "};"
       ]
-    ];
-
-    const terminalVariations: Step[][] = [
-      ...dbProjectVariations,
-      ...generalVariations
     ];
 
     const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -449,50 +747,100 @@ if (canvas) {
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;");
 
-      safe = safe.replace(/\b(const|true|false)\b/g, '<span class="tok-keyword">$1</span>');
+      safe = safe.replace(/\b(export|const|true|false)\b/g, '<span class="tok-keyword">$1</span>');
       safe = safe.replace(/(\b[a-zA-Z_$][a-zA-Z0-9_$]*)(?=\s*:\s*)/g, '<span class="tok-property">$1</span>');
       safe = safe.replace(/('[^'\n]*('|$))/g, '<span class="tok-string">$1</span>');
-      safe = safe.replace(/\b([0-9]+|Infinity)\b/g, '<span class="tok-number" style="color: var(--color-badge-amber);">$1</span>');
 
       return safe;
     }
 
     async function runTerminal() {
-      let lastIndex = -1;
-
+      let idx = 0;
       while (true) {
-        let nextIndex: number;
-        do {
-          nextIndex = Math.floor(Math.random() * terminalVariations.length);
-        } while (terminalVariations.length > 1 && nextIndex === lastIndex);
-
-        lastIndex = nextIndex;
-        const currentSteps = terminalVariations[nextIndex];
+        const currentSteps = terminalVariations[idx % terminalVariations.length];
+        idx++;
 
         let currentText = "";
-        terminal!.innerHTML = ""; 
-        await wait(700);
+        terminal!.innerHTML = "";
+        await wait(400);
 
         for (let step of currentSteps) {
           if (typeof step === "string") {
             for (let char of step) {
               currentText += char;
               terminal!.innerHTML = highlightCode(currentText);
-              await wait(20 + Math.random() * 25);
+              await wait(18);
             }
-          } else if (typeof step === "object" && step.delete) {
-            await wait(450); 
-            for (let i = 0; i < step.delete; i++) {
-              currentText = currentText.slice(0, -1);
-              terminal!.innerHTML = highlightCode(currentText);
-              await wait(35); 
-            }
-            await wait(200);
           }
         }
-        await wait(4500);
+        await wait(4000);
       }
     }
     runTerminal();
+
+    // Clickable Skill Ticker -> Navigate to /projects?skill=...
+    document.querySelectorAll<HTMLElement>('.ticker-item').forEach((item) => {
+      item.addEventListener('click', () => {
+        const skill = item.getAttribute('data-skill-name');
+        if (!skill) return;
+
+        const targetUrl = new URL(`${window.location.origin}/projects`);
+        targetUrl.searchParams.set('skill', skill);
+        window.location.href = targetUrl.toString();
+      });
+    });
+
+    // Multi-Photo Switcher inside Featured Project Carousel Slides
+    document.querySelectorAll<HTMLElement>('[data-project-slide]').forEach((slide) => {
+      let images: string[] = [];
+      try {
+        images = JSON.parse(slide.getAttribute('data-images') || '[]');
+      } catch {
+        images = [];
+      }
+      if (images.length <= 1) return;
+
+      const mainImg = slide.querySelector<HTMLImageElement>('[data-slide-main-img]');
+      const prevBtn = slide.querySelector<HTMLButtonElement>('[data-photo-prev]');
+      const nextBtn = slide.querySelector<HTMLButtonElement>('[data-photo-next]');
+      const dots = slide.querySelectorAll<HTMLButtonElement>('[data-photo-index]');
+      const counter = slide.querySelector<HTMLElement>('[data-photo-counter]');
+      let currentIdx = 0;
+
+      const setPhoto = (newIdx: number) => {
+        currentIdx = (newIdx + images.length) % images.length;
+        if (mainImg) {
+          mainImg.style.opacity = '0.35';
+          setTimeout(() => {
+            mainImg.src = images[currentIdx];
+            mainImg.style.opacity = '1';
+          }, 110);
+        }
+        dots.forEach((dot, idx) => {
+          dot.classList.toggle('active', idx === currentIdx);
+        });
+        if (counter) {
+          counter.textContent = `${currentIdx + 1}/${images.length}`;
+        }
+      };
+
+      prevBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setPhoto(currentIdx - 1);
+      });
+
+      nextBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setPhoto(currentIdx + 1);
+      });
+
+      dots.forEach((dot) => {
+        dot.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const idx = parseInt(dot.getAttribute('data-photo-index') || '0', 10);
+          setPhoto(idx);
+        });
+      });
+    });
   });
 </script>

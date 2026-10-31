@@ -2,503 +2,505 @@
 // src/pages/projects.astro
 import Layout from '../layouts/Layout.astro';
 import TechBadgeList from '../components/TechBadgeList.astro';
+import NoImagePlaceholder from '../components/NoImagePlaceholder.astro';
 import { supabase } from '../utils/supabase';
 import { getBaseUrl, getAdminUrl } from '../utils/url';
+import { getTechInfo } from '../utils/techIcons';
 import { parseProjectImages } from '../utils/projects';
 import { splitLines } from '../utils/text';
-import '../styles/projects.scss';
+import { GitHubProjectsService, DEFAULT_GITHUB_CONFIG } from '../services/githubProjectsService';
+import '../styles/main.scss';
 
 const baseUrl = getBaseUrl();
 const adminUrl = getAdminUrl();
 
 let allProjects: any[] = [];
+let githubConfig = DEFAULT_GITHUB_CONFIG;
 let dbError = false;
 
 try {
-  const { data, error } = await supabase
-    .from('projects')
-    .select('*')
-    .order('id', { ascending: false });
-
-  if (error) {
-    console.error('Supabase error fetching projects:', error);
-    dbError = true;
-  } else {
-    allProjects = data || [];
-  }
+  const result = await GitHubProjectsService.getPortfolioProjects(supabase);
+  allProjects = result.projects || [];
+  githubConfig = result.config;
 } catch (err) {
-  console.error('Unexpected error connecting to Supabase:', err);
+  console.error('Unexpected error loading projects:', err);
   dbError = true;
 }
+
+// Fetch all skills for filter chips and merge with any tech_stack items on projects
+const { data: skillsData } = await supabase
+  .from('skills')
+  .select('name, category')
+  .order('name', { ascending: true });
+
+// Normalize skill key so "Tailwind CSS" and "TailwindCSS", "HTML" and "HTML5", "CSS" and "CSS3" don't duplicate
+const normalizeSkillKey = (raw: string) => {
+  const k = raw.trim().toLowerCase().replace(/\s+/g, '');
+  if (k === 'html5' || k === 'html') return 'html';
+  if (k === 'css3' || k === 'css') return 'css';
+  if (k === 'node.js' || k === 'nodejs' || k === 'node') return 'node';
+  return k;
+};
+
+const seenSkills = new Set<string>();
+const mergedSkills: { name: string; iconUrl: string }[] = [];
+
+for (const s of skillsData || []) {
+  const clean = s.name?.trim();
+  const key = clean ? normalizeSkillKey(clean) : '';
+  if (clean && !seenSkills.has(key)) {
+    seenSkills.add(key);
+    mergedSkills.push({ name: clean, iconUrl: getTechInfo(clean).iconUrl });
+  }
+}
+
+for (const p of allProjects || []) {
+  const techs = (p.tech_stack || '').split(',').map((t: string) => t.trim()).filter(Boolean);
+  for (const t of techs) {
+    const key = normalizeSkillKey(t);
+    if (!seenSkills.has(key)) {
+      seenSkills.add(key);
+      mergedSkills.push({ name: t, iconUrl: getTechInfo(t).iconUrl });
+    }
+  }
+}
+
+const skillList = mergedSkills;
 ---
 
-<Layout hasHero={true} title="Projects — Ryan Cuccurullo">
+<Layout hasHero={false} title="Projects — Ryan Cuccurullo">
+  <div class="projects-grid-page min-vh-100 py-5">
+    <div class="container py-2">
 
-  <main class="projects-page">
-
-    <!-- =========================================================
-         INTRO SLIDE
-    ========================================================== -->
-    <section class="project-slide intro-slide">
-      <div class="intro-background"></div>
-
-      <div class="container position-relative z-2 px-3 px-md-4">
-        <div class="row justify-content-center">
-          <div class="col-12 col-lg-9 col-xl-8 text-center">
-
-            <div class="intro-eyebrow mb-3 mb-md-4">
-              <span class="eyebrow-line"></span>
-              <span class="font-monospace">SELECTED WORK</span>
-              <span class="eyebrow-line"></span>
-            </div>
-
-            <h1 class="fw-bold mb-3 mb-md-4 intro-main-title">
-              Things I've&nbsp;<span class="text-gradient">Built.</span>
-            </h1>
-
-            <p class="lead text-secondary mx-auto intro-description mb-4 mb-md-5">
-              A collection of applications, systems, and experiments I've
-              designed and developed across different technologies.
+      <!-- Page Header (Left-aligned, clean engineering layout) -->
+      <div class="mb-5 pb-4 border-bottom border-secondary">
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+          <span class="font-monospace text-accent small" style="font-size: 0.78rem;">ARCHIVE // PROJECTS</span>
+          {githubConfig.mode !== 'database' && (
+            <a
+              href={`https://github.com/${githubConfig.username}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="badge rounded-1 font-monospace text-decoration-none d-inline-flex align-items-center gap-1"
+              style="font-size: 0.68rem; background: rgba(var(--color-primary-rgb), 0.14); color: var(--color-primary); border: 1px solid rgba(var(--color-primary-rgb), 0.35);"
+            >
+              <i class="bi bi-github"></i>
+              <span>Synced with @{githubConfig.username} (Public Repos)</span>
+            </a>
+          )}
+        </div>
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end gap-3 mb-4">
+          <div>
+            <h1 class="h2 fw-bold text-light mb-2">All Projects</h1>
+            <p class="text-muted mb-0" style="max-width: 600px;">
+              Production applications, developer tools, and automation pipelines. Click any technology below to filter.
             </p>
-
-            <div class="d-flex flex-wrap justify-content-center align-items-center gap-3">
-
-              <a href={baseUrl} class="btn btn-outline-secondary px-4 py-2">
-                <svg width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16">
-                  <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
-                </svg>
-                Back Home
-              </a>
-
-              {allProjects.length > 0 && (
-                <div class="project-count font-monospace">
-                  <span>{allProjects.length}</span>
-                  {allProjects.length === 1 ? ' project' : ' projects'}
-                </div>
-              )}
-
-            </div>
-
-            <div class="scroll-hint mt-4 mt-md-5">
-              <div class="scroll-hint-line"></div>
-              <span class="font-monospace text-secondary">
-                SCROLL TO EXPLORE
-              </span>
-              <svg width="14" height="14" fill="currentColor" class="mt-1" viewBox="0 0 16 16">
-                <path fill-rule="evenodd" d="M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z"/>
-              </svg>
-            </div>
-
           </div>
+
+          <!-- Search Input -->
+          <div style="min-width: 280px;">
+            <div class="input-group input-group-sm project-search-group">
+              <span class="input-group-text project-search-addon">
+                <i class="bi bi-search"></i>
+              </span>
+              <input 
+                type="text" 
+                id="projectSearchInput" 
+                class="form-control project-search-input font-monospace" 
+                placeholder="Filter by keyword..."
+                autocomplete="off"
+              />
+              <button 
+                class="btn btn-outline-secondary text-muted d-none" 
+                type="button" 
+                id="clearSearchBtn"
+                title="Clear search"
+              >
+                <i class="bi bi-x"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Skill Filter Buttons -->
+        {skillList.length > 0 && (
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <button 
+              type="button" 
+              class="btn btn-sm rounded-1 px-3 py-1 font-monospace skill-pill active" 
+              data-skill=""
+            >
+              All ({allProjects.length})
+            </button>
+            {skillList.map((skill) => (
+              <button 
+                type="button" 
+                class="btn btn-sm rounded-1 px-2 py-1 font-monospace skill-pill text-light d-inline-flex align-items-center gap-2" 
+                data-skill={skill.name}
+              >
+                <img src={skill.iconUrl} alt={skill.name} class="skill-pill-icon" width="13" height="13" loading="lazy" />
+                <span>{skill.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div id="filterStatus" class="small text-muted font-monospace mt-3" style="font-size: 0.78rem;">
+          Showing <span id="visibleProjectsCount" class="text-light fw-semibold">{allProjects.length}</span> of {allProjects.length} projects
         </div>
       </div>
-    </section>
 
-    <!-- =========================================================
-         PROJECT SLIDES
-    ========================================================== -->
-    {dbError ? (
-      <section class="project-slide empty-slide">
-        <div class="container px-3">
-          <div class="row justify-content-center">
-            <div class="col-12 col-md-7 col-lg-5">
-              <div class="empty-card text-center p-4 p-md-5">
-                <div class="empty-icon mb-4">
-                  <svg width="48" height="48" fill="currentColor" class="text-warning" viewBox="0 0 16 16">
-                    <path d="M7.938 2.016a.13.13 0 0 1 .125 0l6.857 11.667c.036.06.035.124.002.183a.163.163 0 0 1-.127.084H1.205a.163.163 0 0 1-.127-.084.185.185 0 0 1 .002-.183L7.938 2.016zM8 1a1 1 0 0 0-.86.49l-6.857 11.667A1 1 0 0 0 1.205 15h13.59a1 1 0 0 0 .862-1.843L8.86 1.49A1 1 0 0 0 8 1z"/>
-                    <path d="M7.002 12a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 5.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995z"/>
-                  </svg>
-                </div>
-                <h2 class="h3 fw-bold mb-3">Connection Error</h2>
-                <p class="text-secondary mb-4">
-                  Unable to retrieve projects from the database at the moment.
-                </p>
-                <a href={adminUrl} class="btn btn-primary">
-                  Open Admin Dashboard
-                </a>
-              </div>
-            </div>
+      <!-- Projects Grid -->
+      {dbError ? (
+        <div class="card p-4 border-danger bg-card text-light rounded-2">
+          <h5 class="fw-bold text-danger">Database Connection Error</h5>
+          <p class="text-muted small mb-3">Could not load projects from Supabase.</p>
+          <div>
+            <a href={adminUrl} class="btn btn-primary btn-sm rounded-1">Admin Dashboard</a>
           </div>
         </div>
-      </section>
-    ) : allProjects.length > 0 ? (
+      ) : allProjects.length > 0 ? (
+        <div class="row g-4" id="projectsGrid">
+          {allProjects.map((project) => {
+            const images = parseProjectImages(project);
+            const coverImage = images[0] || null;
+            const summaryPoints = splitLines(project.summary);
+            const detailUrl = `${baseUrl}projects/${project.id}`;
 
-      allProjects.map((project, index) => {
+            return (
+              <div 
+                class="col-12 col-md-6 col-lg-4 project-grid-item"
+                data-title={project.title.toLowerCase()}
+                data-tech={(project.tech_stack || '').toLowerCase()}
+                data-summary={(project.summary || '').toLowerCase()}
+              >
+                <article class="card h-100 bg-card border border-secondary rounded-2 overflow-hidden project-grid-card d-flex flex-column">
+                  
+                  <!-- Thumbnail -->
+                  <a href={detailUrl} class="project-img-wrapper position-relative overflow-hidden bg-black border-bottom border-secondary d-block text-decoration-none">
+                    {coverImage ? (
+                      <img 
+                        src={coverImage} 
+                        alt={project.title} 
+                        class="w-100 h-100 object-fit-cover project-img"
+                        loading="lazy" 
+                      />
+                    ) : (
+                      <NoImagePlaceholder title={project.title} size="sm" />
+                    )}
+                  </a>
 
-        const images = parseProjectImages(project);
-        const carouselId = `project-carousel-${project.id}`;
-        const counterId = `img-counter-${project.id}`;
-        const projectNumber = String(index + 1).padStart(2, '0');
-        const totalProjects = String(allProjects.length).padStart(2, '0');
-        const projectDetailUrl = `${baseUrl}projects/${project.id}`;
-
-        const summaryPoints = splitLines(project.summary);
-
-        return (
-          <section
-            class="project-slide project-section position-relative"
-            aria-labelledby={`project-title-${project.id}`}
-          >
-
-            <!-- Background Carousel -->
-            <div class="project-background">
-
-              {images.length > 0 ? (
-
-                <div
-                  id={carouselId}
-                  class="carousel slide carousel-fade project-carousel"
-                  data-bs-ride="carousel"
-                  data-bs-interval="6000"
-                  data-bs-pause="hover"
-                  data-counter-id={counterId}
-                  data-total-images={images.length}
-                >
-
-                  <div class="carousel-inner h-100">
-
-                    {images.map((imgPath: string, imgIdx: number) => (
-
-                      <div
-                        class:list={[
-                          'carousel-item',
-                          'h-100',
-                          { active: imgIdx === 0 }
-                        ]}
-                      >
-                        <img
-                          src={imgPath}
-                          class="project-background-image"
-                          alt={`${project.title} screenshot ${imgIdx + 1}`}
-                          loading={imgIdx === 0 ? 'eager' : 'lazy'}
-                        />
+                  <!-- Card Body -->
+                  <div class="card-body p-4 d-flex flex-column flex-grow-1">
+                    <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                      <h2 class="h6 fw-bold mb-0">
+                        <a href={detailUrl} class="text-light text-decoration-none project-title-hover">
+                          {project.title}
+                        </a>
+                      </h2>
+                      <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                        {project.featured && (
+                          <span class="font-monospace text-accent" style="font-size: 0.7rem;">
+                            [featured]
+                          </span>
+                        )}
+                        {project.is_github_live && !project.featured && (
+                          <span class="font-monospace text-muted d-inline-flex align-items-center gap-1" style="font-size: 0.68rem;" title="Pulled live from public GitHub repository">
+                            <i class="bi bi-github"></i>
+                            <span>public</span>
+                          </span>
+                        )}
                       </div>
+                    </div>
 
-                    ))}
+                    <p class="text-muted small mb-3 flex-grow-1 line-clamp-3" style="line-height: 1.55;">
+                      {summaryPoints[0] || project.summary}
+                    </p>
 
+                    <!-- Tech Stack Badges -->
+                    <div class="pt-2 mb-3 border-top border-secondary">
+                      <TechBadgeList techStack={project.tech_stack} boxSize={28} iconSize={14} />
+                    </div>
+
+                    <!-- Footer Links -->
+                    <div class="d-flex align-items-center justify-content-between pt-2 border-top border-secondary font-monospace small">
+                      <a href={detailUrl} class="text-light text-decoration-none project-title-hover">
+                        Read specs &rarr;
+                      </a>
+                      <div class="d-flex gap-3">
+                        {project.live_url && (
+                          <a href={project.live_url} target="_blank" rel="noopener noreferrer" class="text-muted text-decoration-none project-title-hover" title="Live Demo">
+                            demo <i class="bi bi-arrow-up-right"></i>
+                          </a>
+                        )}
+                        {project.github_url && (
+                          <a href={project.github_url} target="_blank" rel="noopener noreferrer" class="text-muted text-decoration-none project-title-hover" title="Source Code">
+                            code <i class="bi bi-github"></i>
+                          </a>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
-                </div>
-
-              ) : (
-
-                <div class="project-background-empty">
-                  <svg width="48" height="48" fill="currentColor" viewBox="0 0 16 16">
-                    <path d="M10.478 1.647a.5.5 0 1 0-.956-.294l-4 13a.5.5 0 0 0 .956.294l4-13zM4.854 4.146a.5.5 0 0 1 0 .708L1.707 8l3.147 3.146a.5.5 0 0 1-.708.708l-3.5-3.5a.5.5 0 0 1 0-.708l3.5-3.5a.5.5 0 0 1 .708 0zm6.292 0a.5.5 0 0 0 0 .708L14.293 8l-3.147 3.146a.5.5 0 0 0 .708.708l3.5-3.5a.5.5 0 0 0 0-.708l-3.5-3.5a.5.5 0 0 0-.708 0z"/>
-                  </svg>
-                  <span>No project preview available</span>
-                </div>
-
-              )}
-
-              <!-- Dark gradient and vignette overlays -->
-              <div class="project-vignette"></div>
-              <div class="project-gradient-transparent"></div>
-
-            </div>
-
-            <!-- Project Content Container -->
-            <div class="container position-relative z-3 h-100 px-3 px-md-4 project-content-wrapper">
-
-              <div class="row align-items-center justify-content-center justify-content-lg-start h-100 py-5">
-
-                <div class="col-12 col-lg-9 col-xl-7">
-
-                  <article class="project-card project-glass-card mx-auto mx-lg-0">
-
-                    <!-- Top metadata -->
-                    <div class="d-flex align-items-center justify-content-between gap-3 mb-3 mb-md-4">
-
-                      <div class="d-flex align-items-center gap-2">
-
-                        <span class="project-number font-monospace">
-                          {projectNumber}
-                        </span>
-
-                        <span class="project-divider"></span>
-
-                        <span class="project-total font-monospace">
-                          {totalProjects}
-                        </span>
-
-                      </div>
-
-                      {project.featured && (
-                        <span class="featured-badge">
-                          ★ Featured
-                        </span>
-                      )}
-
-                    </div>
-
-                    <!-- Title with Gradient Text -->
-                    <h2
-                      id={`project-title-${project.id}`}
-                      class="fw-bold project-title mb-3"
-                    >
-                      <a href={projectDetailUrl} class="text-gradient text-decoration-none project-title-link">
-                        {project.title}
-                      </a>
-                    </h2>
-
-                    <!-- Multiline Summary -->
-                    {summaryPoints.length > 1 ? (
-                      <ul class="project-summary text-secondary mb-3 mb-md-4 ps-3">
-                        {summaryPoints.map((point: string) => (
-                          <li class="mb-1">{point}</li>
-                        ))}
-                      </ul>
-                    ) : summaryPoints.length === 1 ? (
-                      <p class="project-summary text-secondary mb-3 mb-md-4">
-                        {summaryPoints[0]}
-                      </p>
-                    ) : null}
-
-                    <!-- Technology Badges -->
-                    <div class="mb-3 mb-md-4">
-                      <TechBadgeList techStack={project.tech_stack} showLabel={true} boxSize={42} iconSize={22} />
-                    </div>
-
-                    <!-- Actions -->
-                    <div class="d-flex flex-wrap align-items-center gap-3">
-
-                      <a
-                        href={projectDetailUrl}
-                        class="btn btn-outline-info project-action d-inline-flex align-items-center"
-                      >
-                        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="me-2" aria-hidden="true">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        View Details
-                        <svg width="12" height="12" fill="currentColor" class="ms-2" viewBox="0 0 16 16">
-                          <path fill-rule="evenodd" d="M14 2.5a.5.5 0 0 0-.5-.5h-6a.5.5 0 0 0 0 1h4.793L2.146 13.146a.5.5 0 0 0 .708.708L13 3.707V8.5a.5.5 0 0 0 1 0v-6z"/>
-                        </svg>
-                      </a>
-
-                      {project.live_url && (
-                        <a
-                          href={project.live_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          class="btn btn-primary project-action d-inline-flex align-items-center"
-                        >
-                          <svg width="16" height="16" fill="currentColor" class="me-2" viewBox="0 0 16 16">
-                            <path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm7.5-6.923c-.67.204-1.335.82-1.887 1.855A7.97 7.97 0 0 0 5.145 4H7.5V1.077zM4.09 4a9.267 9.267 0 0 1 .64-1.539 6.7 6.7 0 0 1 .597-.933A7.025 7.025 0 0 0 2.255 4H4.09zm-.582 3.5c.03-.877.138-1.718.312-2.5H1.67A6.958 6.958 0 0 0 1 7.5h2.508zM1 8.5c0 .368.03.725.088 1.07h2.463c-.114-.34-.194-.698-.236-1.07H1zm2.508 2.5H1.67a6.958 6.958 0 0 0 2.146 2.5c-.174-.782-.282-1.623-.312-2.5zm1.312 2.5a7.025 7.025 0 0 0 3.072 1.462V11H5.145c.108.577.277 1.11.475 1.5zM7.5 14.923V12h2.355c-.204.67-.82 1.335-1.855 1.887-.168.04-.338.072-.5.036zm3.355-3.923H8.5V8.5h3.912c-.042.372-.122.73-.236 1.07h-1.321zm1.321-3.5H8.5V4h2.355c.67.204 1.335.82 1.887 1.855.168.348.307.72.413 1.145h-2.3zm2.146-2.5h-1.835a9.267 9.267 0 0 0-.64-1.539 6.7 6.7 0 0 0-.597-.933A7.025 7.025 0 0 1 14.322 4zm.582 3.5c-.03.877-.138 1.718-.312 2.5h2.15A6.958 6.958 0 0 0 15 7.5h-2.508zm-.312 2.5c.174.782.282 1.623.312 2.5h1.835a7.025 7.025 0 0 1-3.072 1.462 6.7 6.7 0 0 1-.597-.933 9.267 9.267 0 0 1-.64-1.539h2.162z"/>
-                          </svg>
-                          Live Site
-                          <svg width="12" height="12" fill="currentColor" class="ms-2" viewBox="0 0 16 16">
-                            <path fill-rule="evenodd" d="M14 2.5a.5.5 0 0 0-.5-.5h-6a.5.5 0 0 0 0 1h4.793L2.146 13.146a.5.5 0 0 0 .708.708L13 3.707V8.5a.5.5 0 0 0 1 0v-6z"/>
-                          </svg>
-                        </a>
-                      )}
-
-                      {project.github_url && (
-                        <a
-                          href={project.github_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          class="btn btn-light project-action d-inline-flex align-items-center"
-                        >
-                          <svg width="18" height="18" fill="currentColor" class="me-2" viewBox="0 0 16 16">
-                            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.22 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
-                          </svg>
-                          View Repository
-                          <svg width="12" height="12" fill="currentColor" class="ms-2" viewBox="0 0 16 16">
-                            <path fill-rule="evenodd" d="M14 2.5a.5.5 0 0 0-.5-.5h-6a.5.5 0 0 0 0 1h4.793L2.146 13.146a.5.5 0 0 0 .708.708L13 3.707V8.5a.5.5 0 0 0 1 0v-6z"/>
-                          </svg>
-                        </a>
-                      )}
-
-                    </div>
-
-                  </article>
-
-                </div>
-
+                </article>
               </div>
-
-            </div>
-
-            <!-- Carousel Controls -->
-            {images.length > 1 && (
-              <div class="carousel-nav-container">
-
-                <button
-                  class="carousel-nav-btn prev-btn"
-                  type="button"
-                  data-bs-target={`#${carouselId}`}
-                  data-bs-slide="prev"
-                  aria-label="Previous screenshot"
-                >
-                  <svg width="22" height="22" fill="currentColor" viewBox="0 0 16 16">
-                    <path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/>
-                  </svg>
-                </button>
-
-                <button
-                  class="carousel-nav-btn next-btn"
-                  type="button"
-                  data-bs-target={`#${carouselId}`}
-                  data-bs-slide="next"
-                  aria-label="Next screenshot"
-                >
-                  <svg width="22" height="22" fill="currentColor" viewBox="0 0 16 16">
-                    <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
-                  </svg>
-                </button>
-
-              </div>
-            )}
-
-            <!-- Slide footer -->
-            <div class="project-slide-footer d-flex align-items-center justify-content-between">
-
-              <div class="footer-left-meta">
-                {images.length > 1 && (
-                  <span id={counterId} class="font-monospace text-secondary">
-                    Picture 1 / {images.length}
-                  </span>
-                )}
-              </div>
-
-              <div class="footer-right-meta ms-auto font-monospace slide-progress">
-                Project {projectNumber} / {totalProjects}
-              </div>
-
-            </div>
-
-          </section>
-        );
-
-      })
-
-    ) : (
-
-      <section class="project-slide empty-slide">
-        <div class="container px-3">
-          <div class="row justify-content-center">
-
-            <div class="col-12 col-md-7 col-lg-5">
-
-              <div class="empty-card text-center p-4 p-md-5">
-
-                <div class="empty-icon mb-4">
-                  <svg width="48" height="48" fill="currentColor" viewBox="0 0 16 16">
-                    <path d="M1 3.5A1.5 1.5 0 0 1 2.5 2h2.764c.958 0 1.76.56 2.311 1.184C7.985 3.648 8.48 4 9 4h4.5A1.5 1.5 0 0 1 15 5.5v7a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 1 12.5v-9zM2.5 3a.5.5 0 0 0-.5.5V6h12v-.5a.5.5 0 0 0-.5-.5H9c-.964 0-1.71-.629-2.174-1.154C6.374 3.334 5.82 3 5.264 3H2.5zM14 7H2v5.5a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 .5-.5V7z"/>
-                  </svg>
-                </div>
-
-                <h2 class="h3 fw-bold mb-3">
-                  No Projects Yet
-                </h2>
-
-                <p class="text-secondary mb-4">
-                  There aren't any projects in the database yet.
-                </p>
-
-                  <a href={adminUrl} class="btn btn-primary">
-                  Open Admin Dashboard
-                </a>
-
-              </div>
-
-            </div>
-
-          </div>
+            );
+          })}
         </div>
-      </section>
+      ) : (
+        <div class="py-5 text-muted font-monospace small">
+          No projects found.
+        </div>
+      )}
 
-    )}
+      <!-- Empty Filter State -->
+      <div id="noResultsAlert" class="py-5 d-none">
+        <p class="text-muted font-monospace mb-3">No projects match the selected filter.</p>
+        <button type="button" id="resetFiltersBtn" class="btn btn-outline-secondary btn-sm rounded-1 font-monospace">
+          Reset filter
+        </button>
+      </div>
 
-  </main>
-
+    </div>
+  </div>
 </Layout>
 
 <style>
-  .project-title-link {
-    transition: opacity 0.2s ease, transform 0.2s ease;
-    display: inline-block;
+  .projects-grid-page {
+    background-color: transparent;
   }
 
-  .project-title-link:hover {
+  .project-search-addon {
+    background-color: var(--projects-control-bg, var(--card-bg)) !important;
+    border-color: var(--card-border-color) !important;
+    color: var(--color-text-muted-light) !important;
+  }
+
+  .project-search-input {
+    background-color: var(--projects-control-bg, var(--card-bg)) !important;
+    border-color: var(--card-border-color) !important;
+    color: var(--body-color) !important;
+    font-size: 0.8rem;
+
+    &::placeholder {
+      color: var(--color-text-muted-mid) !important;
+      opacity: 1;
+    }
+
+    &:focus {
+      background-color: var(--card-bg) !important;
+      border-color: var(--color-primary) !important;
+      color: var(--body-color) !important;
+      box-shadow: 0 0 0 0.18rem rgba(var(--color-primary-rgb), 0.15) !important;
+    }
+  }
+
+  .skill-pill {
+    font-size: 0.76rem;
+    border: 1px solid var(--card-border-color);
+    background: var(--projects-control-bg, var(--card-bg));
+    color: var(--color-text-muted-light);
+    transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+
+    &:hover {
+      border-color: var(--color-secondary);
+      color: var(--body-color);
+    }
+
+    &.active {
+      background: var(--color-primary) !important;
+      border-color: var(--color-primary) !important;
+      color: var(--color-on-accent) !important;
+      font-weight: 600;
+
+      .skill-pill-icon {
+        filter: brightness(0);
+      }
+    }
+  }
+
+  .skill-pill-icon {
+    filter: brightness(0) invert(1);
     opacity: 0.85;
-    transform: translateX(4px);
+  }
+
+  .project-grid-card {
+    background-color: rgba(var(--card-bg-rgb, 20, 22, 27), 0.58) !important;
+    border-color: var(--projects-card-border, var(--card-border-color)) !important;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+
+    &:hover {
+      background-color: rgba(var(--card-bg-rgb, 20, 22, 27), 0.76) !important;
+      border-color: var(--color-primary) !important;
+    }
+  }
+
+  .project-img-wrapper {
+    height: 200px;
+
+    .project-img {
+      opacity: 0.92;
+      transition: opacity 0.2s ease;
+    }
+
+    &:hover .project-img {
+      opacity: 1;
+    }
+  }
+
+  .project-title-hover {
+    transition: color 0.15s ease;
+
+    &:hover {
+      color: var(--color-primary) !important;
+    }
+  }
+
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 </style>
 
 <script>
-  // @ts-ignore
-  import Carousel from 'bootstrap/js/dist/carousel';
+  function setupProjectsGridFilter() {
+    const searchInput = document.getElementById('projectSearchInput') as HTMLInputElement;
+    const clearSearchBtn = document.getElementById('clearSearchBtn');
+    const skillPills = document.querySelectorAll<HTMLButtonElement>('.skill-pill');
+    const projectItems = document.querySelectorAll<HTMLElement>('.project-grid-item');
+    const visibleCountEl = document.getElementById('visibleProjectsCount');
+    const noResultsAlert = document.getElementById('noResultsAlert');
+    const resetFiltersBtn = document.getElementById('resetFiltersBtn');
 
-  document.querySelectorAll<HTMLElement>('.project-carousel').forEach((element) => {
-    const CarouselConstructor = Carousel || (window as any).bootstrap?.Carousel;
-    if (CarouselConstructor) {
-      CarouselConstructor.getOrCreateInstance(element, {
-        interval: 6000,
-        ride: 'carousel',
-        pause: 'hover'
-      });
+    let currentSkill = '';
+    let currentSearch = '';
+
+    function normalizeSkillName(raw: string): string {
+      const k = raw.trim().toLowerCase().replace(/\s+/g, '');
+      if (k === 'html5' || k === 'html') return 'html';
+      if (k === 'css3' || k === 'css') return 'css';
+      if (k === 'node.js' || k === 'nodejs' || k === 'node') return 'node';
+      if (k === 'react.js' || k === 'reactjs' || k === 'react') return 'react';
+      if (k === 'next.js' || k === 'nextjs' || k === 'next') return 'next';
+      if (k === 'vue.js' || k === 'vuejs' || k === 'vue') return 'vue';
+      if (k === 'c#' || k === 'csharp') return 'c#';
+      if (k === '.net' || k === 'dotnet' || k === '.netcore' || k === 'dotnetcore') return '.net';
+      return k;
     }
 
-    element.addEventListener('slid.bs.carousel', (event: any) => {
-      const counterId = element.dataset.counterId;
-      const total = element.dataset.totalImages;
-      if (counterId && total) {
-        const counterEl = document.getElementById(counterId);
-        if (counterEl) {
-          const currentSlide = (event.to ?? 0) + 1;
-          counterEl.textContent = `Picture ${currentSlide} / ${total}`;
+    function filterProjects() {
+      let visibleCount = 0;
+      const searchTerms = currentSearch.trim().toLowerCase();
+      const targetSkillKey = currentSkill ? normalizeSkillName(currentSkill) : '';
+
+      projectItems.forEach((item) => {
+        const title = item.dataset.title || '';
+        const tech = item.dataset.tech || '';
+        const summary = item.dataset.summary || '';
+
+        const matchesSearch = !searchTerms || 
+          title.includes(searchTerms) || 
+          tech.includes(searchTerms) || 
+          summary.includes(searchTerms);
+
+        const techKeys = tech
+          .split(',')
+          .map((t) => t.trim())
+          .filter(Boolean)
+          .map(normalizeSkillName);
+
+        const matchesSkill = !targetSkillKey || techKeys.includes(targetSkillKey);
+
+        if (matchesSearch && matchesSkill) {
+          item.style.display = '';
+          visibleCount++;
+        } else {
+          item.style.display = 'none';
         }
+      });
+
+      if (visibleCountEl) {
+        visibleCountEl.textContent = String(visibleCount);
+      }
+
+      if (noResultsAlert) {
+        noResultsAlert.classList.toggle('d-none', visibleCount > 0);
+      }
+
+      if (clearSearchBtn) {
+        clearSearchBtn.classList.toggle('d-none', !currentSearch);
+      }
+    }
+
+    skillPills.forEach((pill) => {
+      pill.addEventListener('click', () => {
+        skillPills.forEach((p) => p.classList.remove('active'));
+        pill.classList.add('active');
+        currentSkill = pill.dataset.skill || '';
+
+        const url = new URL(window.location.href);
+        if (currentSkill) {
+          url.searchParams.set('skill', currentSkill);
+        } else {
+          url.searchParams.delete('skill');
+        }
+        window.history.replaceState({}, '', url.toString());
+
+        filterProjects();
+      });
+    });
+
+    searchInput?.addEventListener('input', () => {
+      currentSearch = searchInput.value;
+      filterProjects();
+    });
+
+    clearSearchBtn?.addEventListener('click', () => {
+      if (searchInput) {
+        searchInput.value = '';
+        currentSearch = '';
+        filterProjects();
+        searchInput.focus();
       }
     });
-  });
 
-  const scrollContainer = document.querySelector<HTMLElement>('.projects-page');
-  const slides = document.querySelectorAll<HTMLElement>('.project-slide');
-
-  if (scrollContainer && slides.length > 0) {
-    let isResetting = false;
-
-    const scrollToTop = () => {
-      if (isResetting) return;
-      isResetting = true;
-      scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
-      setTimeout(() => {
-        isResetting = false;
-      }, 1000);
-    };
-
-    const isAtLastSlide = () => {
-      const threshold = 15;
-      return scrollContainer.scrollTop + scrollContainer.clientHeight >= scrollContainer.scrollHeight - threshold;
-    };
-
-    scrollContainer.addEventListener('wheel', (e: WheelEvent) => {
-      if (e.deltaY > 0 && isAtLastSlide()) {
-        e.preventDefault();
-        scrollToTop();
-      }
-    }, { passive: false });
-
-    let touchStartY = 0;
-    scrollContainer.addEventListener('touchstart', (e: TouchEvent) => {
-      touchStartY = e.touches[0].clientY;
-    }, { passive: true });
-
-    scrollContainer.addEventListener('touchmove', (e: TouchEvent) => {
-      const touchCurrentY = e.touches[0].clientY;
-      const swipeDistance = touchStartY - touchCurrentY;
-
-      if (swipeDistance > 40 && isAtLastSlide()) {
-        scrollToTop();
-      }
-    }, { passive: true });
-
-    window.addEventListener('keydown', (e: KeyboardEvent) => {
-      if (['ArrowDown', 'PageDown', ' '].includes(e.key) && isAtLastSlide()) {
-        e.preventDefault();
-        scrollToTop();
-      }
+    resetFiltersBtn?.addEventListener('click', () => {
+      if (searchInput) searchInput.value = '';
+      currentSearch = '';
+      currentSkill = '';
+      skillPills.forEach((p) => {
+        p.classList.toggle('active', p.dataset.skill === '');
+      });
+      const url = new URL(window.location.href);
+      url.searchParams.delete('skill');
+      window.history.replaceState({}, '', url.toString());
+      filterProjects();
     });
+
+    const initialSkillParam = new URLSearchParams(window.location.search).get('skill');
+    if (initialSkillParam) {
+      const targetKey = normalizeSkillName(initialSkillParam);
+      const matchingPill = Array.from(skillPills).find(
+        (p) => p.dataset.skill && normalizeSkillName(p.dataset.skill) === targetKey
+      );
+      if (matchingPill) {
+        skillPills.forEach((p) => p.classList.remove('active'));
+        matchingPill.classList.add('active');
+        currentSkill = matchingPill.dataset.skill || '';
+      } else {
+        currentSkill = initialSkillParam;
+      }
+      filterProjects();
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupProjectsGridFilter);
+  } else {
+    setupProjectsGridFilter();
   }
 </script>

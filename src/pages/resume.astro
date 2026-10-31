@@ -1,0 +1,286 @@
+---
+// src/pages/resume.astro
+import Layout from '../layouts/Layout.astro';
+import { supabase } from '../utils/supabase';
+import { ResumeService } from '../services/resumeService';
+import { splitLines } from '../utils/text';
+import '../styles/resume-styles.scss';
+
+// Fetch database records and saved resume decision config
+const [{ data: projects }, { data: experiences }, { data: skills }, savedConfig] = await Promise.all([
+  supabase.from('projects').select('*').order('id', { ascending: false }),
+  supabase.from('work_experience').select('*').order('order_index', { ascending: true }),
+  supabase.from('skills').select('*').order('category', { ascending: true }).order('order_index', { ascending: true }),
+  ResumeService.getConfig(supabase)
+]);
+
+const config = savedConfig;
+
+// Filter items according to saved DB preferences
+const filteredExperiences = (experiences || []).filter((e: any) => 
+  config.selectedExperiences.length === 0 || config.selectedExperiences.includes(String(e.id))
+);
+
+let filteredProjects: any[] = [];
+if (Array.isArray(config.tailoredProjects) && config.tailoredProjects.length > 0) {
+  filteredProjects = config.tailoredProjects;
+} else {
+  filteredProjects = (projects || []).filter((p: any) => 
+    config.selectedProjects.length === 0 || config.selectedProjects.includes(String(p.id))
+  );
+}
+
+const filteredSkills = (skills || []).filter((s: any) => 
+  config.selectedSkills.length === 0 || config.selectedSkills.includes(String(s.id))
+);
+
+// Group skills
+const groupedSkills: Record<string, string[]> = {};
+filteredSkills.forEach((s: any) => {
+  const cat = s.category || 'General';
+  if (!groupedSkills[cat]) groupedSkills[cat] = [];
+  groupedSkills[cat].push(s.name);
+});
+
+const summaryLines = splitLines(config.summary);
+const styleClass = `resume-style-${config.style || 'modern'}`;
+const isCompact = config.compactMode ? 'compact-mode' : '';
+---
+
+<Layout hasHero={false} title="Resume — Ryan Cuccurullo">
+  <div class="container py-5">
+    
+    <!-- Header with Actions -->
+    <div class="d-flex flex-wrap justify-content-between align-items-end mb-4 pb-3 border-bottom border-secondary gap-3 no-print">
+      <div>
+        <div class="font-monospace text-accent small mb-1" style="font-size: 0.78rem;">DOCUMENT // RESUME</div>
+        <h1 class="h3 fw-bold text-light mb-0">Resume</h1>
+      </div>
+
+      <div class="d-flex align-items-center gap-2">
+        <button type="button" id="public-print-btn" class="btn btn-primary btn-sm px-3 py-2 rounded-1 font-monospace d-flex align-items-center gap-2">
+          <svg width="15" height="15" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+            <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+          </svg>
+          <span id="public-download-text">Download PDF</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Paper Sheet Container -->
+    <div class="d-flex justify-content-center mb-5">
+      <div id="public-resume-sheet" class={`resume-sheet ${styleClass} ${isCompact} bg-white text-dark shadow-lg rounded-1`}>
+        
+        <!-- Header -->
+        <div class="text-center resume-header">
+          <h2 class="fw-bold mb-1 text-uppercase fs-4 text-dark">{config.name}</h2>
+          <div class="small resume-contact-text mb-1">
+            {[config.location, config.phone, config.email].filter(Boolean).join(' • ')}
+          </div>
+          <div class="small resume-links-text">
+            {config.linkedin && (
+              <a href={config.linkedin} target="_blank" class="text-decoration-underline me-2">LinkedIn</a>
+            )}
+            {config.github && (
+              <a href={config.github} target="_blank" class="text-decoration-underline me-2">GitHub</a>
+            )}
+            {config.portfolio && (
+              <a href={config.portfolio} target="_blank" class="text-decoration-underline">Portfolio</a>
+            )}
+          </div>
+        </div>
+
+        <!-- Summary -->
+        {summaryLines.length > 0 && (
+          <div class="mb-2">
+            <div class="resume-section-title">Professional Summary</div>
+            <div class="small mb-0" style="line-height: 1.35;">
+              {summaryLines.length === 1 ? (
+                <p class="mb-0">{summaryLines[0]}</p>
+              ) : (
+                <ul class="mb-0 ps-3">
+                  {summaryLines.map((line: string) => (
+                    <li class="mb-1">{line}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        )}
+
+        <!-- Technical Skills -->
+        {Object.keys(groupedSkills).length > 0 && (
+          <div class="mb-2">
+            <div class="resume-section-title">Technical Skills</div>
+            <div class="small mb-0 text-dark" style="font-size: 0.8rem; line-height: 1.4;">
+              {Object.entries(groupedSkills).map(([cat, skillList]) => (
+                <div class="mb-1">
+                  <strong>{cat}:</strong> {skillList.join(', ')}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <!-- Professional Experience -->
+        {filteredExperiences.length > 0 && (
+          <div class="mb-2">
+            <div class="resume-section-title">Professional Experience</div>
+            <div class="d-flex flex-column gap-2">
+              {filteredExperiences.map((exp: any) => {
+                const expBullets = splitLines(exp.description);
+                return (
+                  <div class="mb-1">
+                    <div class="d-flex justify-content-between fw-bold small text-dark mb-1">
+                      <span>{exp.company} — <span class="fw-normal">{exp.role}</span></span>
+                      <span class="font-monospace resume-date-text">{exp.start_date} – {exp.end_date || 'Present'}</span>
+                    </div>
+                    <ul class="small mb-0 text-dark ps-3" style="font-size: 0.8rem; line-height: 1.35;">
+                      {expBullets.map((bullet: string) => (
+                        <li class="mb-1">{bullet}</li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <!-- Selected Projects -->
+        {filteredProjects.length > 0 && (
+          <div class="mb-2">
+            <div class="resume-section-title">Selected Projects</div>
+            <div class="d-flex flex-column gap-2">
+              {filteredProjects.map((proj: any) => {
+                const projBullets = Array.isArray(proj.bullets) ? proj.bullets : splitLines(proj.summary || proj.content || '');
+                return (
+                  <div class="mb-1">
+                    <div class="d-flex justify-content-between align-items-baseline fw-bold small text-dark">
+                      <span>{proj.title} {proj.tech_stack && <span class="fw-normal resume-meta-text" style="font-size: 0.78rem;">— {proj.tech_stack}</span>}</span>
+                      {proj.github_url && (
+                        <a href={proj.github_url} target="_blank" class="small font-monospace text-dark text-decoration-underline">GitHub</a>
+                      )}
+                    </div>
+                    <ul class="small mb-0 text-dark ps-3" style="font-size: 0.8rem; line-height: 1.35;">
+                      {projBullets.map((bullet: string) => (
+                        <li class="mb-1">{bullet}</li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        <!-- Education -->
+        {config.education && (
+          <div>
+            <div class="resume-section-title">Education</div>
+            <div class="small mb-0" style="line-height: 1.35;">
+              {config.education.split('\n').map((line: string) => (
+                <div>{line}</div>
+              ))}
+            </div>
+          </div>
+        )}
+
+      </div>
+    </div>
+
+  </div>
+</Layout>
+
+<style>
+  .resume-sheet {
+    width: 816px !important;
+    min-height: 1056px !important;
+    padding: 36px 40px !important;
+    box-sizing: border-box !important;
+  }
+
+  .resume-sheet.compact-mode {
+    padding: 24px 32px !important;
+  }
+
+  .resume-sheet.compact-mode p,
+  .resume-sheet.compact-mode li {
+    font-size: 0.76rem !important;
+    line-height: 1.25 !important;
+  }
+
+  @media print {
+    @page { 
+      size: letter portrait; 
+      margin: 0.4in; 
+    }
+
+    body { 
+      background: #ffffff !important; 
+      color: #000000 !important; 
+      padding: 0 !important; 
+      margin: 0 !important;
+    }
+
+    header, nav, canvas, .no-print, .alert { 
+      display: none !important; 
+    }
+
+    .container, .row { 
+      padding: 0 !important; 
+      margin: 0 !important; 
+      max-width: 100% !important; 
+    }
+
+    .resume-sheet { 
+      box-shadow: none !important; 
+      padding: 0 !important; 
+      width: 100% !important; 
+      font-size: 9.5pt !important;
+    }
+  }
+</style>
+
+<script>
+  import html2canvas from 'html2canvas';
+  import { jsPDF } from 'jspdf';
+
+  document.getElementById('public-print-btn')?.addEventListener('click', async () => {
+    const sheet = document.getElementById('public-resume-sheet');
+    const btnText = document.getElementById('public-download-text');
+    if (!sheet) return;
+
+    if (btnText) btnText.textContent = 'Generating PDF...';
+
+    try {
+      const canvas = await html2canvas(sheet, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      });
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.98);
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'in',
+        format: 'letter'
+      });
+
+      const pdfWidth = 8.5;
+      const pdfHeight = 11.0;
+      const imgWidth = pdfWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, Math.min(imgHeight, pdfHeight));
+      pdf.save('Ryan_Cuccurullo_Resume.pdf');
+    } catch (e: any) {
+      console.error('PDF error:', e);
+      window.print();
+    } finally {
+      if (btnText) btnText.textContent = 'Download PDF';
+    }
+  });
+</script>

@@ -1,0 +1,328 @@
+---
+// src/components/NoImagePlaceholder.astro
+interface Props {
+  title?: string;
+  category?: string;
+  size?: 'sm' | 'md' | 'lg';
+  interactive?: boolean;
+}
+
+const {
+  title = 'Project',
+  category = 'Repository',
+  size = 'md',
+  interactive = true,
+} = Astro.props;
+
+// Playful funny terminal jokes / excuses for missing screenshots
+const jokes = [
+  "// Screenshot is shy. Come back when it's ready.",
+  "/* 404: Pixels on coffee break ☕ */",
+  "// AI was supposed to draw this, but got distracted.",
+  "/* Developer forgot to screenshot before git push ¯\\_(ツ)_/¯ */",
+  "// Running headless. Literal heads only.",
+  "/* Looks 10x better in your imagination anyway. */",
+  "// Compiled without graphics. Maximum pure logic.",
+  "/* Screenshots are overrated. Real devs read the source. */",
+  "// Quantum state: Screenshot exists only when viewed in prod.",
+];
+
+// Pick a deterministic joke based on the title so it doesn't flicker on re-renders
+let hash = 0;
+for (let i = 0; i < title.length; i++) {
+  hash = (hash << 5) - hash + title.charCodeAt(i);
+  hash |= 0;
+}
+const joke = jokes[Math.abs(hash) % jokes.length];
+
+// Extract clean initials
+const cleanTitle = title.replace(/[^a-zA-Z0-9 ]/g, '').trim();
+const words = cleanTitle.split(/\s+/).filter(Boolean);
+const initials = words.length >= 2 
+  ? (words[0][0] + words[1][0]).toUpperCase()
+  : (cleanTitle.slice(0, 2).toUpperCase() || 'DEV');
+---
+
+<div class={`fun-no-image-wrapper size-${size} ${interactive ? 'is-interactive' : ''}`}>
+  <!-- Grid Matrix / Circuit Background -->
+  <div class="fun-placeholder-grid"></div>
+  <div class="fun-scanline"></div>
+  <div class="fun-glow-orb"></div>
+
+  <!-- Content Container -->
+  <div class="fun-placeholder-body">
+    <!-- Playful Floating Hologram / Badge -->
+    <div class="fun-avatar-badge">
+      <div class="fun-avatar-ring"></div>
+      <span class="fun-avatar-initials">{initials}</span>
+      <span class="fun-floating-cam">
+        <i class="bi bi-camera-video-off"></i>
+      </span>
+    </div>
+
+    <!-- Retro Terminal Box -->
+    <div class="fun-terminal-box">
+      <div class="fun-terminal-header">
+        <span class="fun-t-dot dot-r"></span>
+        <span class="fun-t-dot dot-y"></span>
+        <span class="fun-t-dot dot-g"></span>
+        <span class="fun-t-title">demoPics_status.sh</span>
+      </div>
+      <div class="fun-terminal-content">
+        <span class="fun-prompt">&gt;</span>
+        <span class="fun-typed-joke">{joke}</span>
+        <span class="fun-cursor">_</span>
+      </div>
+    </div>
+
+    <!-- Micro Pill -->
+    <div class="fun-placeholder-footer">
+      <span class="fun-tag-chip">
+        <i class="bi bi-code-slash me-1"></i>CLICK TO VIEW SOURCE &amp; DOCS
+      </span>
+    </div>
+  </div>
+</div>
+
+<style>
+  .fun-no-image-wrapper {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 200px;
+    background: radial-gradient(circle at 50% 30%, rgba(var(--color-primary-rgb, 155, 93, 229), 0.12), rgba(8, 9, 14, 0.95) 75%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    user-select: none;
+    border-radius: inherit;
+  }
+
+  .fun-no-image-wrapper.size-sm {
+    min-height: 150px;
+  }
+
+  .fun-no-image-wrapper.size-lg {
+    min-height: 380px;
+  }
+
+  /* Animated Subtle Grid Pattern */
+  .fun-placeholder-grid {
+    position: absolute;
+    inset: 0;
+    background-size: 24px 24px;
+    background-image: 
+      linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+    opacity: 0.7;
+    pointer-events: none;
+  }
+
+  /* Retro CRT Scanline */
+  .fun-scanline {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to bottom,
+      transparent 50%,
+      rgba(0, 0, 0, 0.35) 51%
+    );
+    background-size: 100% 4px;
+    pointer-events: none;
+    opacity: 0.6;
+  }
+
+  /* Pulsing Fluid Glow */
+  .fun-glow-orb {
+    position: absolute;
+    width: 160px;
+    height: 160px;
+    background: radial-gradient(circle, rgba(var(--color-secondary-rgb, 255, 121, 198), 0.28) 0%, transparent 70%);
+    border-radius: 50%;
+    filter: blur(28px);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    animation: funPulseGlow 4s ease-in-out infinite alternate;
+  }
+
+  @keyframes funPulseGlow {
+    0% { transform: translate(-50%, -50%) scale(0.85); opacity: 0.4; }
+    100% { transform: translate(-50%, -50%) scale(1.25); opacity: 0.85; }
+  }
+
+  /* Centered Interactive Body */
+  .fun-placeholder-body {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+    text-align: center;
+    width: 100%;
+    max-width: 440px;
+  }
+
+  /* Hologram Badge with Ring */
+  .fun-avatar-badge {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    margin-bottom: 0.85rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .fun-avatar-ring {
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    border: 2px dashed rgba(var(--color-primary-rgb, 155, 93, 229), 0.55);
+    animation: funSpinRing 14s linear infinite;
+  }
+
+  @keyframes funSpinRing {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  .fun-avatar-initials {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: rgba(18, 14, 28, 0.9);
+    border: 1px solid rgba(var(--color-primary-rgb, 155, 93, 229), 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--color-primary, #bd93f9);
+    box-shadow: 0 4px 18px rgba(var(--color-primary-rgb, 155, 93, 229), 0.25);
+    transition: transform 0.3s ease;
+  }
+
+  .fun-no-image-wrapper:hover .fun-avatar-initials {
+    transform: scale(1.08) rotate(-4deg);
+    color: #fff;
+  }
+
+  .fun-floating-cam {
+    position: absolute;
+    bottom: -4px;
+    right: -4px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(220, 53, 69, 0.95);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+  }
+
+  /* Terminal Window */
+  .fun-terminal-box {
+    background: rgba(10, 11, 16, 0.88);
+    border: 1px solid rgba(var(--color-primary-rgb, 155, 93, 229), 0.3);
+    border-radius: 6px;
+    width: 100%;
+    overflow: hidden;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(8px);
+  }
+
+  .fun-terminal-header {
+    background: rgba(20, 17, 30, 0.92);
+    padding: 4px 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .fun-t-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .dot-r { background: #ff5f56; }
+  .dot-y { background: #ffbd2e; }
+  .dot-g { background: #27c93f; }
+
+  .fun-t-title {
+    font-family: monospace;
+    font-size: 0.65rem;
+    color: rgba(255, 255, 255, 0.45);
+    margin-left: 4px;
+  }
+
+  .fun-terminal-content {
+    padding: 0.55rem 0.75rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.74rem;
+    text-align: left;
+    color: #e2e8f0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow: hidden;
+  }
+
+  .fun-prompt {
+    color: var(--color-primary, #bd93f9);
+    font-weight: bold;
+    flex-shrink: 0;
+  }
+
+  .fun-typed-joke {
+    color: #94a3b8;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.72rem;
+  }
+
+  .fun-cursor {
+    color: var(--color-primary, #bd93f9);
+    font-weight: bold;
+    animation: funBlinkCursor 1s step-end infinite;
+    flex-shrink: 0;
+  }
+
+  @keyframes funBlinkCursor {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  .fun-placeholder-footer {
+    margin-top: 0.65rem;
+  }
+
+  .fun-tag-chip {
+    font-family: monospace;
+    font-size: 0.62rem;
+    padding: 2px 8px;
+    border-radius: 12px;
+    background: rgba(var(--color-primary-rgb, 155, 93, 229), 0.12);
+    color: var(--color-primary, #bd93f9);
+    border: 1px solid rgba(var(--color-primary-rgb, 155, 93, 229), 0.3);
+    letter-spacing: 0.5px;
+    transition: all 0.2s ease;
+  }
+
+  .fun-no-image-wrapper:hover .fun-tag-chip {
+    background: rgba(var(--color-primary-rgb, 155, 93, 229), 0.25);
+    color: #fff;
+    border-color: rgba(var(--color-primary-rgb, 155, 93, 229), 0.6);
+  }
+</style>

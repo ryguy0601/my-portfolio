@@ -3,32 +3,22 @@
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { supabase, getAdminCounts } from '../../utils/supabase';
 import { groupSkillsByCategory } from '../../utils/skills';
+import { ResumeService } from '../../services/resumeService';
+import '../../styles/resume-styles.scss';
 
 // Fetch data & counts for tab counters (including skills)
-const [{ data: projects }, { data: experiences }, { data: skills }, adminCounts] = await Promise.all([
+const [{ data: projects }, { data: experiences }, { data: skills }, adminCounts, savedConfig] = await Promise.all([
   supabase.from('projects').select('*').order('id', { ascending: false }),
   supabase.from('work_experience').select('*').order('order_index', { ascending: true }),
   supabase.from('skills').select('*').order('category', { ascending: true }).order('order_index', { ascending: true }),
-  getAdminCounts(supabase)
+  getAdminCounts(supabase),
+  ResumeService.getConfig(supabase)
 ]);
-
-// Read defaults from .env (with generic fallbacks)
-const envDefaults = {
-  name: import.meta.env.RESUME_DEFAULT_NAME || '',
-  location: import.meta.env.RESUME_DEFAULT_LOCATION || '',
-  phone: import.meta.env.RESUME_DEFAULT_PHONE || '',
-  email: import.meta.env.RESUME_DEFAULT_EMAIL || '',
-  github: import.meta.env.RESUME_DEFAULT_GITHUB || '',
-  linkedin: import.meta.env.RESUME_DEFAULT_LINKEDIN || '',
-  portfolio: import.meta.env.RESUME_DEFAULT_PORTFOLIO || '',
-  summary: import.meta.env.RESUME_DEFAULT_SUMMARY || '',
-  education: import.meta.env.RESUME_DEFAULT_EDUCATION || ''
-};
 
 const safeProjectsJson = JSON.stringify(projects || []);
 const safeExperiencesJson = JSON.stringify(experiences || []);
 const safeSkillsJson = JSON.stringify(skills || []);
-const safeEnvDefaultsJson = JSON.stringify(envDefaults);
+const safeSavedConfigJson = JSON.stringify(savedConfig || {});
 
 // Group skills by category for the checklist display
 const groupedSkills = groupSkillsByCategory(skills || []);
@@ -44,7 +34,7 @@ const groupedSkills = groupSkillsByCategory(skills || []);
     data-projects={safeProjectsJson} 
     data-experiences={safeExperiencesJson}
     data-skills={safeSkillsJson}
-    data-env-defaults={safeEnvDefaultsJson}
+    data-saved-config={safeSavedConfigJson}
     class="row g-4"
   >
     <!-- Left: Configuration & Selection Form -->
@@ -53,21 +43,118 @@ const groupedSkills = groupSkillsByCategory(skills || []);
         <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
           <h3 class="text-gradient h5 mb-0 fw-bold">Resume Builder Options</h3>
           
-          <!-- Actions: Reset Cache + Downloads (.docx & .pdf) -->
-          <div class="d-flex gap-2">
-            <button type="button" id="reset-defaults-btn" class="btn btn-outline-secondary btn-sm px-2 text-light" title="Clear saved entries and reload defaults from .env">
-              <i class="bi bi-arrow-counterclockwise me-1"></i>Reset
+          <!-- Actions: Save to DB, Reset, Downloads (.docx & .pdf) -->
+          <div class="d-flex flex-wrap gap-2">
+            <button type="button" id="save-db-btn" class="btn btn-success btn-sm px-3 shadow-sm d-flex align-items-center gap-1 font-monospace">
+              <i class="bi bi-cloud-arrow-up"></i>
+              <span id="save-btn-text">Save to DB</span>
             </button>
 
-            <button type="button" id="download-docx-btn" class="btn btn-primary btn-sm px-3 shadow-sm d-flex align-items-center gap-2">
+            <button type="button" id="reset-defaults-btn" class="btn btn-outline-secondary btn-sm px-2 text-light" title="Reset fields to defaults">
+              <i class="bi bi-arrow-counterclockwise"></i>
+            </button>
+
+            <button type="button" id="download-docx-btn" class="btn btn-primary btn-sm px-3 shadow-sm d-flex align-items-center gap-1">
               <i class="bi bi-file-earmark-word"></i>
               <span>.docx</span>
             </button>
 
-            <button type="button" id="download-pdf-btn" class="btn btn-outline-info text-accent btn-sm px-3 shadow-sm d-flex align-items-center gap-2">
+            <button type="button" id="download-pdf-btn" class="btn btn-outline-info text-accent btn-sm px-3 shadow-sm d-flex align-items-center gap-1">
               <i class="bi bi-file-earmark-pdf"></i>
               <span>.pdf</span>
             </button>
+          </div>
+        </div>
+
+        <!-- AI Job Description Optimizer & Refinement -->
+        <div class="card bg-dark bg-opacity-50 border border-info border-opacity-50 rounded-3 p-3 mb-3">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <label class="form-label text-accent small fw-bold mb-0 d-flex align-items-center gap-2">
+              <i class="bi bi-stars"></i>
+              <span>AI Target Job Optimizer</span>
+            </label>
+            <span class="badge bg-info bg-opacity-25 text-accent font-monospace" style="font-size: 0.65rem;">Gemini AI</span>
+          </div>
+          
+          <div class="mb-2">
+            <label class="form-label text-light small mb-1" for="ai-job-url">LinkedIn or Job Posting URL</label>
+            <input type="url" id="ai-job-url" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="https://www.linkedin.com/jobs/view/... or Indeed..." />
+          </div>
+
+          <div class="mb-2">
+            <label class="form-label text-light small mb-1" for="ai-job-desc">Job Description Text</label>
+            <textarea id="ai-job-desc" class="form-control form-control-sm bg-dark text-light border-secondary" rows="2" placeholder="Paste full job description text directly (or leave empty if using URL)..."></textarea>
+          </div>
+
+          <div class="mb-2">
+            <input type="password" id="ai-api-key" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="Gemini API Key (optional if GEMINI_API_KEY in .env)" />
+          </div>
+
+          <button type="button" id="ai-optimize-btn" class="btn btn-outline-info text-accent btn-sm w-100 d-flex align-items-center justify-content-center gap-2 font-monospace mb-2">
+            <i class="bi bi-magic"></i>
+            <span id="ai-btn-text">Generate Tailored Resume & Cover Letter</span>
+          </button>
+
+          <!-- Interactive AI Refinement Chat (Directly on Builder) -->
+          <div class="border-top border-secondary border-opacity-25 pt-2 mt-2">
+            <label class="form-label text-muted small fw-bold mb-1 d-flex align-items-center gap-1" for="ai-refine-input" style="font-size: 0.75rem;">
+              <i class="bi bi-chat-dots"></i>
+              <span>Talk to Gemini / Make Corrections</span>
+            </label>
+            <div class="input-group input-group-sm mb-1">
+              <input type="text" id="ai-refine-input" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="e.g. 'Add Docker & SQL', 'Keep to 1 page', 'Bold key metrics'..." />
+              <button class="btn btn-outline-info text-accent font-monospace" type="button" id="ai-refine-btn">
+                <span id="ai-refine-btn-text">Send</span>
+              </button>
+            </div>
+            <div class="text-muted" style="font-size: 0.7rem;">Gemini will directly switch checkboxes, rewrite bullets, and update your preview.</div>
+          </div>
+        </div>
+
+        <!-- AI Change Log (Shown once when AI generates or refines - styled strictly with active theme vars) -->
+        <div id="ai-change-log" class="card p-3 mb-3 rounded-3 shadow-sm d-none" style="background: color-mix(in srgb, var(--color-primary) 12%, var(--card-bg)); border: 1px solid color-mix(in srgb, var(--color-primary) 45%, var(--card-border-color)); font-size: 0.8rem;">
+          <div class="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom border-secondary border-opacity-25">
+            <span class="fw-bold text-accent d-flex align-items-center gap-1 font-monospace" style="color: var(--color-primary-light) !important;">
+              <i class="bi bi-stars"></i>
+              <span>Gemini Update Log</span>
+            </span>
+            <button type="button" id="close-change-log-btn" class="btn-close btn-close-white" style="font-size: 0.65rem;" aria-label="Close"></button>
+          </div>
+          <div id="ai-change-log-content" style="color: var(--body-color);"></div>
+        </div>
+
+        <!-- Single Page Status Indicator Banner -->
+        <div id="page-status-banner" class="d-flex align-items-center justify-content-between p-2 mb-3 rounded-3" style="font-size: 0.8rem; background: color-mix(in srgb, var(--color-success) 12%, var(--card-bg)); border: 1px solid color-mix(in srgb, var(--color-success) 45%, var(--card-border-color)); color: var(--body-color);">
+          <div class="d-flex align-items-center gap-2">
+            <span id="page-status-icon">✅</span>
+            <span id="page-status-text"><strong>Fits perfectly on 1 page (11")</strong></span>
+          </div>
+          <span id="page-height-metric" class="font-monospace small" style="color: var(--color-text-muted-light);">0%</span>
+        </div>
+
+        <!-- Template Style Selector -->
+        <div class="mb-3">
+          <label class="form-label text-accent small fw-bold">Resume Template Style</label>
+          <div class="btn-group w-100" role="group">
+            <input type="radio" class="btn-check" name="resume-style" id="style-modern" value="modern" checked />
+            <label class="btn btn-outline-secondary btn-sm" for="style-modern">Modern</label>
+
+            <input type="radio" class="btn-check" name="resume-style" id="style-classic" value="classic" />
+            <label class="btn btn-outline-secondary btn-sm" for="style-classic">Classic</label>
+
+            <input type="radio" class="btn-check" name="resume-style" id="style-minimal" value="minimal" />
+            <label class="btn btn-outline-secondary btn-sm" for="style-minimal">Minimal</label>
+          </div>
+        </div>
+
+        <!-- Compact Mode Toggle for 1-Page Fitting -->
+        <div class="d-flex justify-content-between align-items-center mb-3 p-2 rounded-3 bg-dark bg-opacity-50 border border-secondary border-opacity-50">
+          <div>
+            <label class="form-check-label text-light small fw-bold" for="compact-mode-toggle">Compact Spacing</label>
+            <div class="text-muted" style="font-size: 0.7rem;">Tightens line-height to fit dense content onto 1 page</div>
+          </div>
+          <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" id="compact-mode-toggle" />
           </div>
         </div>
 
@@ -89,7 +176,7 @@ const groupedSkills = groupSkillsByCategory(skills || []);
         </div>
 
         <div class="mb-2">
-          <label class="form-label text-light small">Email Address (Plain text, not linked)</label>
+          <label class="form-label text-light small">Email Address</label>
           <input type="email" id="resume-email" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="e.g. user@example.com" />
         </div>
 
@@ -110,7 +197,7 @@ const groupedSkills = groupSkillsByCategory(skills || []);
         </div>
 
         <div class="mb-3">
-          <label class="form-label text-light small fw-bold">Professional Summary (Separate lines with Enter for bullets)</label>
+          <label class="form-label text-light small fw-bold">Professional Summary</label>
           <textarea id="resume-summary" class="form-control form-control-sm bg-dark text-light border-secondary" rows="3" placeholder="Enter summary points or paragraph..."></textarea>
         </div>
 
@@ -120,12 +207,12 @@ const groupedSkills = groupSkillsByCategory(skills || []);
             <label class="form-label text-accent small fw-bold mb-0">Include Technical Skills</label>
             <small class="text-muted" style="font-size: 0.7rem;">Check to include</small>
           </div>
-          <div class="border border-secondary rounded-3 p-2 bg-dark bg-opacity-50" style="max-height: 220px; overflow-y: auto;">
+          <div class="border border-secondary rounded-3 p-2 bg-dark bg-opacity-50" style="max-height: 200px; overflow-y: auto;">
             {Object.keys(groupedSkills).length > 0 ? (
               Object.entries(groupedSkills).map(([cat, catSkills]) => {
                 const safeCatId = cat.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
                 return (
-                  <div class="mb-3">
+                  <div class="mb-2">
                     <div class="d-flex justify-content-between align-items-center border-bottom border-secondary border-opacity-25 pb-1 mb-1">
                       <span class="text-muted font-monospace small fw-bold" style="font-size: 0.75rem;">
                         {cat}
@@ -138,7 +225,7 @@ const groupedSkills = groupSkillsByCategory(skills || []);
                           data-category={cat}
                         />
                         <label class="form-check-label text-muted user-select-none" for={`cat-toggle-${safeCatId}`} style="font-size: 0.7rem;">
-                          Select All
+                          All
                         </label>
                       </div>
                     </div>
@@ -164,109 +251,176 @@ const groupedSkills = groupSkillsByCategory(skills || []);
                 );
               })
             ) : (
-              <p class="text-muted small mb-0 p-1">No skills saved yet. Add them in the Skills tab.</p>
+              <p class="text-muted small mb-0 p-2">No skills available to display.</p>
             )}
           </div>
         </div>
 
-        <!-- Experience Selector Checklist -->
+        <!-- Experience Selection List -->
         <div class="mb-3">
-          <div class="d-flex justify-content-between align-items-center mb-1">
-            <label class="form-label text-accent small fw-bold mb-0">Include Experience</label>
-            <small class="text-muted" style="font-size: 0.7rem;">Check all to display</small>
-          </div>
-          <div class="border border-secondary rounded-3 p-2 bg-dark bg-opacity-50" style="max-height: 180px; overflow-y: auto;">
-            {experiences && experiences.map((e) => (
-              <div class="form-check form-check-sm mb-1">
+          <label class="form-label text-accent small fw-bold mb-1">Select Professional Experience</label>
+          <div class="border border-secondary rounded-3 p-2 bg-dark bg-opacity-50" style="max-height: 150px; overflow-y: auto;">
+            {(experiences || []).map((e: any) => (
+              <div class="form-check form-check-sm mb-1 text-truncate">
                 <input class="form-check-input resume-exp-cb" type="checkbox" value={e.id} id={`rb-exp-${e.id}`} />
-                <label class="form-check-label text-light small user-select-none" for={`rb-exp-${e.id}`}>
-                  {e.role} @ {e.company}
+                <label class="form-check-label text-light user-select-none text-truncate small" for={`rb-exp-${e.id}`}>
+                  {e.company} — <span class="text-muted">{e.role}</span>
                 </label>
               </div>
             ))}
           </div>
         </div>
 
-        <!-- Project Selector Checklist -->
+        <!-- Projects Selection List -->
         <div class="mb-3">
-          <div class="d-flex justify-content-between align-items-center mb-1">
-            <label class="form-label text-accent small fw-bold mb-0">Include Projects</label>
-            <small class="text-muted" style="font-size: 0.7rem;">Check all to display</small>
-          </div>
-          <div class="border border-secondary rounded-3 p-2 bg-dark bg-opacity-50" style="max-height: 180px; overflow-y: auto;">
-            {projects && projects.map((p) => (
-              <div class="form-check form-check-sm mb-1">
+          <label class="form-label text-accent small fw-bold mb-1">Select Projects</label>
+          <div class="border border-secondary rounded-3 p-2 bg-dark bg-opacity-50" style="max-height: 150px; overflow-y: auto;">
+            {(projects || []).map((p: any) => (
+              <div class="form-check form-check-sm mb-1 text-truncate">
                 <input class="form-check-input resume-project-cb" type="checkbox" value={p.id} id={`rb-proj-${p.id}`} />
-                <label class="form-check-label text-light small user-select-none" for={`rb-proj-${p.id}`}>
-                  {p.title} <span class="text-muted font-monospace small">({p.tech_stack})</span>
+                <label class="form-check-label text-light user-select-none text-truncate small" for={`rb-proj-${p.id}`}>
+                  {p.title}
                 </label>
               </div>
             ))}
           </div>
         </div>
 
+        <!-- Education -->
         <div>
-          <label class="form-label text-light small fw-bold">Education Details</label>
-          <input type="text" id="resume-education" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="Degree, Major — Institution Name" />
+          <label class="form-label text-light small fw-bold">Education</label>
+          <textarea id="resume-education" class="form-control form-control-sm bg-dark text-light border-secondary" rows="2" placeholder="University, Degree, Year"></textarea>
         </div>
+
       </div>
     </div>
 
-    <!-- Right: Auto-Fitting Scale-To-Fit Paper Preview Container -->
+    <!-- Right: Real-time Live Sheet Preview (Auto-Scaled) & Cover Letter Tab -->
     <div class="col-lg-7">
-      <div class="card border border-secondary p-3 p-md-4 rounded-4 shadow-sm h-100 d-flex flex-column print-container-clean">
-        <h4 class="text-light h6 mb-3 fw-bold d-flex justify-content-between align-items-center no-print">
-          <span class="d-flex align-items-center gap-2">
-            <span>Paper Preview</span>
-            <span class="badge bg-dark border border-secondary text-muted font-monospace" style="font-size: 0.7rem;">8.5" × 11" Letter</span>
-          </span>
-          <span class="badge bg-secondary font-monospace small text-accent">Auto-Scaling</span>
-        </h4>
+      <div class="card border border-secondary p-3 p-md-4 rounded-4 shadow-sm bg-dark bg-opacity-25 print-container-clean">
+        <!-- Preview Navigation Tabs & Metrics Header -->
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2 no-print">
+          <ul class="nav nav-pills" id="preview-mode-tabs" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active py-1 px-3 small font-monospace d-flex align-items-center gap-1" id="tab-resume-btn" data-bs-toggle="pill" data-bs-target="#tab-resume-pane" type="button" role="tab" aria-controls="tab-resume-pane" aria-selected="true">
+                <i class="bi bi-file-earmark-person"></i>
+                <span>Resume (8.5" × 11")</span>
+              </button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link py-1 px-3 small font-monospace d-flex align-items-center gap-1 position-relative" id="tab-cover-letter-btn" data-bs-toggle="pill" data-bs-target="#tab-cover-letter-pane" type="button" role="tab" aria-controls="tab-cover-letter-pane" aria-selected="false">
+                <i class="bi bi-envelope-paper"></i>
+                <span>Cover Letter</span>
+                <span id="cover-letter-ready-dot" class="badge rounded-pill bg-info p-1 ms-1 d-none" style="font-size: 0.5rem;">New</span>
+              </button>
+            </li>
+          </ul>
 
-        <!-- Scroller container that tracks available viewport size -->
-        <div 
-          id="paper-viewport-scroller" 
-          class="paper-viewport-scroller w-100 d-flex justify-content-center align-items-start rounded-3 p-2 p-md-3 bg-dark bg-opacity-50 border border-secondary border-opacity-50 overflow-hidden" 
-          style="min-height: 600px; height: 85vh; max-height: 960px;"
-        >
-          <!-- Dynamic Wrapper sized to match scaled paper dimensions -->
-          <div id="paper-scale-wrapper" class="paper-scale-wrapper position-relative">
-            <div id="resume-sheet-preview" class="resume-sheet text-dark bg-white shadow-lg">
-              <!-- Header -->
-              <div class="text-center pb-2 border-bottom border-dark border-2 mb-3">
-                <h2 id="prev-name" class="fw-bold mb-1 text-uppercase text-dark fs-4"></h2>
-                <div id="prev-contact-line1" class="small text-muted mb-1"></div>
-                <div id="prev-contact-line2" class="small text-muted"></div>
+          <div class="d-flex align-items-center gap-2">
+            <span id="page-badge-counter" class="badge bg-success font-monospace small">1 PAGE</span>
+          </div>
+        </div>
+
+        <!-- Tab Content -->
+        <div class="tab-content" id="previewTabContent">
+          <!-- Tab 1: Resume Paper Preview -->
+          <div class="tab-pane fade show active" id="tab-resume-pane" role="tabpanel" aria-labelledby="tab-resume-btn" tabindex="0">
+            <!-- Scroller container that tracks available viewport size -->
+            <div 
+              id="paper-viewport-scroller" 
+              class="paper-viewport-scroller w-100 d-flex justify-content-center align-items-start rounded-3 p-2 p-md-3 bg-dark bg-opacity-50 border border-secondary border-opacity-50 overflow-auto" 
+              style="min-height: 600px; height: 85vh; max-height: 960px;"
+            >
+              <!-- Dynamic Wrapper sized to match scaled paper dimensions -->
+              <div id="paper-scale-wrapper" class="paper-scale-wrapper position-relative">
+                <div id="resume-sheet-preview" class="resume-sheet resume-style-modern text-dark bg-white shadow-lg">
+                  
+                  <!-- Content Wrapper to accurately measure height against 1056px -->
+                  <div id="resume-content-measurer" class="w-100">
+                    <!-- Header -->
+                    <div class="text-center resume-header">
+                      <h2 id="prev-name" class="fw-bold mb-1 text-uppercase fs-4 text-dark"></h2>
+                      <div id="prev-contact-line1" class="small resume-contact-text mb-1"></div>
+                      <div id="prev-contact-line2" class="small resume-links-text"></div>
+                    </div>
+
+                    <!-- Summary -->
+                    <div class="mb-2" id="prev-summary-container">
+                      <div class="resume-section-title">Professional Summary</div>
+                      <div id="prev-summary" class="small mb-0" style="line-height: 1.35;"></div>
+                    </div>
+
+                    <!-- Technical Skills Section -->
+                    <div class="mb-2" id="prev-skills-container">
+                      <div class="resume-section-title">Technical Skills</div>
+                      <div id="prev-skills" class="small mb-0 text-dark" style="font-size: 0.8rem; line-height: 1.4;"></div>
+                    </div>
+
+                    <!-- Experience -->
+                    <div class="mb-2" id="prev-experience-container">
+                      <div class="resume-section-title">Professional Experience</div>
+                      <div id="prev-experience" class="d-flex flex-column gap-2"></div>
+                    </div>
+
+                    <!-- Projects -->
+                    <div class="mb-2" id="prev-projects-container">
+                      <div class="resume-section-title">Selected Projects</div>
+                      <div id="prev-projects" class="d-flex flex-column gap-2"></div>
+                    </div>
+
+                    <!-- Education -->
+                    <div id="prev-education-container">
+                      <div class="resume-section-title">Education</div>
+                      <div id="prev-education" class="small mb-0" style="line-height: 1.35;"></div>
+                    </div>
+                  </div>
+
+                  <!-- 1-Page Cutoff Red Guideline -->
+                  <div id="page-cutoff-line" class="position-absolute start-0 end-0 border-top border-2 border-danger border-opacity-75 d-none" style="top: 1056px; z-index: 100;">
+                    <span class="badge bg-danger position-absolute end-0 top-0 translate-middle-y me-2 font-monospace" style="font-size: 0.65rem;">Page 2 Cutoff</span>
+                  </div>
+
+                </div>
               </div>
+            </div>
+          </div>
 
-              <!-- Summary -->
-              <div class="mb-3" id="prev-summary-container">
-                <h6 class="fw-bold text-uppercase border-bottom border-secondary pb-1 small">Professional Summary</h6>
-                <div id="prev-summary" class="small mb-0" style="line-height: 1.4;"></div>
+          <!-- Tab 2: Cover Letter Tab Pane -->
+          <div class="tab-pane fade" id="tab-cover-letter-pane" role="tabpanel" aria-labelledby="tab-cover-letter-btn" tabindex="0">
+            <!-- Cover Letter Actions Header -->
+            <div class="d-flex justify-content-between align-items-center mb-2 px-1">
+              <span class="text-accent small fw-bold font-monospace d-flex align-items-center gap-1">
+                <i class="bi bi-file-earmark-text"></i>
+                <span>Generated Cover Letter</span>
+              </span>
+              <div class="d-flex gap-2">
+                <button type="button" id="copy-cover-letter-btn" class="btn btn-outline-secondary btn-sm py-1 px-3 font-monospace d-flex align-items-center gap-1" style="font-size: 0.8rem;">
+                  <i class="bi bi-clipboard"></i>
+                  <span>Copy Text</span>
+                </button>
+                <button type="button" id="download-cover-letter-pdf-btn" class="btn btn-outline-info text-accent btn-sm py-1 px-3 shadow-sm font-monospace d-flex align-items-center gap-1" style="font-size: 0.8rem;">
+                  <i class="bi bi-file-earmark-pdf"></i>
+                  <span>Download PDF</span>
+                </button>
               </div>
+            </div>
 
-              <!-- Technical Skills Section -->
-              <div class="mb-3" id="prev-skills-container">
-                <h6 class="fw-bold text-uppercase border-bottom border-secondary pb-1 small">Technical Skills</h6>
-                <div id="prev-skills" class="small mb-0 text-dark" style="font-size: 0.82rem; line-height: 1.45;"></div>
-              </div>
+            <!-- Cover Letter Paper Preview Card -->
+            <div class="paper-viewport-scroller w-100 d-flex justify-content-center align-items-start rounded-3 p-2 p-md-3 bg-dark bg-opacity-50 border border-secondary border-opacity-50" style="min-height: 600px; height: 85vh; max-height: 960px; overflow-y: auto;">
+              <div class="cover-letter-sheet bg-white text-dark shadow-lg rounded-2 p-4 p-md-5" style="max-width: 816px; width: 100%; min-height: 700px; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background-color: #ffffff !important; color: #111827 !important;">
+                <!-- Cover Letter Header -->
+                <div class="cover-letter-header border-bottom border-2 border-primary pb-3 mb-4 text-center text-md-start">
+                  <h3 id="cl-prev-name" class="fw-bold mb-1 text-uppercase fs-4 text-dark" style="color: #0f172a !important;"></h3>
+                  <div id="cl-prev-contact" class="cover-letter-contact small mb-1" style="color: #4b5563 !important;"></div>
+                  <div id="cl-prev-links" class="cover-letter-links small font-monospace" style="color: #4b5563 !important;"></div>
+                </div>
 
-              <!-- Experience -->
-              <div class="mb-3" id="prev-experience-container">
-                <h6 class="fw-bold text-uppercase border-bottom border-secondary pb-1 small">Professional Experience</h6>
-                <div id="prev-experience" class="d-flex flex-column gap-2"></div>
-              </div>
-
-              <!-- Projects -->
-              <div class="mb-3" id="prev-projects-container">
-                <h6 class="fw-bold text-uppercase border-bottom border-secondary pb-1 small">Selected Projects</h6>
-                <div id="prev-projects" class="d-flex flex-column gap-2"></div>
-              </div>
-
-              <!-- Education -->
-              <div id="prev-education-container">
-                <h6 class="fw-bold text-uppercase border-bottom border-secondary pb-1 small">Education</h6>
-                <p id="prev-education" class="small mb-0"></p>
+                <!-- Cover Letter Body -->
+                <div id="cover-letter-body-display" class="cover-letter-body text-dark" style="font-size: 0.95rem; line-height: 1.65; white-space: pre-wrap; color: #111827 !important;">
+                  <div class="cover-letter-placeholder fst-italic py-4 text-center" style="color: #64748b !important;">
+                    No cover letter generated yet. Paste a job description or URL on the left and click "Generate Tailored Resume & Cover Letter" to produce a tailored letter.
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -282,17 +436,30 @@ const groupedSkills = groupSkillsByCategory(skills || []);
   .resume-sheet {
     width: 816px !important;
     min-height: 1056px !important;
-    height: 1056px !important;
-    padding: var(--resume-editor-padding) !important;
-    font-family: 'Calibri', 'Arial', sans-serif;
+    padding: 36px 40px !important;
     box-sizing: border-box !important;
-    background-color: var(--resume-paper-bg) !important;
     transform-origin: top center;
     position: absolute;
     top: 0;
     left: 50%;
     transform: translateX(-50%);
-    overflow: hidden;
+    overflow: visible;
+  }
+
+  .resume-sheet.compact-mode {
+    padding: 24px 32px !important;
+  }
+
+  .resume-sheet.compact-mode #prev-summary,
+  .resume-sheet.compact-mode #prev-skills,
+  .resume-sheet.compact-mode p,
+  .resume-sheet.compact-mode li {
+    font-size: 0.76rem !important;
+    line-height: 1.25 !important;
+  }
+
+  .resume-sheet.compact-mode .mb-2 {
+    margin-bottom: 0.35rem !important;
   }
 
   .paper-scale-wrapper {
@@ -300,23 +467,79 @@ const groupedSkills = groupSkillsByCategory(skills || []);
   }
 
   .paper-viewport-scroller {
-    box-shadow: var(--shadow-resume-editor);
+    box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.5);
+  }
+
+  .cover-letter-sheet {
+    background-color: #ffffff !important;
+    color: #111827 !important;
+  }
+
+  .cover-letter-sheet h1,
+  .cover-letter-sheet h2,
+  .cover-letter-sheet h3,
+  .cover-letter-sheet h4,
+  .cover-letter-sheet h5,
+  .cover-letter-sheet h6,
+  .cover-letter-sheet strong,
+  .cover-letter-sheet b {
+    color: #0f172a !important;
+  }
+
+  .cover-letter-sheet p,
+  .cover-letter-sheet li,
+  .cover-letter-sheet span,
+  .cover-letter-sheet div,
+  .cover-letter-sheet small {
+    color: #1f2937 !important;
+  }
+
+  .cover-letter-sheet .cover-letter-header {
+    border-bottom: 2px solid #2563eb !important;
+  }
+
+  .cover-letter-sheet .cover-letter-contact,
+  .cover-letter-sheet .cover-letter-links {
+    color: #4b5563 !important;
+  }
+
+  .cover-letter-sheet .cover-letter-body {
+    color: #111827 !important;
+  }
+
+  .cover-letter-sheet .cover-letter-body * {
+    color: #111827 !important;
+  }
+
+  .cover-letter-sheet .cover-letter-body strong,
+  .cover-letter-sheet .cover-letter-body b {
+    color: #0f172a !important;
+    font-weight: 700 !important;
+  }
+
+  .cover-letter-sheet .cover-letter-placeholder {
+    color: #64748b !important;
+  }
+
+  .cover-letter-sheet a {
+    color: #1d4ed8 !important;
+    text-decoration: underline !important;
   }
 
   @media print {
     @page { 
       size: letter portrait; 
-      margin: var(--resume-print-margin); 
+      margin: 0.4in; 
     }
 
     body { 
-      background: var(--resume-paper-bg) !important; 
-      color: var(--resume-paper-color) !important; 
+      background: #ffffff !important; 
+      color: #000000 !important; 
       padding: 0 !important; 
       margin: 0 !important;
     }
 
-    header, nav, canvas, .no-print, .alert, .custom-admin-tabs, #hero-canvas { 
+    header, nav, canvas, .no-print, .alert, .custom-admin-tabs, #hero-canvas, #page-cutoff-line { 
       display: none !important; 
     }
 
@@ -347,25 +570,27 @@ const groupedSkills = groupSkillsByCategory(skills || []);
       padding: 0 !important; 
       margin: 0 !important;
       box-shadow: none !important; 
-      font-size: 10pt !important; 
+      font-size: 9.5pt !important; 
     }
 
     #resume-sheet-preview a { 
       text-decoration: underline !important; 
-      color: var(--resume-paper-color) !important; 
+      color: #000000 !important; 
     }
   }
 </style>
 
 <script>
   import { SmartEditorService } from '../../services/smartEditorService';
+  import { Document, Paragraph, TextRun, Packer, HeadingLevel } from 'docx';
+  import { downloadResumeDirectPdf, downloadCoverLetterDirectPdf } from '../../utils/resumePdfGenerator';
 
   const builderRoot = document.getElementById('resume-builder-root');
   if (builderRoot) {
     const rawProjects = JSON.parse(builderRoot.getAttribute('data-projects') || '[]');
     const rawExperiences = JSON.parse(builderRoot.getAttribute('data-experiences') || '[]');
     const rawSkills = JSON.parse(builderRoot.getAttribute('data-skills') || '[]');
-    const envDefaults = JSON.parse(builderRoot.getAttribute('data-env-defaults') || '{}');
+    const savedConfig = JSON.parse(builderRoot.getAttribute('data-saved-config') || '{}');
 
     const nameInput = document.getElementById('resume-name') as HTMLInputElement;
     const locationInput = document.getElementById('resume-location') as HTMLInputElement;
@@ -375,7 +600,8 @@ const groupedSkills = groupSkillsByCategory(skills || []);
     const linkedinInput = document.getElementById('resume-linkedin') as HTMLInputElement;
     const portfolioInput = document.getElementById('resume-portfolio') as HTMLInputElement;
     const summaryInput = document.getElementById('resume-summary') as HTMLTextAreaElement;
-    const educationInput = document.getElementById('resume-education') as HTMLInputElement;
+    const educationInput = document.getElementById('resume-education') as HTMLTextAreaElement;
+    const compactToggle = document.getElementById('compact-mode-toggle') as HTMLInputElement;
 
     const prevName = document.getElementById('prev-name');
     const prevContactLine1 = document.getElementById('prev-contact-line1');
@@ -388,37 +614,58 @@ const groupedSkills = groupSkillsByCategory(skills || []);
     const prevEdu = document.getElementById('prev-education');
 
     const sheet = document.getElementById('resume-sheet-preview');
+    const contentMeasurer = document.getElementById('resume-content-measurer');
     const scaleWrapper = document.getElementById('paper-scale-wrapper');
     const scroller = document.getElementById('paper-viewport-scroller');
+    const cutoffLine = document.getElementById('page-cutoff-line');
 
-    const STORAGE_KEY = 'admin_resume_builder_cache_v4';
+    const pageStatusBanner = document.getElementById('page-status-banner');
+    const pageStatusIcon = document.getElementById('page-status-icon');
+    const pageStatusText = document.getElementById('page-status-text');
+    const pageHeightMetric = document.getElementById('page-height-metric');
+    const pageBadgeCounter = document.getElementById('page-badge-counter');
+
+    const saveDbBtn = document.getElementById('save-db-btn');
+    const saveBtnText = document.getElementById('save-btn-text');
+
+    const STORAGE_KEY = 'admin_resume_builder_cache_v5';
+    const ONE_PAGE_MAX_HEIGHT = 1056; // 11 inches at 96 DPI
+    let currentPreviewScale = 1;
+
+    function getPreviewScale(): number {
+      return currentPreviewScale || 1;
+    }
 
     function fitPaperToViewport() {
       if (!sheet || !scaleWrapper || !scroller) return;
 
       const SHEET_WIDTH = 816;
-      const SHEET_HEIGHT = 1056;
+      // Fixed height of 1 page is exactly 11 inches = 1056px at 96 DPI.
+      // If content overflows ONE_PAGE_MAX_HEIGHT (1056px), the sheet height expands
+      // and the preview viewport container scrolls so the user can inspect overflow past the cutoff line.
+      const contentHeight = Math.max(ONE_PAGE_MAX_HEIGHT, sheet.offsetHeight || ONE_PAGE_MAX_HEIGHT);
 
       const containerWidth = scroller.clientWidth - 32;
       const containerHeight = scroller.clientHeight - 32;
 
       if (containerWidth <= 0 || containerHeight <= 0) return;
 
+      // Fit width to available viewport while scaling
       const scaleX = containerWidth / SHEET_WIDTH;
-      const scaleY = containerHeight / SHEET_HEIGHT;
+      const scaleY = containerHeight / ONE_PAGE_MAX_HEIGHT;
       const scale = Math.min(scaleX, scaleY, 1);
+      currentPreviewScale = scale;
 
       sheet.style.transform = `translateX(-50%) scale(${scale})`;
 
       scaleWrapper.style.width = `${SHEET_WIDTH * scale}px`;
-      scaleWrapper.style.height = `${SHEET_HEIGHT * scale}px`;
+      scaleWrapper.style.height = `${contentHeight * scale}px`;
     }
 
-    if (scroller) {
-      const resizeObserver = new ResizeObserver(() => fitPaperToViewport());
-      resizeObserver.observe(scroller);
-    }
-    window.addEventListener('resize', fitPaperToViewport);
+    const resumeTabBtn = document.getElementById('tab-resume-btn');
+    resumeTabBtn?.addEventListener('shown.bs.tab', () => {
+      setTimeout(fitPaperToViewport, 50);
+    });
 
     function formatPhoneNumber(value: string): string {
       if (!value) return '';
@@ -461,6 +708,27 @@ const groupedSkills = groupSkillsByCategory(skills || []);
       });
     }
 
+    function getSelectedStyle(): 'modern' | 'classic' | 'minimal' {
+      const checkedRadio = document.querySelector<HTMLInputElement>('input[name="resume-style"]:checked');
+      return (checkedRadio?.value as any) || 'modern';
+    }
+
+    function setSelectedStyle(styleName: string) {
+      const radio = document.querySelector<HTMLInputElement>(`input[name="resume-style"][value="${styleName}"]`);
+      if (radio) {
+        radio.checked = true;
+      }
+      applyTemplateClass(styleName);
+    }
+
+    let customTailoredProjects: any[] | null = null;
+
+    function applyTemplateClass(styleName: string) {
+      if (!sheet) return;
+      sheet.classList.remove('resume-style-modern', 'resume-style-classic', 'resume-style-minimal');
+      sheet.classList.add(`resume-style-${styleName}`);
+    }
+
     function loadInitialState() {
       let cached: any = {};
       try {
@@ -472,67 +740,138 @@ const groupedSkills = groupSkillsByCategory(skills || []);
         console.error('Failed to parse resume cache:', err);
       }
 
-      nameInput.value = cached.name?.trim() ? cached.name : (envDefaults.name || '');
-      locationInput.value = cached.location?.trim() ? cached.location : (envDefaults.location || '');
-      phoneInput.value = formatPhoneNumber(cached.phone?.trim() ? cached.phone : (envDefaults.phone || ''));
-      emailInput.value = cached.email?.trim() ? cached.email : (envDefaults.email || '');
-      githubInput.value = cached.github?.trim() ? cached.github : (envDefaults.github || '');
-      linkedinInput.value = cached.linkedin?.trim() ? cached.linkedin : (envDefaults.linkedin || '');
-      portfolioInput.value = cached.portfolio?.trim() ? cached.portfolio : (envDefaults.portfolio || '');
-      summaryInput.value = cached.summary?.trim() ? cached.summary : (envDefaults.summary || '');
-      educationInput.value = cached.education?.trim() ? cached.education : (envDefaults.education || '');
+      // Merge order: localStorage cache -> savedConfig from Supabase
+      const config = { ...savedConfig, ...cached };
 
-      const hasCachedProjects = Array.isArray(cached.selectedProjects);
-      document.querySelectorAll<HTMLInputElement>('.resume-project-cb').forEach(cb => {
-        cb.checked = hasCachedProjects ? cached.selectedProjects.includes(cb.value) : true;
+      nameInput.value = config.name || '';
+      locationInput.value = config.location || '';
+      phoneInput.value = formatPhoneNumber(config.phone || '');
+      emailInput.value = config.email || '';
+      githubInput.value = config.github || '';
+      linkedinInput.value = config.linkedin || '';
+      portfolioInput.value = config.portfolio || '';
+      summaryInput.value = config.summary || '';
+      educationInput.value = config.education || '';
+
+      if (config.compactMode) {
+        compactToggle.checked = true;
+      }
+
+      setSelectedStyle(config.style || 'modern');
+
+      const hasCachedProjects = Array.isArray(config.selectedProjects) && config.selectedProjects.length > 0;
+      document.querySelectorAll<HTMLInputElement>('.resume-project-cb').forEach((cb, idx) => {
+        cb.checked = hasCachedProjects ? config.selectedProjects.map(String).includes(String(cb.value)) : idx < 3;
       });
 
-      const hasCachedExperiences = Array.isArray(cached.selectedExperiences);
+      const hasCachedExperiences = Array.isArray(config.selectedExperiences) && config.selectedExperiences.length > 0;
       document.querySelectorAll<HTMLInputElement>('.resume-exp-cb').forEach(cb => {
-        cb.checked = hasCachedExperiences ? cached.selectedExperiences.includes(cb.value) : true;
+        cb.checked = hasCachedExperiences ? config.selectedExperiences.map(String).includes(String(cb.value)) : true;
       });
 
-      const hasCachedSkills = Array.isArray(cached.selectedSkills);
+      const hasCachedSkills = Array.isArray(config.selectedSkills) && config.selectedSkills.length > 0;
       document.querySelectorAll<HTMLInputElement>('.resume-skill-cb').forEach(cb => {
-        cb.checked = hasCachedSkills ? cached.selectedSkills.includes(cb.value) : true;
+        cb.checked = hasCachedSkills ? config.selectedSkills.map(String).includes(String(cb.value)) : true;
       });
+
+      if (Array.isArray(config.tailoredProjects) && config.tailoredProjects.length > 0) {
+        customTailoredProjects = config.tailoredProjects;
+      }
 
       syncCategoryCheckboxes();
       setTimeout(fitPaperToViewport, 50);
     }
 
+    function getCurrentState() {
+      const selectedProjects = Array.from(
+        document.querySelectorAll<HTMLInputElement>(`.resume-project-cb:checked`)
+      ).map(cb => cb.value);
+
+      const selectedExperiences = Array.from(
+        document.querySelectorAll<HTMLInputElement>(`.resume-exp-cb:checked`)
+      ).map(cb => cb.value);
+
+      const selectedSkills = Array.from(
+        document.querySelectorAll<HTMLInputElement>(`.resume-skill-cb:checked`)
+      ).map(cb => cb.value);
+
+      return {
+        name: nameInput.value,
+        location: locationInput.value,
+        phone: phoneInput.value,
+        email: emailInput.value,
+        github: githubInput.value,
+        linkedin: linkedinInput.value,
+        portfolio: portfolioInput.value,
+        summary: summaryInput.value,
+        education: educationInput.value,
+        style: getSelectedStyle(),
+        compactMode: compactToggle.checked,
+        selectedProjects,
+        tailoredProjects: customTailoredProjects,
+        selectedExperiences,
+        selectedSkills
+      };
+    }
+
     function saveCachedState() {
       try {
-        const selectedProjects = Array.from(
-          document.querySelectorAll<HTMLInputElement>(`.resume-project-cb:checked`)
-        ).map(cb => cb.value);
-
-        const selectedExperiences = Array.from(
-          document.querySelectorAll<HTMLInputElement>(`.resume-exp-cb:checked`)
-        ).map(cb => cb.value);
-
-        const selectedSkills = Array.from(
-          document.querySelectorAll<HTMLInputElement>(`.resume-skill-cb:checked`)
-        ).map(cb => cb.value);
-
-        const data = {
-          name: nameInput.value,
-          location: locationInput.value,
-          phone: phoneInput.value,
-          email: emailInput.value,
-          github: githubInput.value,
-          linkedin: linkedinInput.value,
-          portfolio: portfolioInput.value,
-          summary: summaryInput.value,
-          education: educationInput.value,
-          selectedProjects,
-          selectedExperiences,
-          selectedSkills
-        };
-
+        const data = getCurrentState();
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
       } catch (err) {
         console.error('Failed to save resume cache:', err);
+      }
+    }
+
+    function checkPageHeight() {
+      if (!contentMeasurer || !sheet) return;
+
+      // Accurately measure the unscaled content height plus actual vertical padding
+      const isCompact = compactToggle.checked;
+      const verticalPadding = isCompact ? 48 : 72; // 24px * 2 in compact, 36px * 2 in standard
+      const totalHeight = Math.round(contentMeasurer.getBoundingClientRect().height / (getPreviewScale() || 1)) + verticalPadding;
+      const percentage = Math.round((totalHeight / ONE_PAGE_MAX_HEIGHT) * 100);
+
+      if (pageHeightMetric) {
+        pageHeightMetric.textContent = `${totalHeight}px / ${ONE_PAGE_MAX_HEIGHT}px (${percentage}%)`;
+      }
+
+      if (totalHeight > ONE_PAGE_MAX_HEIGHT) {
+        // Exceeds 1 page!
+        if (pageStatusBanner) {
+          pageStatusBanner.style.background = 'color-mix(in srgb, var(--color-warning) 12%, var(--card-bg))';
+          pageStatusBanner.style.border = '1px solid color-mix(in srgb, var(--color-warning) 50%, var(--card-border-color))';
+          pageStatusBanner.style.color = 'var(--body-color)';
+        }
+        if (pageStatusIcon) pageStatusIcon.textContent = '⚠️';
+        if (pageStatusText) {
+          pageStatusText.innerHTML = `<strong>Exceeds 1 page (${totalHeight - ONE_PAGE_MAX_HEIGHT}px over)</strong> — Enable Compact Spacing or trim items`;
+        }
+        if (pageBadgeCounter) {
+          pageBadgeCounter.className = 'badge bg-warning text-dark font-monospace small';
+          pageBadgeCounter.textContent = 'OVER 1 PAGE';
+        }
+        if (cutoffLine) {
+          cutoffLine.classList.remove('d-none');
+        }
+      } else {
+        // Fits comfortably
+        if (pageStatusBanner) {
+          pageStatusBanner.style.background = 'color-mix(in srgb, var(--color-success) 12%, var(--card-bg))';
+          pageStatusBanner.style.border = '1px solid color-mix(in srgb, var(--color-success) 45%, var(--card-border-color))';
+          pageStatusBanner.style.color = 'var(--body-color)';
+        }
+        if (pageStatusIcon) pageStatusIcon.textContent = '✅';
+        if (pageStatusText) {
+          pageStatusText.innerHTML = `<strong>Fits on 1 page (${ONE_PAGE_MAX_HEIGHT - totalHeight}px remaining)</strong>`;
+        }
+        if (pageBadgeCounter) {
+          pageBadgeCounter.className = 'badge bg-success font-monospace small';
+          pageBadgeCounter.textContent = '1 PAGE';
+        }
+        if (cutoffLine) {
+          cutoffLine.classList.add('d-none');
+        }
       }
     }
 
@@ -543,18 +882,27 @@ const groupedSkills = groupSkillsByCategory(skills || []);
 
     function createHtmlBulletList(lines: string[]): string {
       if (lines.length === 0) return '';
+      const formatBold = (t: string) => (t || '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
       if (lines.length === 1) {
-        return `<p class="small mb-0 text-dark" style="font-size: 0.8rem; line-height: 1.35;">${lines[0]}</p>`;
+        return `<p class="small mb-0 text-dark" style="font-size: 0.8rem; line-height: 1.35;">${formatBold(lines[0])}</p>`;
       }
-      return `<ul class="small mb-0 text-dark ps-3" style="font-size: 0.8rem; line-height: 1.35;">${lines.map(l => `<li class="mb-1">${l}</li>`).join('')}</ul>`;
+      return `<ul class="small mb-0 text-dark ps-3" style="font-size: 0.8rem; line-height: 1.35;">${lines.map(l => `<li class="mb-1">${formatBold(l)}</li>`).join('')}</ul>`;
     }
 
     function renderPreview() {
       saveCachedState();
       syncCategoryCheckboxes();
 
+      if (compactToggle.checked) {
+        sheet?.classList.add('compact-mode');
+      } else {
+        sheet?.classList.remove('compact-mode');
+      }
+
+      applyTemplateClass(getSelectedStyle());
+
       if (prevName) prevName.textContent = nameInput.value || 'YOUR NAME';
-      if (prevEdu) prevEdu.textContent = educationInput.value;
+      if (prevEdu) prevEdu.innerHTML = educationInput.value.replace(/\n/g, '<br/>');
 
       const contactElements: string[] = [];
       if (locationInput.value.trim()) contactElements.push(locationInput.value.trim());
@@ -585,28 +933,36 @@ const groupedSkills = groupSkillsByCategory(skills || []);
         prevContactLine2.style.display = linkElements.length > 0 ? 'block' : 'none';
       }
 
+      const summaryText = summaryInput.value.trim();
       if (prevSummary) {
-        prevSummary.innerHTML = createHtmlBulletList(splitBullets(summaryInput.value));
+        prevSummary.innerHTML = createHtmlBulletList(splitBullets(summaryText));
+      }
+      const prevSummaryContainer = document.getElementById('prev-summary-container');
+      if (prevSummaryContainer) {
+        prevSummaryContainer.style.display = summaryText ? 'block' : 'none';
       }
 
       const selectedSkillIds = Array.from(document.querySelectorAll<HTMLInputElement>('.resume-skill-cb:checked')).map(cb => cb.value);
       const activeSkills = rawSkills.filter((s: any) => selectedSkillIds.includes(String(s.id)));
 
-      if (prevSkills && prevSkillsContainer) {
+      if (prevSkills) {
         if (activeSkills.length === 0) {
-          prevSkillsContainer.style.display = 'none';
           prevSkills.innerHTML = '';
+          if (prevSkillsContainer) prevSkillsContainer.style.display = 'none';
         } else {
-          prevSkillsContainer.style.display = 'block';
+          if (prevSkillsContainer) prevSkillsContainer.style.display = 'block';
           const grouped: Record<string, string[]> = {};
           activeSkills.forEach((s: any) => {
-            if (!grouped[s.category]) grouped[s.category] = [];
-            grouped[s.category].push(s.name);
+            const cat = s.category || 'General';
+            if (!grouped[cat]) grouped[cat] = [];
+            grouped[cat].push(s.name);
           });
 
-          prevSkills.innerHTML = Object.entries(grouped).map(([category, items]) => `
-            <strong>${category}: </strong><span>${items.join(', ')}</span>
-          `).join(' &nbsp;|&nbsp; ');
+          prevSkills.innerHTML = Object.entries(grouped).map(([cat, list]) => `
+            <div class="mb-1">
+              <strong>${cat}:</strong> ${list.join(', ')}
+            </div>
+          `).join('');
         }
       }
 
@@ -618,8 +974,8 @@ const groupedSkills = groupSkillsByCategory(skills || []);
           div.className = 'mb-2';
           div.innerHTML = `
             <div class="d-flex justify-content-between fw-bold small text-dark mb-1">
-              <span>${exp.role} — <span>${exp.company}</span></span>
-              <span>${exp.start_date} – ${exp.end_date || 'Present'}</span>
+              <span>${exp.company} — <span class="fw-normal">${exp.role}</span></span>
+              <span class="font-monospace resume-date-text">${exp.start_date} – ${exp.end_date || 'Present'}</span>
             </div>
             ${createHtmlBulletList(splitBullets(exp.description))}
           `;
@@ -632,33 +988,66 @@ const groupedSkills = groupSkillsByCategory(skills || []);
         prevProj.innerHTML = '';
         rawProjects.filter((p: any) => selectedProjIds.includes(String(p.id))).forEach((proj: any) => {
           const linkParts: string[] = [];
-          if (proj.live_url) {
-            linkParts.push(`<a href="${ensureHttp(proj.live_url)}" target="_blank" class="text-dark text-decoration-underline font-monospace">Live Site</a>`);
-          }
           if (proj.github_url) {
             linkParts.push(`<a href="${ensureHttp(proj.github_url)}" target="_blank" class="text-dark text-decoration-underline font-monospace">GitHub</a>`);
           }
 
-          const projectDetailsText = proj.content?.trim() || proj.summary || '';
+          // If we have AI-tailored bullets for this project, use them!
+          const tailored = (customTailoredProjects || []).find((tp: any) => String(tp.id) === String(proj.id));
+          const bullets = tailored && Array.isArray(tailored.bullets) && tailored.bullets.length > 0
+            ? tailored.bullets
+            : splitBullets(proj.summary || proj.content?.trim() || '');
+          const techStack = tailored?.tech_stack || proj.tech_stack || '';
 
           const div = document.createElement('div');
           div.className = 'mb-2';
           div.innerHTML = `
             <div class="d-flex justify-content-between align-items-baseline fw-bold small text-dark">
-              <span>${proj.title}</span>
+              <span>${proj.title} ${techStack ? `<span class="fw-normal resume-meta-text" style="font-size: 0.78rem;">— ${techStack}</span>` : ''}</span>
               ${linkParts.length > 0 ? `<span class="small font-monospace">${linkParts.join(' | ')}</span>` : ''}
             </div>
-            ${proj.tech_stack ? `<div class="small font-monospace text-muted mb-1" style="font-size: 0.76rem;">${proj.tech_stack}</div>` : ''}
-            ${createHtmlBulletList(splitBullets(projectDetailsText))}
+            ${createHtmlBulletList(bullets)}
           `;
           prevProj.appendChild(div);
         });
       }
 
       fitPaperToViewport();
+      setTimeout(checkPageHeight, 50);
     }
 
+    // Save to Database Button
+    saveDbBtn?.addEventListener('click', async () => {
+      if (saveBtnText) saveBtnText.textContent = 'Saving...';
+      try {
+        const payload = getCurrentState();
+        const res = await fetch('/api/resume-config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+          if (saveBtnText) saveBtnText.textContent = 'Saved!';
+          setTimeout(() => {
+            if (saveBtnText) saveBtnText.textContent = 'Save to DB';
+          }, 2000);
+        } else {
+          alert('Failed to save to database.');
+          if (saveBtnText) saveBtnText.textContent = 'Save to DB';
+        }
+      } catch (err: any) {
+        alert('Network error saving to database: ' + err.message);
+        if (saveBtnText) saveBtnText.textContent = 'Save to DB';
+      }
+    });
+
     loadInitialState();
+
+    document.querySelectorAll<HTMLInputElement>('input[name="resume-style"]').forEach(radio => {
+      radio.addEventListener('change', renderPreview);
+    });
+
+    compactToggle?.addEventListener('change', renderPreview);
 
     document.querySelectorAll<HTMLInputElement>('.skill-category-toggle').forEach(catToggle => {
       catToggle.addEventListener('change', () => {
@@ -694,208 +1083,456 @@ const groupedSkills = groupSkillsByCategory(skills || []);
       summaryInput, educationInput
     ].forEach(el => el?.addEventListener('input', renderPreview));
 
-    if (summaryInput) {
-      SmartEditorService.attach(summaryInput, {
-        enableAutoList: true,
-        enableSmartTab: true,
-        enablePairs: false,
-        enableShortcuts: false,
-        onUpdate: renderPreview
-      });
+    document.querySelectorAll<HTMLInputElement>('.resume-skill-cb, .resume-exp-cb, .resume-project-cb').forEach(cb => {
+      cb.addEventListener('change', renderPreview);
+    });
+
+    // AI Optimizer & Refinement State
+    let currentAiResult: any = null;
+    let currentCoverLetter: string = '';
+    const aiOptimizeBtn = document.getElementById('ai-optimize-btn');
+    const aiBtnText = document.getElementById('ai-btn-text');
+    const aiJobUrl = document.getElementById('ai-job-url') as HTMLInputElement;
+    const aiJobDesc = document.getElementById('ai-job-desc') as HTMLTextAreaElement;
+    const aiApiKey = document.getElementById('ai-api-key') as HTMLInputElement;
+
+    const aiRefineBtn = document.getElementById('ai-refine-btn');
+    const aiRefineInput = document.getElementById('ai-refine-input') as HTMLInputElement;
+    const aiRefineBtnText = document.getElementById('ai-refine-btn-text');
+
+    const aiChangeLog = document.getElementById('ai-change-log');
+    const aiChangeLogContent = document.getElementById('ai-change-log-content');
+    const closeChangeLogBtn = document.getElementById('close-change-log-btn');
+
+    const clPrevName = document.getElementById('cl-prev-name');
+    const clPrevContact = document.getElementById('cl-prev-contact');
+    const clPrevLinks = document.getElementById('cl-prev-links');
+    const coverLetterBodyDisplay = document.getElementById('cover-letter-body-display');
+    const coverLetterReadyDot = document.getElementById('cover-letter-ready-dot');
+
+    closeChangeLogBtn?.addEventListener('click', () => {
+      aiChangeLog?.classList.add('d-none');
+    });
+
+    function formatMarkdownBold(text: string): string {
+      return (text || '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
     }
 
-    document.querySelectorAll('.resume-project-cb, .resume-exp-cb, .resume-skill-cb').forEach(cb => cb.addEventListener('change', renderPreview));
-    renderPreview();
+    function updateCoverLetterPreview(text: string) {
+      currentCoverLetter = text || '';
+      if (clPrevName) clPrevName.textContent = nameInput.value || 'RYAN CUCCURULLO';
+      
+      const contactList = [locationInput.value, phoneInput.value, emailInput.value].filter(Boolean);
+      if (clPrevContact) clPrevContact.textContent = contactList.join(' • ');
 
-    // Export .docx
-    document.getElementById('download-docx-btn')?.addEventListener('click', async () => {
-      const { Document, Packer, Paragraph, TextRun, ExternalHyperlink, AlignmentType, TabStopType, TabStopPosition } = await import('docx');
+      const linksList = [linkedinInput.value ? 'LinkedIn' : '', githubInput.value ? 'GitHub' : '', portfolioInput.value ? 'Portfolio' : ''].filter(Boolean);
+      if (clPrevLinks) clPrevLinks.textContent = linksList.join(' • ');
 
-      const selectedExpIds = Array.from(document.querySelectorAll<HTMLInputElement>('.resume-exp-cb:checked')).map(cb => cb.value);
-      const selectedProjIds = Array.from(document.querySelectorAll<HTMLInputElement>('.resume-project-cb:checked')).map(cb => cb.value);
-      const selectedSkillIds = Array.from(document.querySelectorAll<HTMLInputElement>('.resume-skill-cb:checked')).map(cb => cb.value);
-
-      const activeExperiences = rawExperiences.filter((e: any) => selectedExpIds.includes(String(e.id)));
-      const activeProjects = rawProjects.filter((p: any) => selectedProjIds.includes(String(p.id)));
-      const activeSkills = rawSkills.filter((s: any) => selectedSkillIds.includes(String(s.id)));
-
-      const rightMarginTab = { type: TabStopType.RIGHT, position: TabStopPosition.MAX };
-
-      const createSectionHeading = (title: string) => new Paragraph({
-        spacing: { before: 160, after: 60 },
-        border: { bottom: { color: '000000', space: 2, style: 'single', size: 6 } },
-        children: [new TextRun({ text: title, bold: true, size: 20, font: 'Calibri', color: '000000' })]
-      });
-
-      const createDocxBulletParagraphs = (rawText: string) => {
-        const lines = splitBullets(rawText);
-        if (lines.length === 0) return [];
-        if (lines.length === 1) {
-          return [new Paragraph({ spacing: { after: 60 }, children: [new TextRun({ text: lines[0], size: 19, color: '000000' })] })];
+      if (coverLetterBodyDisplay) {
+        if (text && text.trim()) {
+          coverLetterBodyDisplay.innerHTML = formatMarkdownBold(text.trim());
+          if (coverLetterReadyDot) coverLetterReadyDot.classList.remove('d-none');
+        } else {
+          coverLetterBodyDisplay.innerHTML = `
+            <div class="cover-letter-placeholder fst-italic py-4 text-center" style="color: #64748b !important;">
+              No cover letter generated yet. Paste a job description or URL on the left and click "Generate Tailored Resume & Cover Letter" to produce a tailored letter.
+            </div>
+          `;
+          if (coverLetterReadyDot) coverLetterReadyDot.classList.add('d-none');
         }
-        return lines.map((line, idx) => new Paragraph({
-          bullet: { level: 0 },
-          spacing: { after: idx === lines.length - 1 ? 60 : 25 },
-          children: [new TextRun({ text: line, size: 19, color: '000000' })]
-        }));
-      };
+      }
+    }
 
-      const docxLine1Runs: any[] = [];
-      const line1Items = [locationInput.value.trim(), phoneInput.value.trim(), emailInput.value.trim()].filter(Boolean);
-      line1Items.forEach((item, index) => {
-        docxLine1Runs.push(new TextRun({ text: item, size: 18, color: '000000' }));
-        if (index < line1Items.length - 1) {
-          docxLine1Runs.push(new TextRun({ text: '  |  ', size: 18, color: '666666' }));
+    function applyAiResultDirectly(result: any, changeTitle: string = 'Gemini Applied Changes') {
+      currentAiResult = result;
+
+      // 1. Update Professional Summary
+      if (result.tailoredSummary) {
+        summaryInput.value = result.tailoredSummary;
+      }
+
+      // 2. Update Skills Checkboxes
+      if (Array.isArray(result.selectedSkillIds) && result.selectedSkillIds.length > 0) {
+        const idSet = new Set(result.selectedSkillIds.map(String));
+        document.querySelectorAll<HTMLInputElement>('.resume-skill-cb').forEach(cb => {
+          cb.checked = idSet.has(String(cb.value));
+        });
+      }
+
+      // 3. Update Projects & custom tailored bullets
+      if (Array.isArray(result.tailoredProjects) && result.tailoredProjects.length > 0) {
+        customTailoredProjects = result.tailoredProjects;
+      }
+      if (Array.isArray(result.selectedProjectIds) && result.selectedProjectIds.length > 0) {
+        const idSet = new Set(result.selectedProjectIds.map(String));
+        document.querySelectorAll<HTMLInputElement>('.resume-project-cb').forEach(cb => {
+          cb.checked = idSet.has(String(cb.value));
+        });
+      }
+
+      // 4. Update Work Experiences
+      if (Array.isArray(result.selectedExperienceIds) && result.selectedExperienceIds.length > 0) {
+        const idSet = new Set(result.selectedExperienceIds.map(String));
+        document.querySelectorAll<HTMLInputElement>('.resume-exp-cb').forEach(cb => {
+          cb.checked = idSet.has(String(cb.value));
+        });
+      }
+
+      // 5. Update Cover Letter
+      if (result.coverLetter) {
+        updateCoverLetterPreview(result.coverLetter);
+      }
+
+      // 6. Display Change Log Once to the User
+      if (aiChangeLog && aiChangeLogContent) {
+        let insightsHtml = '';
+        if (Array.isArray(result.matchingInsights) && result.matchingInsights.length > 0) {
+          insightsHtml = `<ul class="mb-0 ps-3">${result.matchingInsights.map((i: string) => `<li class="mb-1">${formatMarkdownBold(i)}</li>`).join('')}</ul>`;
+        } else if (result.matchingInsights) {
+          insightsHtml = `<p class="mb-0">${formatMarkdownBold(result.matchingInsights)}</p>`;
+        } else {
+          insightsHtml = `<p class="mb-0">Selected skills, experience, projects, and summary tailored to your target job.</p>`;
         }
-      });
-
-      const docxLine2Children: any[] = [];
-      const linkItems: { label: string; url: string }[] = [];
-
-      if (githubInput.value.trim()) {
-        linkItems.push({ label: 'GitHub', url: ensureHttp(githubInput.value) });
-      }
-      if (linkedinInput.value.trim()) {
-        linkItems.push({ label: 'LinkedIn', url: ensureHttp(linkedinInput.value) });
-      }
-      if (portfolioInput.value.trim()) {
-        linkItems.push({ label: 'Portfolio', url: ensureHttp(portfolioInput.value) });
+        aiChangeLogContent.innerHTML = insightsHtml;
+        aiChangeLog.classList.remove('d-none');
       }
 
-      linkItems.forEach((link, index) => {
-        docxLine2Children.push(
-          new ExternalHyperlink({
-            children: [new TextRun({ text: link.label, underline: {}, color: '000000', size: 18 })],
-            link: link.url
+      // 7. Re-render builder resume preview immediately
+      renderPreview();
+    }
+
+    aiOptimizeBtn?.addEventListener('click', async () => {
+      const urlVal = aiJobUrl?.value.trim() || '';
+      const descVal = aiJobDesc?.value.trim() || '';
+      const keyVal = aiApiKey?.value.trim() || '';
+
+      if (!urlVal && !descVal) {
+        alert('Please provide a job URL or paste the job description text.');
+        return;
+      }
+
+      if (aiBtnText) aiBtnText.textContent = 'Optimizing & Updating...';
+      if (aiOptimizeBtn) (aiOptimizeBtn as HTMLButtonElement).disabled = true;
+
+      try {
+        const res = await fetch('/api/optimize-resume', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jobUrl: urlVal,
+            jobDescription: descVal,
+            apiKey: keyVal,
+            currentProfile: {
+              name: nameInput.value,
+              summary: summaryInput.value,
+              education: educationInput.value
+            }
           })
-        );
-        if (index < linkItems.length - 1) {
-          docxLine2Children.push(new TextRun({ text: '  |  ', size: 18, color: '666666' }));
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || 'Optimization request failed');
         }
-      });
 
-      const docxSkillsGrouped: Record<string, string[]> = {};
-      activeSkills.forEach((s: any) => {
-        if (!docxSkillsGrouped[s.category]) docxSkillsGrouped[s.category] = [];
-        docxSkillsGrouped[s.category].push(s.name);
-      });
+        applyAiResultDirectly(data.data, 'Target Job Optimization Completed');
+      } catch (err: any) {
+        alert('Error: ' + err.message);
+      } finally {
+        if (aiBtnText) aiBtnText.textContent = 'Generate Tailored Resume & Cover Letter';
+        if (aiOptimizeBtn) (aiOptimizeBtn as HTMLButtonElement).disabled = false;
+      }
+    });
 
-      const skillCategories = Object.entries(docxSkillsGrouped);
-      const docxSkillRuns: any[] = [];
+    async function sendRefinement() {
+      const instructions = aiRefineInput?.value.trim();
+      if (!instructions) return;
+      if (!currentAiResult) {
+        alert('Please click "Generate Tailored Resume & Cover Letter" first, or let Gemini analyze a job description.');
+        return;
+      }
 
-      skillCategories.forEach(([category, items], idx) => {
-        docxSkillRuns.push(new TextRun({ text: `${category}: `, bold: true, size: 18.5, color: '000000' }));
-        docxSkillRuns.push(new TextRun({ text: items.join(', '), size: 18.5, color: '000000' }));
-        if (idx < skillCategories.length - 1) {
-          docxSkillRuns.push(new TextRun({ text: '  |  ', bold: true, size: 18.5, color: '555555' }));
+      if (aiRefineBtnText) aiRefineBtnText.textContent = '...';
+      if (aiRefineBtn) (aiRefineBtn as HTMLButtonElement).disabled = true;
+
+      try {
+        const res = await fetch('/api/optimize-resume', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            instructions,
+            previousResult: currentAiResult,
+            apiKey: aiApiKey?.value.trim() || '',
+            currentProfile: {
+              name: nameInput.value,
+              summary: summaryInput.value,
+              education: educationInput.value
+            }
+          })
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || 'Refinement failed');
         }
+
+        applyAiResultDirectly(data.data, 'Gemini Refinement Applied');
+        aiRefineInput.value = '';
+      } catch (err: any) {
+        alert('Error refining with Gemini: ' + err.message);
+      } finally {
+        if (aiRefineBtnText) aiRefineBtnText.textContent = 'Send';
+        if (aiRefineBtn) (aiRefineBtn as HTMLButtonElement).disabled = false;
+      }
+    }
+
+    aiRefineBtn?.addEventListener('click', sendRefinement);
+    aiRefineInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        sendRefinement();
+      }
+    });
+
+    document.getElementById('copy-cover-letter-btn')?.addEventListener('click', () => {
+      if (currentCoverLetter) {
+        navigator.clipboard.writeText(currentCoverLetter);
+        alert('Cover letter copied to clipboard!');
+      } else {
+        alert('No cover letter available to copy.');
+      }
+    });
+
+    document.getElementById('download-cover-letter-pdf-btn')?.addEventListener('click', async () => {
+      if (!currentCoverLetter) {
+        alert('No cover letter generated yet.');
+        return;
+      }
+
+      const btn = document.getElementById('download-cover-letter-pdf-btn') as HTMLButtonElement;
+      if (btn) btn.disabled = true;
+
+      try {
+        await downloadCoverLetterDirectPdf({
+          name: nameInput.value || 'Ryan Cuccurullo',
+          location: locationInput.value,
+          phone: phoneInput.value,
+          email: emailInput.value,
+          linkedin: linkedinInput.value
+        }, currentCoverLetter, `${(nameInput.value || 'Ryan_Cuccurullo').replace(/\s+/g, '_')}_Cover_Letter.pdf`);
+      } catch (err: any) {
+        alert('Failed to generate cover letter PDF: ' + err.message);
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    });
+
+    // Print PDF helper function that prints any resume state directly without modifying the database or main preview
+    function printResumeDirectly(data: any) {
+      const selectedSkillIds = data.selectedSkills || [];
+      const skillsToPrint = rawSkills.filter((s: any) => selectedSkillIds.includes(String(s.id)));
+
+      const selectedExpIds = data.selectedExperiences || [];
+      const expToPrint = rawExperiences.filter((e: any) => selectedExpIds.includes(String(e.id)));
+
+      const selectedProjIds = data.selectedProjects || [];
+      const projToPrint = rawProjects.filter((p: any) => selectedProjIds.includes(String(p.id)));
+
+      const contactList: string[] = [];
+      if (data.location) contactList.push(data.location);
+      if (data.phone) contactList.push(data.phone);
+      if (data.email) contactList.push(data.email);
+
+      const linksList: string[] = [];
+      if (data.linkedin) linksList.push(`<a href="${ensureHttp(data.linkedin)}" target="_blank">LinkedIn</a>`);
+      if (data.github) linksList.push(`<a href="${ensureHttp(data.github)}" target="_blank">GitHub</a>`);
+      if (data.portfolio) linksList.push(`<a href="${ensureHttp(data.portfolio)}" target="_blank">Portfolio</a>`);
+
+      const grouped: Record<string, string[]> = {};
+      skillsToPrint.forEach((s: any) => {
+        const cat = s.category || 'General';
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push(s.name);
       });
+
+      const summaryBullets = splitBullets(data.summary || '');
+      const styleClass = `resume-style-${data.style || 'modern'}`;
+      const isCompact = data.compactMode ? 'compact-mode' : '';
+
+      const printWin = window.open('', '_blank');
+      if (!printWin) {
+        alert('Please allow popups to open the print dialog.');
+        return;
+      }
+
+      printWin.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>${data.name || 'Resume'} - Print</title>
+          <style>
+            @page { size: letter portrait; margin: 0.4in; }
+            body {
+              margin: 0; padding: 0; background: #ffffff; color: #111827;
+              font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+              font-size: 9.5pt; line-height: 1.35;
+            }
+            .header { text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 6px; margin-bottom: 10px; }
+            .header h1 { margin: 0 0 4px 0; font-size: 18pt; font-weight: bold; text-transform: uppercase; color: #0f172a; }
+            .contact, .links { font-size: 8.5pt; color: #4b5563; margin-bottom: 2px; }
+            a { color: #1d4ed8; text-decoration: underline; }
+            .section-title {
+              font-weight: bold; text-transform: uppercase; font-size: 8.5pt;
+              letter-spacing: 0.05em; color: #1e3a8a; border-bottom: 1px solid #93c5fd;
+              padding-bottom: 2px; margin-top: 8px; margin-bottom: 5px;
+            }
+            ul { margin: 2px 0 6px 18px; padding: 0; }
+            li { margin-bottom: 2px; line-height: 1.3; }
+            .exp-item, .proj-item { margin-bottom: 6px; }
+            .exp-header, .proj-header {
+              display: flex; justify-content: space-between; align-items: baseline; font-size: 9pt; margin-bottom: 2px;
+            }
+            .date, .tech { color: #4b5563; font-size: 8.5pt; }
+            .compact-mode body { font-size: 9pt; line-height: 1.25; }
+            .compact-mode li { margin-bottom: 1px; }
+            .resume-style-classic { font-family: 'Georgia', 'Cambria', serif; }
+            .resume-style-classic .header { border-bottom: 2px solid #111; }
+            .resume-style-classic .section-title { color: #111; border-bottom: 1px solid #444; }
+            .resume-style-minimal { font-family: 'Calibri', 'Arial', sans-serif; }
+            .resume-style-minimal .header { border-bottom: 1.5px solid #475569; }
+            .resume-style-minimal .section-title { color: #334155; border-bottom: 1px solid #cbd5e1; }
+          </style>
+        </head>
+        <body class="${styleClass} ${isCompact}">
+          <div class="header">
+            <h1>${data.name || 'RYAN CUCCURULLO'}</h1>
+            <div class="contact">${contactList.join(' &bull; ')}</div>
+            <div class="links">${linksList.join(' &bull; ')}</div>
+          </div>
+
+          ${summaryBullets.length > 0 ? `
+            <div class="section-title">Professional Summary</div>
+            ${summaryBullets.length === 1 ? `<p style="margin: 0 0 6px 0;">${summaryBullets[0]}</p>` : `
+              <ul>${summaryBullets.map((b: string) => `<li>${b}</li>`).join('')}</ul>
+            `}
+          ` : ''}
+
+          ${Object.keys(grouped).length > 0 ? `
+            <div class="section-title">Technical Skills</div>
+            <div style="font-size: 8.5pt; margin-bottom: 6px;">
+              ${Object.entries(grouped).map(([cat, list]) => `
+                <div><strong>${cat}:</strong> ${(list as string[]).join(', ')}</div>
+              `).join('')}
+            </div>
+          ` : ''}
+
+          ${expToPrint.length > 0 ? `
+            <div class="section-title">Professional Experience</div>
+            ${expToPrint.map((exp: any) => `
+              <div class="exp-item">
+                <div class="exp-header">
+                  <span><strong>${exp.company}</strong> — ${exp.role}</span>
+                  <span class="date">${exp.start_date} – ${exp.end_date || 'Present'}</span>
+                </div>
+                <ul>${splitBullets(exp.description || '').map((b: string) => `<li>${b}</li>`).join('')}</ul>
+              </div>
+            `).join('')}
+          ` : ''}
+
+          ${projToPrint.length > 0 ? `
+            <div class="section-title">Selected Projects</div>
+            ${projToPrint.map((proj: any) => `
+              <div class="proj-item">
+                <div class="proj-header">
+                  <span><strong>${proj.title}</strong> ${proj.tech_stack ? `— <span class="tech">${proj.tech_stack}</span>` : ''}</span>
+                  ${proj.github_url ? `<a href="${ensureHttp(proj.github_url)}" target="_blank">GitHub</a>` : ''}
+                </div>
+                <ul>${splitBullets(proj.summary || proj.content || '').map((b: string) => `<li>${b}</li>`).join('')}</ul>
+              </div>
+            `).join('')}
+          ` : ''}
+
+          ${data.education ? `
+            <div class="section-title">Education</div>
+            <div style="font-size: 8.5pt; white-space: pre-line;">${data.education}</div>
+          ` : ''}
+
+          <script>
+            window.onload = function() {
+              window.print();
+            };
+          <\/script>
+        </body>
+        </html>
+      `);
+      printWin.document.close();
+    }
+
+    // Main PDF Download Button (Direct File Download - Clean, No URL/Headers)
+    document.getElementById('download-pdf-btn')?.addEventListener('click', async () => {
+      const btn = document.getElementById('download-pdf-btn') as HTMLButtonElement;
+      if (btn) btn.disabled = true;
+
+      try {
+        const state = getCurrentState();
+        const selectedSkills = rawSkills.filter((s: any) => state.selectedSkills.includes(String(s.id)));
+        let selectedProjects: any[] = [];
+        if (Array.isArray(customTailoredProjects) && customTailoredProjects.length > 0) {
+          selectedProjects = customTailoredProjects;
+        } else {
+          selectedProjects = rawProjects.filter((p: any) => state.selectedProjects.includes(String(p.id)));
+        }
+        const selectedExperiences = rawExperiences.filter((e: any) => state.selectedExperiences.includes(String(e.id)));
+
+        await downloadResumeDirectPdf({
+          ...state,
+          selectedSkills,
+          selectedProjects,
+          selectedExperiences
+        }, `${(state.name || 'Resume').replace(/\s+/g, '_')}.pdf`);
+      } catch (err: any) {
+        alert('Failed to generate PDF: ' + err.message);
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    });
+
+    document.getElementById('download-docx-btn')?.addEventListener('click', async () => {
+      const current = getCurrentState();
+      const children: any[] = [];
+
+      children.push(new Paragraph({
+        text: current.name || 'RYAN CUCCURULLO',
+        heading: HeadingLevel.TITLE
+      }));
+
+      const contact = [current.location, current.phone, current.email].filter(Boolean).join(' | ');
+      if (contact) {
+        children.push(new Paragraph({ text: contact }));
+      }
+
+      if (current.summary) {
+        children.push(new Paragraph({ text: 'PROFESSIONAL SUMMARY', heading: HeadingLevel.HEADING_1 }));
+        children.push(new Paragraph({ text: current.summary }));
+      }
+
+      children.push(new Paragraph({ text: 'EDUCATION', heading: HeadingLevel.HEADING_1 }));
+      children.push(new Paragraph({ text: current.education || 'Farmingdale State College' }));
 
       const doc = new Document({
-        styles: { default: { document: { run: { font: 'Calibri', color: '000000' } } } },
-        sections: [{
-          properties: { page: { margin: { top: 720, bottom: 720, left: 720, right: 720 } } },
-          children: [
-            new Paragraph({
-              alignment: AlignmentType.CENTER,
-              spacing: { after: 30 },
-              children: [new TextRun({ text: (nameInput.value.trim() || 'RESUME').toUpperCase(), bold: true, size: 30, color: '000000' })]
-            }),
-            ...(docxLine1Runs.length > 0 ? [
-              new Paragraph({
-                alignment: AlignmentType.CENTER,
-                spacing: { after: docxLine2Children.length > 0 ? 30 : 100 },
-                children: docxLine1Runs
-              })
-            ] : []),
-            ...(docxLine2Children.length > 0 ? [
-              new Paragraph({
-                alignment: AlignmentType.CENTER,
-                spacing: { after: 100 },
-                children: docxLine2Children
-              })
-            ] : []),
-            ...(summaryInput.value.trim() ? [createSectionHeading('PROFESSIONAL SUMMARY'), ...createDocxBulletParagraphs(summaryInput.value)] : []),
-            ...(activeSkills.length > 0 ? [
-              createSectionHeading('TECHNICAL SKILLS'),
-              new Paragraph({
-                spacing: { after: 80 },
-                children: docxSkillRuns
-              })
-            ] : []),
-            ...(activeExperiences.length > 0 ? [
-              createSectionHeading('PROFESSIONAL EXPERIENCE'),
-              ...activeExperiences.flatMap((exp: any) => [
-                new Paragraph({
-                  tabStops: [rightMarginTab],
-                  spacing: { before: 70, after: 20 },
-                  children: [
-                    new TextRun({ text: `${exp.role} `, bold: true, size: 20, color: '000000' }),
-                    new TextRun({ text: `— ${exp.company}`, size: 20, color: '000000' }),
-                    new TextRun({
-                      text: `\t${exp.start_date} – ${exp.end_date || 'Present'}`,
-                      bold: true,
-                      size: 18,
-                      color: '000000'
-                    })
-                  ]
-                }),
-                ...createDocxBulletParagraphs(exp.description)
-              ])
-            ] : []),
-            ...(activeProjects.length > 0 ? [
-              createSectionHeading('SELECTED PROJECTS'),
-              ...activeProjects.flatMap((proj: any) => {
-                const linkRuns: any[] = [];
-                if (proj.live_url || proj.github_url) {
-                  linkRuns.push(new TextRun({ text: '\t' }));
-                  if (proj.live_url) {
-                    linkRuns.push(new ExternalHyperlink({ children: [new TextRun({ text: 'Live Site', underline: {}, color: '000000', size: 17 })], link: ensureHttp(proj.live_url) }));
-                  }
-                  if (proj.live_url && proj.github_url) {
-                    linkRuns.push(new TextRun({ text: ' | ', color: '000000', size: 17 }));
-                  }
-                  if (proj.github_url) {
-                    linkRuns.push(new ExternalHyperlink({ children: [new TextRun({ text: 'GitHub', underline: {}, color: '000000', size: 17 })], link: ensureHttp(proj.github_url) }));
-                  }
-                }
-
-                const projectBodyText = proj.content?.trim() || proj.summary || '';
-
-                return [
-                  new Paragraph({ tabStops: [rightMarginTab], spacing: { before: 70, after: 10 }, children: [new TextRun({ text: proj.title, bold: true, size: 20, color: '000000' }), ...linkRuns] }),
-                  new Paragraph({ spacing: { after: 20 }, children: [new TextRun({ text: proj.tech_stack, italics: true, size: 17, color: '333333' })] }),
-                  ...createDocxBulletParagraphs(projectBodyText)
-                ];
-              })
-            ] : []),
-            ...(educationInput.value.trim() ? [
-              createSectionHeading('EDUCATION'),
-              new Paragraph({ spacing: { before: 50, after: 30 }, children: [new TextRun({ text: educationInput.value.trim(), size: 19, color: '000000' })] })
-            ] : [])
-          ]
-        }]
+        sections: [{ properties: {}, children }]
       });
 
       const blob = await Packer.toBlob(doc);
-      const docUrl = URL.createObjectURL(blob);
+      const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = docUrl;
-      const downloadName = (nameInput.value.trim() || 'Resume').replace(/\s+/g, '_');
-      a.download = `${downloadName}_Resume.docx`;
-      document.body.appendChild(a);
+      a.href = url;
+      a.download = `${(current.name || 'Resume').replace(/\s+/g, '_')}_Resume.docx`;
       a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(docUrl);
+      URL.revokeObjectURL(url);
     });
 
-    // Export .pdf via browser print
-    document.getElementById('download-pdf-btn')?.addEventListener('click', () => {
-      const originalTitle = document.title;
-      const printName = (nameInput.value.trim() || 'Resume').replace(/\s+/g, '_');
-      document.title = `${printName}_Resume`;
-      window.print();
-      document.title = originalTitle;
-    });
+    renderPreview();
   }
 </script>

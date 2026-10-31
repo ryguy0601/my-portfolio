@@ -57,7 +57,7 @@
 .theme-section-heading { border-bottom: 1px solid var(--theme-line); margin-bottom: 1rem; padding-bottom: 1rem; }
 .theme-section-heading h3, .theme-preview-toolbar h3 { margin: 0; }
 .theme-section-note { color: var(--color-text-muted-mid); font-size: 0.8rem; }
-.theme-presets { display: grid; gap: 0.6rem; grid-template-columns: repeat(5, 1fr); margin-bottom: 2rem; }
+.theme-presets { display: grid; gap: 0.6rem; grid-template-columns: repeat(6, 1fr); margin-bottom: 2rem; }
 .theme-preset { align-items: center; background: rgba(var(--body-bg-rgb), 0.45); border: 1px solid var(--card-border-color); border-radius: var(--radius-md); color: var(--body-color); cursor: pointer; display: flex; flex-direction: column; gap: 0.6rem; padding: 0.8rem 0.5rem; transition: var(--transition-interactive); }
 .theme-preset:hover { border-color: var(--color-primary); transform: translateY(-2px); }
 .theme-preset-swatch { background: linear-gradient(135deg, var(--preset-accent), var(--preset-secondary)); border-radius: var(--radius-sm); display: block; height: 2.5rem; width: 100%; }

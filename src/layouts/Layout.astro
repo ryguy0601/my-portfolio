@@ -6,17 +6,25 @@ import { getBaseUrl, getAdminUrl } from '../utils/url';
 
 interface Props {
   title?: string;
+  description?: string;
+  image?: string;
   hasHero?: boolean;
 }
 
 const { 
-  title = "Ryan Cuccurullo — Software Engineer Portfolio", 
+  title = "Ryan Cuccurullo — Software Engineer", 
+  description = "Software Engineer specializing in C#, .NET Blazor, Python automation, and full-stack web engineering.",
+  image = "/favicon.svg",
   hasHero = false 
 } = Astro.props;
 
 const baseUrl = getBaseUrl();
 const adminUrl = getAdminUrl();
 const persistedTheme = await ThemeService.getTheme(supabase);
+
+// Full canonical and image URLs for meta tags
+const canonicalUrl = new URL(Astro.url.pathname, Astro.site || 'https://myportfolio.com').href;
+const socialImageUrl = image.startsWith('http') ? image : new URL(image, Astro.site || 'https://myportfolio.com').href;
 ---
 
 <!doctype html>
@@ -28,17 +36,43 @@ const persistedTheme = await ThemeService.getTheme(supabase);
     <link rel="icon" href={`${baseUrl}favicon.ico`} />
     <meta name="generator" content={Astro.generator} />
     <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="author" content="Ryan Cuccurullo" />
+
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+    <!-- Open Graph (LinkedIn, GitHub preview unfurls) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={socialImageUrl} />
+    <meta property="og:site_name" content="Ryan Cuccurullo" />
+
+    <!-- Professional Profile Links -->
+    <meta property="profile:username" content="ryguy0601" />
+    <link rel="me" href="https://github.com/ryguy0601" />
+    <link rel="me" href="https://www.linkedin.com/in/ryan-cuccurullo-48b242261/" />
+
     <style set:html={themeStyle(persistedTheme)}></style>
   </head>
-  <body class="bg-body text-light">
+  <body class="bg-body text-light position-relative">
+    <!-- Global Architectural Background & Interactive Canvas -->
+    <div class="site-bg-layer position-fixed top-0 start-0 w-100 h-100 pointer-events-none" style="z-index: 0;">
+      <canvas id="bg-architecture-canvas" class="w-100 h-100 d-block"></canvas>
+      <div class="site-vignette position-absolute top-0 start-0 w-100 h-100"></div>
+    </div>
+
     <!-- Navigation Bar (Fixed Top) -->
-    <nav class="navbar navbar-expand-lg navbar-dark navbar-glass fixed-top py-3">
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-glass fixed-top py-2">
       <div class="container">
-        <!-- Brand Logo with Gradient Accents -->
-        <a class="navbar-brand fw-bold fs-4 d-flex align-items-center gap-1 text-decoration-none" href={baseUrl}>
-          <span class="text-accent fw-light">&lt;</span>
-          <span class="text-gradient px-1">RC</span>
-          <span class="text-accent fw-light">&gt;</span>
+        <!-- Clean Monospace Brand -->
+        <a class="navbar-brand fw-semibold d-flex align-items-center gap-2 text-decoration-none py-1" href={baseUrl}>
+          <span class="brand-dot"></span>
+          <span class="text-light tracking-tight" style="font-size: 1rem;">ryan.cuccurullo</span>
         </a>
 
         <!-- Mobile Toggle Button -->
@@ -56,17 +90,46 @@ const persistedTheme = await ThemeService.getTheme(supabase);
 
         <!-- Navbar Links -->
         <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
-          <ul class="navbar-nav align-items-center gap-lg-4 mt-3 mt-lg-0">
-            <!-- Dynamic Projects Link -->
+          <ul class="navbar-nav align-items-center gap-lg-3 mt-3 mt-lg-0">
             <li class="nav-item">
-              <a class="nav-link text-light px-2 py-1 custom-nav-link" href={`${baseUrl}projects`} id="projects-nav-link">
+              <a class="nav-link px-2 py-1 custom-nav-link" href={`${baseUrl}projects`}>
                 Projects
               </a>
             </li>
 
-            <li class="nav-item mt-2 mt-lg-0">
-              <a class="btn btn-outline-info btn-sm px-3 shadow-sm custom-nav-btn" href={adminUrl}>
-                Admin Dashboard
+            <li class="nav-item">
+              <a class="nav-link px-2 py-1 custom-nav-link" href={`${baseUrl}experience`}>
+                Experience
+              </a>
+            </li>
+
+            <li class="nav-item">
+              <a class="nav-link px-2 py-1 custom-nav-link" href={`${baseUrl}resume`}>
+                Resume
+              </a>
+            </li>
+
+            <li class="nav-item d-none d-lg-block">
+              <span class="text-secondary opacity-25">|</span>
+            </li>
+
+            <li class="nav-item">
+              <a class="nav-link px-2 py-1 custom-nav-link d-inline-flex align-items-center gap-1" href="https://github.com/ryguy0601" target="_blank" rel="noopener noreferrer" title="GitHub">
+                <i class="bi bi-github"></i>
+                <span class="d-lg-none ms-1">GitHub</span>
+              </a>
+            </li>
+
+            <li class="nav-item">
+              <a class="nav-link px-2 py-1 custom-nav-link d-inline-flex align-items-center gap-1" href="https://www.linkedin.com/in/ryan-cuccurullo-48b242261/" target="_blank" rel="noopener noreferrer" title="LinkedIn">
+                <i class="bi bi-linkedin"></i>
+                <span class="d-lg-none ms-1">LinkedIn</span>
+              </a>
+            </li>
+
+            <li class="nav-item mt-2 mt-lg-0 ms-lg-1">
+              <a class="btn btn-sm px-2 py-1 font-monospace custom-nav-btn" href={adminUrl} style="font-size: 0.78rem;">
+                admin
               </a>
             </li>
           </ul>
@@ -75,31 +138,455 @@ const persistedTheme = await ThemeService.getTheme(supabase);
     </nav>
 
     <!-- Page Content Slot -->
-    <main class={hasHero ? "" : "site-content-pad"}>
+    <main class={`position-relative ${hasHero ? "" : "site-content-pad"}`} style="z-index: 1;">
       <slot />
     </main>
 
-    <!-- Client-side script to handle smooth scrolling only when on homepage -->
+    <!-- Page-Specific Interactive Canvas Background Engine -->
     <script>
       document.addEventListener("DOMContentLoaded", () => {
-        const projectsLink = document.getElementById("projects-nav-link");
-        if (!projectsLink) return;
+        const canvas = document.getElementById("bg-architecture-canvas") as HTMLCanvasElement;
+        if (!canvas) return;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
 
-        projectsLink.addEventListener("click", (e) => {
-          const path = window.location.pathname;
-          
-          if (path === "/" || path === "") {
-            e.preventDefault();
-            const projectsSection = document.getElementById("projects") || document.querySelector(".hero-section + section");
-            if (projectsSection) {
-              projectsSection.scrollIntoView({ behavior: "smooth" });
-            } else {
-              window.scrollTo({ top: window.innerHeight, behavior: "smooth" });
+        let width = (canvas.width = window.innerWidth);
+        let height = (canvas.height = window.innerHeight);
+
+        const rootStyles = getComputedStyle(document.documentElement);
+        const canvasStyleSetting = rootStyles.getPropertyValue("--canvas-style").trim();
+        if (canvasStyleSetting === "none") {
+          canvas.style.display = "none";
+          return;
+        }
+
+        const primaryRgb =
+          rootStyles.getPropertyValue("--canvas-particle-primary-rgb").trim() ||
+          rootStyles.getPropertyValue("--color-primary-rgb").trim() ||
+          "16, 185, 129";
+        const secondaryRgb =
+          rootStyles.getPropertyValue("--canvas-particle-secondary-rgb").trim() ||
+          rootStyles.getPropertyValue("--color-secondary-rgb").trim() ||
+          "245, 158, 11";
+        const gridRgb =
+          rootStyles.getPropertyValue("--canvas-grid-color-rgb").trim() ||
+          rootStyles.getPropertyValue("--card-border-rgb").trim() ||
+          "39, 39, 42";
+
+        const path = window.location.pathname.replace(/\/+$/, "") || "/";
+        let pageMode: "home" | "projects" | "project-detail" | "experience" | "resume" | "404" = "404";
+        if (path === "/" || path === "/index.html") {
+          pageMode = "home";
+        } else if (path === "/projects") {
+          pageMode = "projects";
+        } else if (path.startsWith("/projects/")) {
+          pageMode = "project-detail";
+        } else if (path === "/experience") {
+          pageMode = "experience";
+        } else if (path === "/resume") {
+          pageMode = "resume";
+        }
+
+        const mouse = { x: -1000, y: -1000, targetX: -1000, targetY: -1000 };
+
+        window.addEventListener("resize", () => {
+          width = canvas.width = window.innerWidth;
+          height = canvas.height = window.innerHeight;
+        });
+
+        window.addEventListener("mousemove", (e) => {
+          mouse.targetX = e.clientX;
+          mouse.targetY = e.clientY;
+        });
+
+        window.addEventListener("mouseleave", () => {
+          mouse.targetX = -1000;
+          mouse.targetY = -1000;
+        });
+
+        // --- Mode 1: Home (Architectural Grid + Crosshairs + Data Pulses) ---
+        const gridSize = 56;
+        interface Pulse {
+          x: number;
+          y: number;
+          vx: number;
+          vy: number;
+          length: number;
+          color: string;
+          alpha: number;
+        }
+        const pulses: Pulse[] = [];
+        function spawnPulse(): Pulse {
+          const isHorizontal = Math.random() > 0.5;
+          const speed = 1.2 + Math.random() * 1.6;
+          const dir = Math.random() > 0.5 ? 1 : -1;
+          const col = Math.floor(Math.random() * Math.ceil(width / gridSize)) * gridSize;
+          const row = Math.floor(Math.random() * Math.ceil(height / gridSize)) * gridSize;
+          return {
+            x: isHorizontal ? (dir > 0 ? -100 : width + 100) : col,
+            y: isHorizontal ? row : (dir > 0 ? -100 : height + 100),
+            vx: isHorizontal ? speed * dir : 0,
+            vy: isHorizontal ? 0 : speed * dir,
+            length: 65 + Math.random() * 80,
+            color: Math.random() > 0.28 ? primaryRgb : secondaryRgb,
+            alpha: 0.25 + Math.random() * 0.3
+          };
+        }
+        if (pageMode === "home") {
+          for (let i = 0; i < 16; i++) {
+            const p = spawnPulse();
+            if (p.vx !== 0) p.x = Math.random() * width;
+            if (p.vy !== 0) p.y = Math.random() * height;
+            pulses.push(p);
+          }
+        }
+
+        // --- Mode 2: Projects Grid (Interactive Constellation / Network Topology) ---
+        interface NetNode {
+          x: number;
+          y: number;
+          vx: number;
+          vy: number;
+          radius: number;
+          color: string;
+        }
+        const netNodes: NetNode[] = [];
+        if (pageMode === "projects") {
+          const count = Math.min(70, Math.max(36, Math.floor((width * height) / 24000)));
+          for (let i = 0; i < count; i++) {
+            netNodes.push({
+              x: Math.random() * width,
+              y: Math.random() * height,
+              vx: (Math.random() - 0.5) * 0.55,
+              vy: (Math.random() - 0.5) * 0.55,
+              radius: 1.5 + Math.random() * 1.8,
+              color: i % 3 === 0 ? secondaryRgb : primaryRgb
+            });
+          }
+        }
+
+        // --- Mode 3: Project Detail (Isometric Radar & Diagonal Blueprint Matrix) ---
+        interface RadarRing {
+          x: number;
+          y: number;
+          r: number;
+          maxR: number;
+          speed: number;
+          color: string;
+        }
+        const radarRings: RadarRing[] = [];
+        if (pageMode === "project-detail") {
+          for (let i = 0; i < 6; i++) {
+            radarRings.push({
+              x: Math.random() * width,
+              y: Math.random() * height,
+              r: Math.random() * 180,
+              maxR: 180 + Math.random() * 160,
+              speed: 0.4 + Math.random() * 0.45,
+              color: i % 2 === 0 ? primaryRgb : secondaryRgb
+            });
+          }
+        }
+
+        // --- Mode 4: Experience (Flowing Topographic Sine Wave Telemetry) ---
+        let waveTick = 0;
+        interface WavePacket {
+          waveIndex: number;
+          x: number;
+          speed: number;
+          color: string;
+        }
+        const wavePackets: WavePacket[] = [];
+        if (pageMode === "experience") {
+          for (let i = 0; i < 12; i++) {
+            wavePackets.push({
+              waveIndex: i % 6,
+              x: Math.random() * width,
+              speed: 1.4 + Math.random() * 1.5,
+              color: i % 3 === 0 ? secondaryRgb : primaryRgb
+            });
+          }
+        }
+
+        // --- Mode 5: Resume (Precision Isometric Dot-Matrix Field) ---
+        let resumeTick = 0;
+
+        // --- Mode 6: 404 (Digital Signal Rain / Hex Glitch Stream) ---
+        interface RainColumn {
+          x: number;
+          y: number;
+          speed: number;
+          length: number;
+          color: string;
+        }
+        const rainCols: RainColumn[] = [];
+        if (pageMode === "404") {
+          const cols = Math.floor(width / 28);
+          for (let i = 0; i < cols; i++) {
+            rainCols.push({
+              x: i * 28 + 14,
+              y: Math.random() * height,
+              speed: 1.5 + Math.random() * 2.5,
+              length: 50 + Math.random() * 90,
+              color: i % 3 === 0 ? secondaryRgb : primaryRgb
+            });
+          }
+        }
+
+        function render() {
+          if (!ctx) return;
+          ctx.clearRect(0, 0, width, height);
+
+          // Smooth mouse interpolation
+          mouse.x += (mouse.targetX - mouse.x) * 0.12;
+          mouse.y += (mouse.targetY - mouse.y) * 0.12;
+
+          // Shared subtle cursor spotlight
+          if (mouse.x > -500 && mouse.y > -500) {
+            const spot = ctx.createRadialGradient(mouse.x, mouse.y, 0, mouse.x, mouse.y, 380);
+            spot.addColorStop(0, `rgba(${primaryRgb}, 0.075)`);
+            spot.addColorStop(0.5, `rgba(${secondaryRgb}, 0.025)`);
+            spot.addColorStop(1, "rgba(0, 0, 0, 0)");
+            ctx.fillStyle = spot;
+            ctx.fillRect(0, 0, width, height);
+          }
+
+          if (pageMode === "home") {
+            // 1. Architectural Grid Lines
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = `rgba(${gridRgb}, 0.35)`;
+            ctx.beginPath();
+            for (let x = 0; x <= width; x += gridSize) {
+              ctx.moveTo(x, 0);
+              ctx.lineTo(x, height);
+            }
+            for (let y = 0; y <= height; y += gridSize) {
+              ctx.moveTo(0, y);
+              ctx.lineTo(width, y);
+            }
+            ctx.stroke();
+
+            // 2. Precision Crosshairs (+)
+            const crossSize = 3.5;
+            for (let x = 0; x <= width; x += gridSize * 2) {
+              for (let y = 0; y <= height; y += gridSize * 2) {
+                const dist = Math.hypot(mouse.x - x, mouse.y - y);
+                const proximity = Math.max(0, 1 - dist / 260);
+                ctx.strokeStyle =
+                  proximity > 0
+                    ? `rgba(${primaryRgb}, ${0.18 + proximity * 0.58})`
+                    : `rgba(${gridRgb}, 0.65)`;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(x - crossSize, y);
+                ctx.lineTo(x + crossSize, y);
+                ctx.moveTo(x, y - crossSize);
+                ctx.lineTo(x, y + crossSize);
+                ctx.stroke();
+              }
+            }
+
+            // 3. Circuit Data Pulses
+            for (let i = 0; i < pulses.length; i++) {
+              const p = pulses[i];
+              p.x += p.vx;
+              p.y += p.vy;
+              if (
+                (p.vx > 0 && p.x - p.length > width) ||
+                (p.vx < 0 && p.x + p.length < 0) ||
+                (p.vy > 0 && p.y - p.length > height) ||
+                (p.vy < 0 && p.y + p.length < 0)
+              ) {
+                pulses[i] = spawnPulse();
+                continue;
+              }
+              const tailX = p.x - Math.sign(p.vx) * p.length;
+              const tailY = p.y - Math.sign(p.vy) * p.length;
+              const grad = ctx.createLinearGradient(tailX, tailY, p.x, p.y);
+              grad.addColorStop(0, `rgba(${p.color}, 0)`);
+              grad.addColorStop(1, `rgba(${p.color}, ${p.alpha})`);
+              ctx.strokeStyle = grad;
+              ctx.lineWidth = 1.6;
+              ctx.beginPath();
+              ctx.moveTo(tailX, tailY);
+              ctx.lineTo(p.x, p.y);
+              ctx.stroke();
+
+              ctx.fillStyle = `rgba(${p.color}, ${Math.min(1, p.alpha * 1.9)})`;
+              ctx.beginPath();
+              ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          } else if (pageMode === "projects") {
+            // Interactive Constellation / Network Topology
+            for (let i = 0; i < netNodes.length; i++) {
+              const n = netNodes[i];
+              n.x += n.vx;
+              n.y += n.vy;
+              if (n.x < 0 || n.x > width) n.vx *= -1;
+              if (n.y < 0 || n.y > height) n.vy *= -1;
+
+              // Mouse connection
+              const mDist = Math.hypot(mouse.x - n.x, mouse.y - n.y);
+              if (mDist < 200) {
+                ctx.strokeStyle = `rgba(${primaryRgb}, ${0.35 * (1 - mDist / 200)})`;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(n.x, n.y);
+                ctx.lineTo(mouse.x, mouse.y);
+                ctx.stroke();
+              }
+
+              // Node-to-node edges
+              for (let j = i + 1; j < netNodes.length; j++) {
+                const other = netNodes[j];
+                const dist = Math.hypot(n.x - other.x, n.y - other.y);
+                if (dist < 145) {
+                  const alpha = 0.24 * (1 - dist / 145);
+                  ctx.strokeStyle = `rgba(${n.color}, ${alpha})`;
+                  ctx.lineWidth = 1;
+                  ctx.beginPath();
+                  ctx.moveTo(n.x, n.y);
+                  ctx.lineTo(other.x, other.y);
+                  ctx.stroke();
+                }
+              }
+
+              ctx.fillStyle = `rgba(${n.color}, 0.65)`;
+              ctx.beginPath();
+              ctx.arc(n.x, n.y, n.radius, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          } else if (pageMode === "project-detail") {
+            // Diagonal Blueprint Hatch + Expanding Telemetry Radar Rings
+            const diagSpacing = 48;
+            ctx.strokeStyle = `rgba(${gridRgb}, 0.28)`;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for (let x = -height; x < width + height; x += diagSpacing) {
+              ctx.moveTo(x, 0);
+              ctx.lineTo(x + height, height);
+              ctx.moveTo(x, 0);
+              ctx.lineTo(x - height, height);
+            }
+            ctx.stroke();
+
+            for (let i = 0; i < radarRings.length; i++) {
+              const ring = radarRings[i];
+              ring.r += ring.speed;
+              if (ring.r >= ring.maxR) {
+                ring.x = mouse.x > 0 && Math.random() > 0.5 ? mouse.x : Math.random() * width;
+                ring.y = mouse.y > 0 && Math.random() > 0.5 ? mouse.y : Math.random() * height;
+                ring.r = 4;
+              }
+              const progress = ring.r / ring.maxR;
+              const alpha = (1 - progress) * 0.32;
+              ctx.strokeStyle = `rgba(${ring.color}, ${alpha})`;
+              ctx.lineWidth = 1.25;
+              ctx.beginPath();
+              ctx.arc(ring.x, ring.y, ring.r, 0, Math.PI * 2);
+              ctx.stroke();
+
+              // Center target dot
+              ctx.fillStyle = `rgba(${ring.color}, ${(1 - progress) * 0.45})`;
+              ctx.beginPath();
+              ctx.arc(ring.x, ring.y, 2, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          } else if (pageMode === "experience") {
+            // Flowing Topographic Sine Wave Telemetry + Traveling Data Packets
+            waveTick += 0.012;
+            const waveCount = 6;
+            const getWaveY = (wIdx: number, xPos: number) => {
+              const baseY = (height / (waveCount + 1)) * (wIdx + 1);
+              const mouseEffect =
+                mouse.x > 0
+                  ? Math.max(0, 1 - Math.hypot(mouse.x - xPos, mouse.y - baseY) / 320) * 28
+                  : 0;
+              return (
+                baseY +
+                Math.sin(xPos * 0.0045 + waveTick + wIdx * 0.9) * (24 + wIdx * 4) +
+                Math.cos(xPos * 0.002 - waveTick * 0.7) * 14 +
+                mouseEffect
+              );
+            };
+
+            for (let w = 0; w < waveCount; w++) {
+              const color = w % 2 === 0 ? primaryRgb : secondaryRgb;
+              ctx.strokeStyle = `rgba(${color}, 0.18)`;
+              ctx.lineWidth = 1.2;
+              ctx.beginPath();
+              for (let x = 0; x <= width; x += 12) {
+                const y = getWaveY(w, x);
+                if (x === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+              }
+              ctx.stroke();
+            }
+
+            // Data nodes riding along the telemetry waves
+            for (const pkt of wavePackets) {
+              pkt.x += pkt.speed;
+              if (pkt.x > width + 20) pkt.x = -20;
+              const py = getWaveY(pkt.waveIndex, pkt.x);
+              ctx.fillStyle = `rgba(${pkt.color}, 0.85)`;
+              ctx.beginPath();
+              ctx.arc(pkt.x, py, 2.6, 0, Math.PI * 2);
+              ctx.fill();
+
+              // Soft halo
+              ctx.fillStyle = `rgba(${pkt.color}, 0.2)`;
+              ctx.beginPath();
+              ctx.arc(pkt.x, py, 7, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          } else if (pageMode === "resume") {
+            // Minimalist Isometric Dot-Matrix Field with Cursor Wave
+            resumeTick += 0.02;
+            const dotGap = 36;
+            for (let x = dotGap / 2; x < width; x += dotGap) {
+              for (let y = dotGap / 2; y < height; y += dotGap) {
+                const dist = Math.hypot(mouse.x - x, mouse.y - y);
+                const prox = Math.max(0, 1 - dist / 220);
+                const wave = (Math.sin(x * 0.015 + y * 0.015 + resumeTick) + 1) * 0.5;
+                const radius = 1.1 + prox * 2.1 + wave * 0.4;
+
+                if (prox > 0.05) {
+                  ctx.fillStyle = `rgba(${primaryRgb}, ${0.25 + prox * 0.55})`;
+                } else if (wave > 0.82) {
+                  ctx.fillStyle = `rgba(${secondaryRgb}, 0.28)`;
+                } else {
+                  ctx.fillStyle = `rgba(${gridRgb}, 0.65)`;
+                }
+
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.fill();
+              }
             }
           } else {
-            window.location.href = "/projects";
+            // 404 Page: Digital Signal Rain / Glitch Telemetry
+            for (const col of rainCols) {
+              col.y += col.speed;
+              if (col.y - col.length > height) {
+                col.y = -20;
+              }
+              const grad = ctx.createLinearGradient(col.x, col.y - col.length, col.x, col.y);
+              grad.addColorStop(0, `rgba(${col.color}, 0)`);
+              grad.addColorStop(1, `rgba(${col.color}, 0.35)`);
+              ctx.strokeStyle = grad;
+              ctx.lineWidth = 1.5;
+              ctx.beginPath();
+              ctx.moveTo(col.x, col.y - col.length);
+              ctx.lineTo(col.x, col.y);
+              ctx.stroke();
+            }
           }
-        });
+
+          requestAnimationFrame(render);
+        }
+
+        render();
       });
     </script>
 
@@ -109,20 +596,66 @@ const persistedTheme = await ThemeService.getTheme(supabase);
 </html>
 
 <style>
-  /* Offsets content safely beneath the fixed navbar */
+  :global(body) {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    letter-spacing: -0.011em;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :global(.font-monospace), :global(code), :global(pre) {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  }
+
   .site-content-pad {
-    padding-top: clamp(80px, 10vh, 100px);
+    padding-top: clamp(72px, 8vh, 88px);
+  }
+
+  .site-bg-layer {
+    background:
+      radial-gradient(circle at 18% 12%, rgba(var(--color-primary-rgb), 0.065), transparent 42%),
+      radial-gradient(circle at 85% 82%, rgba(var(--color-secondary-rgb), 0.045), transparent 45%),
+      var(--body-bg);
+  }
+
+  .site-vignette {
+    background: radial-gradient(circle at 50% 50%, transparent 55%, rgba(var(--body-bg-rgb), 0.72) 100%);
+    pointer-events: none;
+  }
+
+  .brand-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--color-primary);
+    display: inline-block;
+  }
+
+  .custom-nav-link {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--nav-color, var(--color-text-muted-light)) !important;
+    transition: color 0.15s ease;
+
+    &:hover {
+      color: var(--nav-hover-color, var(--body-color)) !important;
+    }
+
+    &::after {
+      display: none !important;
+    }
   }
 
   .custom-nav-btn {
-    border-color: var(--nav-hover-color, var(--color-secondary));
-    color: var(--nav-hover-color, var(--color-secondary));
-    transition: all 0.2s ease;
+    border: 1px solid var(--nav-border-color, var(--card-border-color));
+    color: var(--color-text-muted-mid);
+    background: transparent;
+    border-radius: 4px;
+    transition: all 0.15s ease;
 
     &:hover {
-      background-color: var(--nav-hover-color, var(--color-secondary));
-      border-color: var(--nav-hover-color, var(--color-secondary));
-      color: var(--nav-bg, var(--body-bg));
+      border-color: var(--nav-hover-color, var(--color-primary));
+      color: var(--nav-color, var(--body-color));
+      background: rgba(var(--card-bg-rgb), 0.5);
     }
   }
 </style>

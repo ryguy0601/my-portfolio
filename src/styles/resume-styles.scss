@@ -1,0 +1,201 @@
+// Styles for Resume Builder templates
+
+.resume-sheet {
+  color: #1a1a1a !important;
+
+  .resume-contact-text,
+  .resume-links-text,
+  .resume-date-text,
+  .resume-meta-text {
+    color: #475569 !important;
+  }
+
+  a {
+    color: #0f172a !important;
+  }
+}
+
+.resume-style-modern {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif !important;
+  color: #1a1a1a;
+
+  .resume-header {
+    border-bottom: 2px solid #2563eb !important;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+  }
+
+  .resume-section-title {
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 0.05em;
+    color: #1e3a8a;
+    border-bottom: 1px solid #93c5fd;
+    padding-bottom: 2px;
+    margin-bottom: 6px;
+  }
+}
+
+.resume-style-classic {
+  font-family: 'Georgia', 'Cambria', serif !important;
+  color: #111111;
+
+  .resume-header {
+    border-bottom: 2px solid #111111 !important;
+    padding-bottom: 6px;
+    margin-bottom: 10px;
+  }
+
+  .resume-section-title {
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.82rem;
+    letter-spacing: 0.08em;
+    color: #111111;
+    border-bottom: 1px solid #444444;
+    padding-bottom: 2px;
+    margin-bottom: 6px;
+  }
+}
+
+.resume-style-minimal {
+  font-family: 'Calibri', 'Arial', sans-serif !important;
+  color: #222222;
+
+  .resume-header {
+    border-bottom: 1.5px solid #475569 !important;
+    padding-bottom: 6px;
+    margin-bottom: 10px;
+  }
+
+  .resume-section-title {
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    color: #334155;
+    border-bottom: 1px solid #cbd5e1;
+    padding-bottom: 2px;
+    margin-bottom: 5px;
+  }
+}
+
+// Form Input Placeholders
+::placeholder {
+  color: #94a3b8 !important;
+  opacity: 1 !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #94a3b8 !important;
+  opacity: 1 !important;
+}
+
+// Compact Mode styles for single page fitting
+.resume-sheet.compact-mode {
+  padding: 24px 30px !important;
+
+  .resume-header {
+    margin-bottom: 6px !important;
+    padding-bottom: 4px !important;
+  }
+
+  .resume-section-title {
+    margin-top: 4px !important;
+    margin-bottom: 3px !important;
+    padding-bottom: 1px !important;
+  }
+
+  p, li, div, span {
+    font-size: 0.77rem !important;
+    line-height: 1.25 !important;
+  }
+
+  .mb-2 {
+    margin-bottom: 0.3rem !important;
+  }
+
+  ul {
+    margin-top: 1px !important;
+    margin-bottom: 3px !important;
+  }
+
+  li {
+    margin-bottom: 1px !important;
+  }
+}
+
+// Ensure all text inside resume paper preview is crisp and high-contrast
+.resume-sheet {
+
+  h2, h3, h4, h5, h6, strong, b {
+    color: #0f172a !important;
+  }
+
+  p, li, span, div {
+    color: #1f2937 !important;
+  }
+
+  .resume-section-title {
+    font-weight: 700 !important;
+  }
+
+  .resume-contact-text,
+  .resume-links-text,
+  .resume-date-text,
+  .resume-meta-text {
+    color: #4b5563 !important;
+  }
+
+  a {
+    color: #1d4ed8 !important;
+    text-decoration: underline !important;
+  }
+}
+
+// Cover letter paper sheet preview styles - ensure zero white text on white paper
+.cover-letter-sheet {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+
+  h1, h2, h3, h4, h5, h6, strong, b {
+    color: #0f172a !important;
+  }
+
+  p, li, span, div, small {
+    color: #1f2937 !important;
+  }
+
+  .cover-letter-header {
+    border-bottom: 2px solid #2563eb !important;
+  }
+
+  .cover-letter-contact,
+  .cover-letter-links {
+    color: #4b5563 !important;
+  }
+
+  .cover-letter-body {
+    color: #111827 !important;
+
+    * {
+      color: #111827 !important;
+    }
+
+    strong, b {
+      color: #0f172a !important;
+      font-weight: 700 !important;
+    }
+
+    .cover-letter-placeholder {
+      color: #64748b !important;
+    }
+  }
+
+  a {
+    color: #1d4ed8 !important;
+    text-decoration: underline !important;
+  }
+}

@@ -21,6 +21,7 @@
     "bootstrap": "^5.3.8",
     "bootstrap-icons": "^1.13.1",
     "docx": "^9.7.2",
+    "html2pdf.js": "^0.14.0",
     "marked": "^18.1.0",
     "otplib": "^13.5.0",
     "qrcode": "^1.5.4",
