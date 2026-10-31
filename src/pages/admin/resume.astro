@@ -909,13 +909,19 @@ const groupedSkills = groupSkillsByCategory(skills || []);
       return text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
     }
 
+    function formatBoldText(t: string): string {
+      if (!t) return '';
+      return t
+        .replace(/\*\*(.*?)\*\*/gs, '<strong class="fw-bold">$1</strong>')
+        .replace(/__(.*?)__/gs, '<strong class="fw-bold">$1</strong>');
+    }
+
     function createHtmlBulletList(lines: string[]): string {
       if (lines.length === 0) return '';
-      const formatBold = (t: string) => (t || '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
       if (lines.length === 1) {
-        return `<p class="small mb-0 text-dark" style="font-size: 0.8rem; line-height: 1.35;">${formatBold(lines[0])}</p>`;
+        return `<p class="small mb-0 text-dark" style="font-size: 0.8rem; line-height: 1.35;">${formatBoldText(lines[0])}</p>`;
       }
-      return `<ul class="small mb-0 text-dark ps-3" style="font-size: 0.8rem; line-height: 1.35;">${lines.map(l => `<li class="mb-1">${formatBold(l)}</li>`).join('')}</ul>`;
+      return `<ul class="small mb-0 text-dark ps-3" style="font-size: 0.8rem; line-height: 1.35;">${lines.map(l => `<li class="mb-1">${formatBoldText(l)}</li>`).join('')}</ul>`;
     }
 
     function renderPreview() {
@@ -931,7 +937,7 @@ const groupedSkills = groupSkillsByCategory(skills || []);
       applyTemplateClass(getSelectedStyle());
 
       if (prevName) prevName.textContent = nameInput.value || 'YOUR NAME';
-      if (prevEdu) prevEdu.innerHTML = educationInput.value.replace(/\n/g, '<br/>');
+      if (prevEdu) prevEdu.innerHTML = formatBoldText(educationInput.value).replace(/\n/g, '<br/>');
 
       const contactElements: string[] = [];
       if (locationInput.value.trim()) contactElements.push(locationInput.value.trim());
@@ -1144,7 +1150,7 @@ const groupedSkills = groupSkillsByCategory(skills || []);
     });
 
     function formatMarkdownBold(text: string): string {
-      return (text || '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      return formatBoldText(text);
     }
 
     function updateCoverLetterPreview(text: string) {
@@ -1445,8 +1451,8 @@ const groupedSkills = groupSkillsByCategory(skills || []);
 
           ${summaryBullets.length > 0 ? `
             <div class="section-title">Professional Summary</div>
-            ${summaryBullets.length === 1 ? `<p style="margin: 0 0 6px 0;">${summaryBullets[0]}</p>` : `
-              <ul>${summaryBullets.map((b: string) => `<li>${b}</li>`).join('')}</ul>
+            ${summaryBullets.length === 1 ? `<p style="margin: 0 0 6px 0;">${formatBoldText(summaryBullets[0])}</p>` : `
+              <ul>${summaryBullets.map((b: string) => `<li>${formatBoldText(b)}</li>`).join('')}</ul>
             `}
           ` : ''}
 
@@ -1467,7 +1473,7 @@ const groupedSkills = groupSkillsByCategory(skills || []);
                   <span><strong>${exp.company}</strong> — ${exp.role}</span>
                   <span class="date">${exp.start_date} – ${exp.end_date || 'Present'}</span>
                 </div>
-                <ul>${splitBullets(exp.description || '').map((b: string) => `<li>${b}</li>`).join('')}</ul>
+                <ul>${splitBullets(exp.description || '').map((b: string) => `<li>${formatBoldText(b)}</li>`).join('')}</ul>
               </div>
             `).join('')}
           ` : ''}
@@ -1480,14 +1486,14 @@ const groupedSkills = groupSkillsByCategory(skills || []);
                   <span><strong>${proj.title}</strong> ${proj.tech_stack ? `— <span class="tech">${proj.tech_stack}</span>` : ''}</span>
                   ${proj.github_url ? `<a href="${ensureHttp(proj.github_url)}" target="_blank">GitHub</a>` : ''}
                 </div>
-                <ul>${splitBullets(proj.summary || proj.content || '').map((b: string) => `<li>${b}</li>`).join('')}</ul>
+                <ul>${splitBullets(proj.summary || proj.content || '').map((b: string) => `<li>${formatBoldText(b)}</li>`).join('')}</ul>
               </div>
             `).join('')}
           ` : ''}
 
           ${data.education ? `
             <div class="section-title">Education</div>
-            <div style="font-size: 8.5pt; white-space: pre-line;">${data.education}</div>
+            <div style="font-size: 8.5pt; white-space: pre-line;">${formatBoldText(data.education)}</div>
           ` : ''}
 
           <script>

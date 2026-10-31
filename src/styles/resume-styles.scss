@@ -130,12 +130,25 @@ textarea::placeholder {
 // Ensure all text inside resume paper preview is crisp and high-contrast
 .resume-sheet {
 
-  h2, h3, h4, h5, h6, strong, b {
+  h2, h3, h4, h5, h6 {
     color: #0f172a !important;
+    font-weight: 700 !important;
+  }
+
+  strong, b, .fw-bold {
+    color: #000000 !important;
+    font-weight: 700 !important;
+    -webkit-text-stroke: 0.35px #000000;
   }
 
   p, li, span, div {
     color: #1f2937 !important;
+  }
+
+  // Ensure child elements inside strong/b or with bold class inherit font-weight
+  strong *, b *, .fw-bold * {
+    font-weight: 700 !important;
+    color: #000000 !important;
   }
 
   .resume-section-title {
