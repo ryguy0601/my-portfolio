@@ -3,18 +3,33 @@
 import Layout from '../layouts/Layout.astro';
 import { supabase } from '../utils/supabase';
 import { ResumeService } from '../services/resumeService';
-import { splitLines } from '../utils/text';
+import { GitHubProjectsService } from '../services/githubProjectsService';
+import { splitLines, formatMarkdownBold } from '../utils/text';
 import '../styles/resume-styles.scss';
 
-// Fetch database records and saved resume decision config
-const [{ data: projects }, { data: experiences }, { data: skills }, savedConfig] = await Promise.all([
-  supabase.from('projects').select('*').order('id', { ascending: false }),
+// Fetch database records, active unified projects, and saved resume decision config
+const [portfolioProjectsResult, { data: experiences }, { data: skills }, savedConfig] = await Promise.all([
+  GitHubProjectsService.getPortfolioProjects(supabase),
   supabase.from('work_experience').select('*').order('order_index', { ascending: true }),
   supabase.from('skills').select('*').order('category', { ascending: true }).order('order_index', { ascending: true }),
   ResumeService.getConfig(supabase)
 ]);
 
+const projects = portfolioProjectsResult?.projects || [];
 const config = savedConfig;
+
+// Helper: matches a project by any of its identifier variants (id, numeric_id, slug, repo_name)
+function matchesProjectId(project: any, targetId: any): boolean {
+  if (!project || targetId === undefined || targetId === null) return false;
+  const t = String(targetId).trim().toLowerCase();
+  if (!t) return false;
+  return (
+    String(project.id || '').trim().toLowerCase() === t ||
+    String(project.numeric_id || '').trim().toLowerCase() === t ||
+    String(project.slug || '').trim().toLowerCase() === t ||
+    String(project.repo_name || '').trim().toLowerCase() === t
+  );
+}
 
 // Filter items according to saved DB preferences
 const filteredExperiences = (experiences || []).filter((e: any) => 
@@ -22,12 +37,31 @@ const filteredExperiences = (experiences || []).filter((e: any) =>
 );
 
 let filteredProjects: any[] = [];
-if (Array.isArray(config.tailoredProjects) && config.tailoredProjects.length > 0) {
+if (Array.isArray(config.selectedProjects) && config.selectedProjects.length > 0) {
+  // Respect the explicitly selected projects from admin builder
+  filteredProjects = (projects || []).filter((p: any) => 
+    config.selectedProjects.some((targetId: any) => matchesProjectId(p, targetId))
+  );
+
+  // If there are tailored project overrides matching selected projects, enrich with tailored bullets
+  if (Array.isArray(config.tailoredProjects) && config.tailoredProjects.length > 0) {
+    filteredProjects = filteredProjects.map((p: any) => {
+      const tailored = config.tailoredProjects?.find((tp: any) => matchesProjectId(tp, p.id));
+      if (tailored) {
+        return {
+          ...p,
+          title: tailored.title || p.title,
+          tech_stack: tailored.tech_stack || p.tech_stack,
+          bullets: tailored.bullets || p.bullets,
+        };
+      }
+      return p;
+    });
+  }
+} else if (Array.isArray(config.tailoredProjects) && config.tailoredProjects.length > 0) {
   filteredProjects = config.tailoredProjects;
 } else {
-  filteredProjects = (projects || []).filter((p: any) => 
-    config.selectedProjects.length === 0 || config.selectedProjects.includes(String(p.id))
-  );
+  filteredProjects = (projects || []).slice(0, 3);
 }
 
 const filteredSkills = (skills || []).filter((s: any) => 
@@ -97,11 +131,11 @@ const isCompact = config.compactMode ? 'compact-mode' : '';
             <div class="resume-section-title">Professional Summary</div>
             <div class="small mb-0" style="line-height: 1.35;">
               {summaryLines.length === 1 ? (
-                <p class="mb-0">{summaryLines[0]}</p>
+                <p class="mb-0" set:html={formatMarkdownBold(summaryLines[0])} />
               ) : (
                 <ul class="mb-0 ps-3">
                   {summaryLines.map((line: string) => (
-                    <li class="mb-1">{line}</li>
+                    <li class="mb-1" set:html={formatMarkdownBold(line)} />
                   ))}
                 </ul>
               )}
@@ -138,7 +172,7 @@ const isCompact = config.compactMode ? 'compact-mode' : '';
                     </div>
                     <ul class="small mb-0 text-dark ps-3" style="font-size: 0.8rem; line-height: 1.35;">
                       {expBullets.map((bullet: string) => (
-                        <li class="mb-1">{bullet}</li>
+                        <li class="mb-1" set:html={formatMarkdownBold(bullet)} />
                       ))}
                     </ul>
                   </div>
@@ -165,7 +199,7 @@ const isCompact = config.compactMode ? 'compact-mode' : '';
                     </div>
                     <ul class="small mb-0 text-dark ps-3" style="font-size: 0.8rem; line-height: 1.35;">
                       {projBullets.map((bullet: string) => (
-                        <li class="mb-1">{bullet}</li>
+                        <li class="mb-1" set:html={formatMarkdownBold(bullet)} />
                       ))}
                     </ul>
                   </div>
@@ -181,7 +215,7 @@ const isCompact = config.compactMode ? 'compact-mode' : '';
             <div class="resume-section-title">Education</div>
             <div class="small mb-0" style="line-height: 1.35;">
               {config.education.split('\n').map((line: string) => (
-                <div>{line}</div>
+                <div set:html={formatMarkdownBold(line)} />
               ))}
             </div>
           </div>

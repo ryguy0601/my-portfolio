@@ -77,7 +77,10 @@ export async function downloadResumeDirectPdf(data: ResumePdfData, filename?: st
   const listStyle = `margin: 2px 0 ${data.compactMode ? '4px' : '6px'} 16px; padding: 0; font-size: ${data.compactMode ? '8.5pt' : '9pt'}; line-height: ${data.compactMode ? '1.25' : '1.35'};`;
 
   function formatBold(text: string): string {
-    return (text || '').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    if (!text) return '';
+    return text
+      .replace(/\*\*(.*?)\*\*/gs, '<strong>$1</strong>')
+      .replace(/__(.*?)__/gs, '<strong>$1</strong>');
   }
 
   const expHtml = (data.selectedExperiences || []).map(exp => {
