@@ -463,15 +463,22 @@ const techCount = splitCommaList(project?.tech_stack).length;
   /* Thumbnail buttons */
   .thumbnail-nav-btn {
     background: transparent;
-    border-color: var(--card-border-color) !important;
-    opacity: 0.6;
+    border: 2px solid var(--card-border-color) !important;
+    opacity: 0.55;
+    cursor: pointer;
+    padding: 2px !important;
     transition: all 0.2s ease;
   }
-  .thumbnail-nav-btn:hover,
-  .thumbnail-nav-btn.active-thumb {
-    opacity: 1;
-    border-color: var(--color-secondary) !important;
+  .thumbnail-nav-btn:hover {
+    opacity: 0.9;
+    border-color: rgba(var(--color-primary-rgb), 0.5) !important;
     transform: translateY(-2px);
+  }
+  .thumbnail-nav-btn.active-thumb {
+    opacity: 1 !important;
+    border-color: var(--color-primary) !important;
+    box-shadow: 0 0 12px rgba(var(--color-primary-rgb), 0.5);
+    transform: translateY(-2px) scale(1.04);
   }
 
   /* Bullet Lists & Prose */
@@ -628,3 +635,57 @@ const techCount = splitCommaList(project?.tech_stack).length;
     margin: 2rem 0;
   }
 </style>
+
+<script>
+  function setupProjectCarousel() {
+    const carouselEl = document.getElementById('projectDetailCarousel');
+    if (!carouselEl) return;
+
+    const thumbBtns = document.querySelectorAll<HTMLButtonElement>('.thumbnail-nav-btn');
+    if (thumbBtns.length === 0) return;
+
+    // Helper to sync active thumbnail class with current slide index
+    const updateActiveThumbnail = (activeIndex: number) => {
+      thumbBtns.forEach((btn, idx) => {
+        const isCurrent = idx === activeIndex;
+        btn.classList.toggle('active-thumb', isCurrent);
+        btn.setAttribute('aria-current', isCurrent ? 'true' : 'false');
+      });
+    };
+
+    // When the Bootstrap carousel slides (via arrow keys, auto-play, or prev/next buttons)
+    carouselEl.addEventListener('slide.bs.carousel', (event: any) => {
+      if (typeof event.to === 'number') {
+        updateActiveThumbnail(event.to);
+      }
+    });
+
+    // Explicit click handler for thumbnail buttons
+    thumbBtns.forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const targetIndex = parseInt(btn.getAttribute('data-bs-slide-to') || '0', 10);
+        
+        // Immediately highlight the clicked thumbnail
+        updateActiveThumbnail(targetIndex);
+
+        // Control Bootstrap carousel instance
+        const bootstrap = (window as any).bootstrap;
+        if (bootstrap && bootstrap.Carousel) {
+          const carouselInstance = bootstrap.Carousel.getOrCreateInstance(carouselEl);
+          if (carouselInstance) {
+            carouselInstance.to(targetIndex);
+          }
+        }
+      });
+    });
+  }
+
+  // Run on initial load and View Transitions page updates
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupProjectCarousel);
+  } else {
+    setupProjectCarousel();
+  }
+  document.addEventListener('astro:page-load', setupProjectCarousel);
+</script>
