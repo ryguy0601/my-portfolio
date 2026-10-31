@@ -1515,13 +1515,34 @@ const groupedSkills = groupSkillsByCategory(skills || []);
       try {
         const state = getCurrentState();
         const selectedSkills = rawSkills.filter((s: any) => state.selectedSkills.includes(String(s.id)));
-        let selectedProjects: any[] = [];
-        if (Array.isArray(customTailoredProjects) && customTailoredProjects.length > 0) {
-          selectedProjects = customTailoredProjects;
-        } else {
-          selectedProjects = rawProjects.filter((p: any) => state.selectedProjects.some(id => matchesProjectId(p, id)));
-        }
         const selectedExperiences = rawExperiences.filter((e: any) => state.selectedExperiences.includes(String(e.id)));
+
+        // Filter projects checked in the UI and enrich with custom tailored bullets/tech stack while preserving repo github_url
+        let selectedProjects = rawProjects
+          .filter((p: any) => state.selectedProjects.some(id => matchesProjectId(p, id)))
+          .map((p: any) => {
+            const tailored = (customTailoredProjects || []).find((tp: any) => matchesProjectId(tp, p.id));
+            if (tailored) {
+              return {
+                ...p,
+                title: tailored.title || p.title,
+                tech_stack: tailored.tech_stack || p.tech_stack,
+                bullets: tailored.bullets || p.bullets,
+                github_url: tailored.github_url || p.github_url
+              };
+            }
+            return p;
+          });
+
+        if (selectedProjects.length === 0 && Array.isArray(customTailoredProjects) && customTailoredProjects.length > 0) {
+          selectedProjects = customTailoredProjects.map((tp: any) => {
+            const matchedRaw = rawProjects.find((p: any) => matchesProjectId(p, tp.id));
+            return {
+              ...tp,
+              github_url: tp.github_url || matchedRaw?.github_url
+            };
+          });
+        }
 
         await downloadResumeDirectPdf({
           ...state,

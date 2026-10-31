@@ -59,7 +59,13 @@ if (Array.isArray(config.selectedProjects) && config.selectedProjects.length > 0
     });
   }
 } else if (Array.isArray(config.tailoredProjects) && config.tailoredProjects.length > 0) {
-  filteredProjects = config.tailoredProjects;
+  filteredProjects = config.tailoredProjects.map((tp: any) => {
+    const matchedRaw = (projects || []).find((p: any) => matchesProjectId(p, tp.id));
+    return {
+      ...tp,
+      github_url: tp.github_url || matchedRaw?.github_url
+    };
+  });
 } else {
   filteredProjects = (projects || []).slice(0, 3);
 }

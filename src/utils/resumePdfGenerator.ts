@@ -377,7 +377,8 @@ export async function downloadResumeDirectPdf(data: ResumePdfData, filename?: st
 
     for (const proj of projects) {
       // Header: Title — Tech Stack | GitHub Link (Right-Aligned)
-      const hasGithub = Boolean(proj.github_url);
+      const rawGhUrl = proj.github_url || proj.github || (proj.repo_name ? `https://github.com/ryguy0601/${proj.repo_name}` : null);
+      const hasGithub = Boolean(rawGhUrl);
       const ghText = 'GitHub';
       doc.setFont(fontFamily, 'normal');
       doc.setFontSize(projFontSize - 0.5);
@@ -413,12 +414,12 @@ export async function downloadResumeDirectPdf(data: ResumePdfData, filename?: st
       }
 
       // Draw GitHub link
-      if (hasGithub) {
+      if (hasGithub && rawGhUrl) {
         doc.setFont(fontFamily, 'normal');
         doc.setFontSize(projFontSize - 0.5);
         doc.setTextColor(29, 78, 216);
         doc.text(ghText, ghX, y + 6);
-        doc.link(ghX, y - 2, ghW, 11, { url: ensureHttp(proj.github_url) });
+        doc.link(ghX, y - 2, ghW, 11, { url: ensureHttp(rawGhUrl) });
 
         doc.setDrawColor(29, 78, 216);
         doc.setLineWidth(0.5);
