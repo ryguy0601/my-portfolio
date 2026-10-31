@@ -6,8 +6,9 @@
     "node": ">=22.12.0"
   },
   "scripts": {
-    "dev": "astro dev",
-    "build": "astro build",
+    "postinstall": "node scripts/sync-skills.js",
+    "dev": "node scripts/sync-skills.js && astro dev",
+    "build": "node scripts/sync-skills.js && astro build",
     "build:pages": "astro build --config astro.config.github.mjs",
     "preview": "astro preview",
     "astro": "astro"
