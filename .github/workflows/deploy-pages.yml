@@ -31,11 +31,15 @@ jobs:
         run: npm run build:pages
         env:
           GITHUB_PAGES_BASE: /my-portfolio
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           PUBLIC_ADMIN_URL: ${{ secrets.PUBLIC_ADMIN_URL }}
       - name: Remove server-only pages
-        run: rm -rf dist/admin dist/admin.html
+        # GitHub Pages is static: the admin CMS and API endpoints cannot run
+        # there. Drop their build output so no admin shell or endpoint stub is
+        # published alongside the public site.
+        run: rm -rf dist/admin dist/admin.html dist/api
       - name: Configure Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact

@@ -1,6 +1,5 @@
 ---
 // src/pages/projects/[slug].astro
-export const prerender = false;
 import Layout from '../../layouts/Layout.astro';
 import TechBadgeList from '../../components/TechBadgeList.astro';
 import NoImagePlaceholder from '../../components/NoImagePlaceholder.astro';
@@ -8,9 +7,54 @@ import { supabase } from '../../utils/supabase';
 import { getBaseUrl } from '../../utils/url';
 import { parseProjectImages, isReadmeUrl, fetchReadmeMarkdown } from '../../utils/projects';
 import { splitLines, splitCommaList } from '../../utils/text';
+import { renderMarkdownSafe } from '../../utils/sanitize';
 import { GitHubProjectsService } from '../../services/githubProjectsService';
-import { marked } from 'marked';
 import '../../styles/main.scss';
+
+// The GitHub Pages workflow builds a purely static site, so this route must be
+// prerendered there. The Vercel deployment keeps it on-demand so it always
+// serves the latest data without a rebuild.
+// NOTE: `prerender`/`getStaticPaths` are hoisted out of the frontmatter by the
+// Astro compiler, so the check must be written inline rather than via a local
+// const declared in the frontmatter.
+export const prerender = Boolean(process.env.GITHUB_PAGES_BASE);
+
+/**
+ * Only runs for the static GitHub Pages build. Enumerates every routable
+ * project — curated database rows plus GitHub-synced repositories — so each
+ * `/projects/<slug>` page exists in the generated output.
+ */
+export async function getStaticPaths() {
+  if (!process.env.GITHUB_PAGES_BASE) return [];
+
+  const paths: Array<{ params: { slug: string } }> = [];
+  const seen = new Set<string>();
+
+  const add = (value: string | number | null | undefined) => {
+    const slug = String(value ?? '').trim();
+    if (!slug || seen.has(slug)) return;
+    seen.add(slug);
+    paths.push({ params: { slug } });
+  };
+
+  try {
+    const { data: dbProjects } = await supabase.from('projects').select('id, slug');
+    for (const project of dbProjects || []) {
+      add(project.slug);
+      add(project.id);
+    }
+
+    const { projects: portfolioProjects } = await GitHubProjectsService.getPortfolioProjects(supabase);
+    for (const project of portfolioProjects || []) {
+      add((project as any).slug);
+      add((project as any).id);
+    }
+  } catch (err) {
+    console.error('[projects/[slug]] getStaticPaths enumeration failed:', err);
+  }
+
+  return paths;
+}
 
 const { slug } = Astro.params;
 
@@ -83,12 +127,12 @@ if (rawContent) {
   if (isReadmeUrl(rawContent)) {
     const fetchedMarkdown = await fetchReadmeMarkdown(rawContent);
     if (fetchedMarkdown) {
-      parsedContentHtml = marked.parse(fetchedMarkdown, { gfm: true, breaks: true }) as string;
+      parsedContentHtml = renderMarkdownSafe(fetchedMarkdown);
     } else {
-      parsedContentHtml = marked.parse(`> 📖 **Project Documentation**\n>\n> [View README on GitHub](${rawContent})`, { gfm: true, breaks: true }) as string;
+      parsedContentHtml = renderMarkdownSafe(`> 📖 **Project Documentation**\n>\n> [View README on GitHub](${rawContent})`);
     }
   } else {
-    parsedContentHtml = marked.parse(rawContent, { gfm: true, breaks: true }) as string;
+    parsedContentHtml = renderMarkdownSafe(rawContent);
   }
 }
 

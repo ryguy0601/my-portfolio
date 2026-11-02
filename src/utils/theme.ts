@@ -206,17 +206,8 @@ export function themeStyle(theme: Record<string, string>): string {
   return `:root{${Object.entries(sanitizeTheme(theme)).map(([key, value]) => `${key}:${value}!important`).join(';')}}`;
 }
 
-import { ThemeService, themeService } from '../services/themeService';
-
-/**
- * Loads the active persisted theme from Supabase with in-memory caching and fallback to DEFAULT_THEME.
- */
-export async function getPersistedTheme(
-  supabaseClient: any,
-  options?: { forceRefresh?: boolean; ttlMs?: number }
-): Promise<Record<string, string>> {
-  return ThemeService.getTheme(supabaseClient, options);
-}
-
-export { ThemeService, themeService };
+// NOTE: this module used to import `../services/themeService` here to re-export
+// `getPersistedTheme`/`ThemeService`. `themeService` already imports from this
+// file, so that created a circular dependency. Import `ThemeService` directly
+// from `../services/themeService` instead.
 

@@ -1,7 +1,8 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { supabase, getAdminCounts } from '../../utils/supabase';
-import { DEFAULT_THEME, THEME_FIELDS, sanitizeTheme, ThemeService } from '../../utils/theme';
+import { DEFAULT_THEME, THEME_FIELDS } from '../../utils/theme';
+import { ThemeService } from '../../services/themeService';
 import '../../styles/theme.scss';
 
 let errorMessage = '';

@@ -14,7 +14,7 @@ interface Props {
 const { 
   title = "Ryan Cuccurullo — Software Engineer", 
   description = "Software Engineer specializing in C#, .NET Blazor, Python automation, and full-stack web engineering.",
-  image = "/favicon.svg",
+  image = "/og-image.png",
   hasHero = false 
 } = Astro.props;
 
@@ -22,9 +22,11 @@ const baseUrl = getBaseUrl();
 const adminUrl = getAdminUrl();
 const persistedTheme = await ThemeService.getTheme(supabase);
 
-// Full canonical and image URLs for meta tags
-const canonicalUrl = new URL(Astro.url.pathname, Astro.site || 'https://myportfolio.com').href;
-const socialImageUrl = image.startsWith('http') ? image : new URL(image, Astro.site || 'https://myportfolio.com').href;
+// Canonical/OG URLs. `Astro.site` is set in astro.config.mjs; the fallback is
+// the real production domain (it previously pointed at an unregistered host).
+const siteOrigin = Astro.site || 'https://www.ryancuccurullo.com';
+const canonicalUrl = new URL(Astro.url.pathname, siteOrigin).href;
+const socialImageUrl = image.startsWith('http') ? image : new URL(image, siteOrigin).href;
 ---
 
 <!doctype html>
@@ -173,7 +175,13 @@ const socialImageUrl = image.startsWith('http') ? image : new URL(image, Astro.s
           rootStyles.getPropertyValue("--card-border-rgb").trim() ||
           "39, 39, 42";
 
-        const path = window.location.pathname.replace(/\/+$/, "") || "/";
+        // Strip the deploy base path (`/my-portfolio/` on GitHub Pages) so page
+        // detection works the same as on the root-domain deployment.
+        const basePath = (import.meta.env.BASE_URL || "/").replace(/\/+$/, "");
+        let path = window.location.pathname.replace(/\/+$/, "") || "/";
+        if (basePath && basePath !== "/" && path.startsWith(basePath)) {
+          path = path.slice(basePath.length) || "/";
+        }
         let pageMode: "home" | "projects" | "project-detail" | "experience" | "resume" | "404" = "404";
         if (path === "/" || path === "/index.html") {
           pageMode = "home";
@@ -333,7 +341,13 @@ const socialImageUrl = image.startsWith('http') ? image : new URL(image, Astro.s
           }
         }
 
+        // Animation loop controls: honour reduced-motion preferences and stop
+        // burning frames while the tab is in the background.
+        const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+        let animationFrame = 0;
+
         function render() {
+          animationFrame = 0;
           if (!ctx) return;
           ctx.clearRect(0, 0, width, height);
 
@@ -583,15 +597,29 @@ const socialImageUrl = image.startsWith('http') ? image : new URL(image, Astro.s
             }
           }
 
-          requestAnimationFrame(render);
+          // Reduced motion: draw a single static frame and stop looping.
+          if (motionQuery.matches || document.hidden) return;
+          animationFrame = requestAnimationFrame(render);
         }
 
         render();
+
+        document.addEventListener("visibilitychange", () => {
+          if (!document.hidden && !animationFrame && !motionQuery.matches) {
+            animationFrame = requestAnimationFrame(render);
+          }
+        });
+
+        motionQuery.addEventListener?.("change", () => {
+          if (!motionQuery.matches && !animationFrame && !document.hidden) {
+            animationFrame = requestAnimationFrame(render);
+          }
+        });
       });
     </script>
 
-    <!-- Bootstrap JS Bundle -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <!-- Bootstrap JS Bundle (kept in sync with the `bootstrap` dependency) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
   </body>
 </html>
 
