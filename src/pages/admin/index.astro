@@ -2225,7 +2225,7 @@ Detailed write-up of engineering decisions, technical trade-offs, and outcomes..
 </style>
 
 <script>
-  import { marked } from "marked";
+  import { renderMarkdownSafe } from "../../utils/sanitize";
   import { ReadmeService, isReadmeUrl } from "../../services/readmeService";
   import { SmartEditorService } from "../../services/smartEditorService";
   declare const bootstrap: any;
@@ -2925,10 +2925,7 @@ Detailed write-up of engineering decisions, technical trade-offs, and outcomes..
         `;
         const { markdown: text, error } = await ReadmeService.fetchReadme(raw);
         if (text) {
-          const html = marked.parse(text, {
-            gfm: true,
-            breaks: true,
-          }) as string;
+          const html = renderMarkdownSafe(text);
           mdPreview.innerHTML = `
             <div class="p-2 mb-3 rounded-3 border border-secondary border-opacity-50 bg-black bg-opacity-40 d-flex align-items-center justify-content-between flex-wrap gap-2">
               <div class="d-flex align-items-center gap-2">
@@ -2961,7 +2958,7 @@ Detailed write-up of engineering decisions, technical trade-offs, and outcomes..
       }
 
       try {
-        const html = marked.parse(raw, { gfm: true, breaks: true }) as string;
+        const html = renderMarkdownSafe(raw);
         mdPreview.innerHTML = html;
       } catch (err) {
         mdPreview.innerHTML = `<div class="text-danger small">Markdown render error: ${err}</div>`;

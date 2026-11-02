@@ -25,6 +25,9 @@ export interface ReadmeFetchResult {
   sourceRepo?: string;
 }
 
+/** Default cap on a single README fetch so a slow host cannot hang a request. */
+const DEFAULT_README_TIMEOUT_MS = 8000;
+
 /**
  * Service for detecting, resolving, fetching, and sanitizing GitHub and remote README documents.
  */
@@ -101,6 +104,20 @@ export class ReadmeService {
   }
 
   /**
+   * Combines a caller-supplied abort signal with a timeout. `timeoutMs` was
+   * previously accepted but never applied, so an unresponsive host would hang
+   * the request indefinitely.
+   */
+  private static buildSignal(options: ReadmeFetchOptions): AbortSignal | undefined {
+    const timeout = AbortSignal.timeout(options.timeoutMs ?? DEFAULT_README_TIMEOUT_MS);
+    if (!options.signal) return timeout;
+    if (typeof AbortSignal.any === 'function') {
+      return AbortSignal.any([options.signal, timeout]);
+    }
+    return options.signal;
+  }
+
+  /**
    * Fetches the markdown from a GitHub or raw README URL, rewriting relative image paths
    * with automatic branch fallback (HEAD -> main -> master).
    */
@@ -124,13 +141,13 @@ export class ReadmeService {
     try {
       let res = await fetch(resolution.rawUrl, {
         headers: fetchHeaders,
-        signal: options.signal
+        signal: ReadmeService.buildSignal(options)
       });
 
       // Branch fallback: If HEAD returns 404, fallback to main or master
       if (!res.ok && resolution.rawUrl.endsWith('/HEAD/README.md') && options.allowFallbackBranches !== false) {
         const mainUrl = resolution.rawUrl.replace('/HEAD/README.md', '/main/README.md');
-        const mainRes = await fetch(mainUrl, { headers: fetchHeaders, signal: options.signal });
+        const mainRes = await fetch(mainUrl, { headers: fetchHeaders, signal: ReadmeService.buildSignal(options) });
         if (mainRes.ok) {
           const mainText = await mainRes.text();
           const cleanText = this.rewriteRelativeMarkdownPaths(mainText, resolution.rawBase.replace('/HEAD/', '/main/'));
@@ -144,7 +161,7 @@ export class ReadmeService {
         }
 
         const masterUrl = resolution.rawUrl.replace('/HEAD/README.md', '/master/README.md');
-        const masterRes = await fetch(masterUrl, { headers: fetchHeaders, signal: options.signal });
+        const masterRes = await fetch(masterUrl, { headers: fetchHeaders, signal: ReadmeService.buildSignal(options) });
         if (masterRes.ok) {
           const masterText = await masterRes.text();
           const cleanText = this.rewriteRelativeMarkdownPaths(masterText, resolution.rawBase.replace('/HEAD/', '/master/'));
@@ -180,14 +197,14 @@ export class ReadmeService {
         sourceRepo
       };
     } catch (err: any) {
-      const isAbort = err.name === 'AbortError';
+      const isTimeout = err?.name === 'TimeoutError' || err?.name === 'AbortError';
       return {
         success: false,
         markdown: null,
         rawUrl: resolution.rawUrl,
         charCount: 0,
         sourceRepo,
-        error: isAbort ? 'README request timed out.' : (err.message || 'Network error fetching README.')
+        error: isTimeout ? 'README request timed out.' : (err.message || 'Network error fetching README.')
       };
     }
   }
@@ -195,8 +212,8 @@ export class ReadmeService {
   /**
    * Convenience method to fetch and return only the markdown string, or null on error.
    */
-  static async fetchReadmeMarkdown(inputUrl: string): Promise<string | null> {
-    const result = await this.fetchReadme(inputUrl);
+  static async fetchReadmeMarkdown(inputUrl: string, options: ReadmeFetchOptions = {}): Promise<string | null> {
+    const result = await this.fetchReadme(inputUrl, options);
     return result.success ? result.markdown : null;
   }
 }

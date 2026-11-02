@@ -42,6 +42,22 @@ export const DEFAULT_RESUME_CONFIG: ResumeConfig = {
   selectedSkills: []
 };
 
+/**
+ * Merges persisted values over the defaults while ignoring `null`/`undefined`.
+ *
+ * A shallow spread lets stored `null`s silently clobber the defaults, which then
+ * crashes callers doing `.length` on what should be an array.
+ */
+function mergeResumeConfig(persisted: Record<string, any> | null | undefined): ResumeConfig {
+  const overrides: Record<string, any> = {};
+  for (const [key, value] of Object.entries(persisted || {})) {
+    if (value === null || value === undefined) continue;
+    if (Array.isArray(value) && value.length === 0) continue;
+    overrides[key] = value;
+  }
+  return { ...DEFAULT_RESUME_CONFIG, ...overrides } as ResumeConfig;
+}
+
 export class ResumeService {
   static async getConfig(supabaseClient: any): Promise<ResumeConfig> {
     try {
@@ -52,8 +68,8 @@ export class ResumeService {
         .maybeSingle();
 
       if (error) throw error;
-      if (data && data.variables) {
-        return { ...DEFAULT_RESUME_CONFIG, ...data.variables };
+      if (data && data.variables && typeof data.variables === 'object') {
+        return mergeResumeConfig(data.variables);
       }
     } catch (err) {
       console.error('Error fetching resume config from Supabase:', err);
@@ -64,8 +80,7 @@ export class ResumeService {
   static async saveConfig(supabaseClient: any, config: Partial<ResumeConfig>): Promise<{ success: boolean; config: ResumeConfig; error?: any }> {
     try {
       const fullConfig: ResumeConfig = {
-        ...DEFAULT_RESUME_CONFIG,
-        ...config,
+        ...mergeResumeConfig(config as Record<string, any>),
         updated_at: new Date().toISOString()
       };
 
@@ -81,7 +96,7 @@ export class ResumeService {
       return { success: true, config: fullConfig };
     } catch (error) {
       console.error('Failed to save resume config to database:', error);
-      return { success: false, config: { ...DEFAULT_RESUME_CONFIG, ...config } as ResumeConfig, error };
+      return { success: false, config: mergeResumeConfig(config as Record<string, any>), error };
     }
   }
 }

@@ -1,4 +1,6 @@
 // src/services/geminiService.ts
+import { safeFetchText } from '../utils/urlSafety';
+
 export interface OptimizeResumeRequest {
   jobUrl?: string;
   jobDescription?: string;
@@ -116,15 +118,21 @@ CRITICAL INSTRUCTIONS:
 
 export async function scrapeJobPage(url: string): Promise<string> {
   try {
-    // If it's a LinkedIn job posting URL, LinkedIn often provides a clean guest-API or redirects.
-    // Ensure we send realistic browser headers.
-    let targetUrl = url;
-    if (url.includes('linkedin.com/jobs/view/')) {
-      // Direct guest viewing endpoint sometimes works better without auth walls
-      targetUrl = url.split('?')[0];
+    if (!url || typeof url !== 'string') {
+      throw new Error('No job URL was provided.');
     }
 
-    const res = await fetch(targetUrl, {
+    // If it's a LinkedIn job posting URL, LinkedIn often provides a clean guest-API or redirects.
+    // Ensure we send realistic browser headers.
+    let targetUrl = url.trim();
+    if (targetUrl.includes('linkedin.com/jobs/view/')) {
+      // Direct guest viewing endpoint sometimes works better without auth walls
+      targetUrl = targetUrl.split('?')[0];
+    }
+
+    // Rejects non-http(s) schemes, loopback/private/link-local hosts and
+    // re-validates every redirect hop. Also caps time and response size.
+    const res = await safeFetchText(targetUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
@@ -133,11 +141,13 @@ export async function scrapeJobPage(url: string): Promise<string> {
         'Sec-Fetch-Mode': 'navigate',
         'Sec-Fetch-User': '?1',
         'Sec-Fetch-Dest': 'document'
-      }
+      },
+      timeoutMs: 10_000,
+      maxBytes: 1_000_000
     });
 
     if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-    const html = await res.text();
+    const html = res.text;
 
     // Check if hit a login wall or CAPTCHA
     if (html.includes('authwall') || html.includes('Sign in to LinkedIn') || html.includes('Join LinkedIn')) {

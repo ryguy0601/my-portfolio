@@ -167,6 +167,45 @@ export const REPO_PRESET_DESCRIPTIONS: Record<string, { summary: string; bullets
 };
 
 /**
+ * Caches the resolved GitHub token so we never shell out on the hot path.
+ * The previous implementation ran `execSync('gh auth token')` on every cache
+ * miss, blocking the event loop for up to 2s each time.
+ */
+const GITHUB_TOKEN_CACHE_MS = 5 * 60 * 1000;
+let githubTokenCache: { token: string; expiresAt: number } | null = null;
+
+function resolveGitHubToken(): string {
+  const now = Date.now();
+  if (githubTokenCache && now < githubTokenCache.expiresAt) {
+    return githubTokenCache.token;
+  }
+
+  const envToken =
+    (typeof process !== 'undefined' && process.env?.GITHUB_TOKEN) ||
+    (typeof import.meta !== 'undefined' && (import.meta as any).env?.GITHUB_TOKEN) ||
+    '';
+
+  let token = String(envToken).trim();
+
+  // Local-development convenience only. The `gh` CLI does not exist on Vercel,
+  // so set GITHUB_TOKEN in production to stay within the authenticated rate limit.
+  if (!token) {
+    try {
+      token = execSync('gh auth token', {
+        encoding: 'utf-8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        timeout: 2000,
+      }).trim();
+    } catch {
+      token = '';
+    }
+  }
+
+  githubTokenCache = { token, expiresAt: now + GITHUB_TOKEN_CACHE_MS };
+  return token;
+}
+
+/**
  * Returns GitHub API headers, automatically attaching Authorization if a token is available
  * in the environment or locally via the GitHub CLI (`gh auth token`).
  */
@@ -176,22 +215,7 @@ export function getGitHubHeaders(): Record<string, string> {
     'User-Agent': 'RyanCuccurullo-Portfolio',
   };
 
-  let token =
-    (typeof process !== 'undefined' && process.env?.GITHUB_TOKEN) ||
-    (typeof import.meta !== 'undefined' && (import.meta as any).env?.GITHUB_TOKEN);
-
-  if (!token) {
-    try {
-      token = execSync('gh auth token', {
-        encoding: 'utf-8',
-        stdio: ['ignore', 'pipe', 'ignore'],
-        timeout: 2000,
-      }).trim();
-    } catch {
-      // Fallback silently if gh CLI is unavailable
-    }
-  }
-
+  const token = resolveGitHubToken();
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
@@ -828,9 +852,22 @@ export class GitHubProjectsService {
         );
 
         if (linkedDb) {
-          const hasDbImages =
-            (Array.isArray(linkedDb.image_filenames) && linkedDb.image_filenames.length > 0) ||
-            Boolean(linkedDb.image_url);
+          const dbFilenames = Array.isArray(linkedDb.image_filenames)
+            ? linkedDb.image_filenames.filter((f: any) => typeof f === 'string' && f.trim())
+            : [];
+          const dbImageUrl = typeof linkedDb.image_url === 'string' ? linkedDb.image_url.trim() : '';
+          const dbHasFilenames = dbFilenames.length > 0;
+          const dbHasImages = dbHasFilenames || Boolean(dbImageUrl);
+
+          // Only fall back to the GitHub-derived screenshots when the DB row carries
+          // no image reference at all. Previously a single curated `image_url` also
+          // set `image_filenames` to null, which silently dropped the whole gallery.
+          const resolvedImageFilenames = dbHasFilenames
+            ? dbFilenames
+            : dbHasImages
+              ? [dbImageUrl]
+              : baseGhProject.image_filenames;
+
           const hasDbSummary =
             linkedDb.summary &&
             !linkedDb.summary.toLowerCase().startsWith('public ') &&
@@ -842,8 +879,8 @@ export class GitHubProjectsService {
             summary: hasDbSummary ? linkedDb.summary : baseGhProject.summary,
             bullets: baseGhProject.bullets || (linkedDb.summary ? [linkedDb.summary] : []),
             featured: featuredSet.has(r.name.toLowerCase()) || Boolean(linkedDb.featured),
-            image_url: hasDbImages ? linkedDb.image_url : baseGhProject.image_url,
-            image_filenames: hasDbImages ? linkedDb.image_filenames : baseGhProject.image_filenames,
+            image_url: dbHasImages ? dbImageUrl : baseGhProject.image_url,
+            image_filenames: resolvedImageFilenames,
             github_url: linkedDb.github_url || r.html_url,
             live_url: linkedDb.live_url || baseGhProject.live_url,
             is_github_synced: true,

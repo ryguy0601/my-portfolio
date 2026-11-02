@@ -586,6 +586,7 @@ const groupedSkills = groupSkillsByCategory(skills || []);
   import { SmartEditorService } from '../../services/smartEditorService';
   import { Document, Paragraph, TextRun, Packer, HeadingLevel } from 'docx';
   import { downloadResumeDirectPdf, downloadCoverLetterDirectPdf } from '../../utils/resumePdfGenerator';
+  import { escapeHtml } from '../../utils/text';
 
   const builderRoot = document.getElementById('resume-builder-root');
   if (builderRoot) {
@@ -911,9 +912,22 @@ const groupedSkills = groupSkillsByCategory(skills || []);
 
     function formatBoldText(t: string): string {
       if (!t) return '';
-      return t
+      return escapeHtml(t)
         .replace(/\*\*(.*?)\*\*/gs, '<strong class="fw-bold">$1</strong>')
         .replace(/__(.*?)__/gs, '<strong class="fw-bold">$1</strong>');
+    }
+
+    /** Strips lightweight Markdown syntax for plain-text targets such as .docx. */
+    function stripMarkdown(t: string): string {
+      if (!t) return '';
+      return t
+        .replace(/\*\*(.*?)\*\*/gs, '$1')
+        .replace(/__(.*?)__/gs, '$1')
+        .replace(/^#{1,6}\s+/gm, '')
+        .replace(/^[-*+]\s+/gm, '')
+        .replace(/`([^`]+)`/g, '$1')
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+        .trim();
     }
 
     function createHtmlBulletList(lines: string[]): string {
@@ -1571,13 +1585,89 @@ const groupedSkills = groupSkillsByCategory(skills || []);
         children.push(new Paragraph({ text: contact }));
       }
 
+      const links = [
+        current.linkedin ? `LinkedIn: ${current.linkedin}` : '',
+        current.github ? `GitHub: ${current.github}` : '',
+        current.portfolio ? `Portfolio: ${current.portfolio}` : ''
+      ].filter(Boolean).join('  |  ');
+      if (links) {
+        children.push(new Paragraph({ text: links }));
+      }
+
       if (current.summary) {
         children.push(new Paragraph({ text: 'PROFESSIONAL SUMMARY', heading: HeadingLevel.HEADING_1 }));
-        children.push(new Paragraph({ text: current.summary }));
+        children.push(new Paragraph({ text: stripMarkdown(current.summary) }));
+      }
+
+      // Technical skills (grouped by category)
+      const docxSkills = rawSkills.filter((s: any) => current.selectedSkills.includes(String(s.id)));
+      if (docxSkills.length > 0) {
+        children.push(new Paragraph({ text: 'TECHNICAL SKILLS', heading: HeadingLevel.HEADING_1 }));
+        const groupedSkills: Record<string, string[]> = {};
+        docxSkills.forEach((s: any) => {
+          const category = s.category || 'General';
+          if (!groupedSkills[category]) groupedSkills[category] = [];
+          groupedSkills[category].push(s.name);
+        });
+        Object.entries(groupedSkills).forEach(([category, names]) => {
+          children.push(new Paragraph({
+            children: [
+              new TextRun({ text: `${category}: `, bold: true }),
+              new TextRun({ text: names.join(', ') })
+            ]
+          }));
+        });
+      }
+
+      // Professional experience
+      const docxExperiences = rawExperiences.filter((e: any) => current.selectedExperiences.includes(String(e.id)));
+      if (docxExperiences.length > 0) {
+        children.push(new Paragraph({ text: 'PROFESSIONAL EXPERIENCE', heading: HeadingLevel.HEADING_1 }));
+        docxExperiences.forEach((exp: any) => {
+          children.push(new Paragraph({
+            children: [
+              new TextRun({ text: `${exp.company} — ${exp.role}`, bold: true }),
+              new TextRun({ text: `   ${exp.start_date} – ${exp.end_date || 'Present'}` })
+            ]
+          }));
+          splitBullets(exp.description).forEach((line) => {
+            children.push(new Paragraph({ text: stripMarkdown(line), bullet: { level: 0 } }));
+          });
+        });
+      }
+
+      // Projects (respecting AI-tailored bullets/tech stack when present)
+      let docxProjects = rawProjects.filter((p: any) =>
+        current.selectedProjects.some((id: string) => matchesProjectId(p, id))
+      );
+      if (docxProjects.length === 0 && Array.isArray(customTailoredProjects) && customTailoredProjects.length > 0) {
+        docxProjects = customTailoredProjects.map((tp: any) => {
+          const matchedRaw = rawProjects.find((p: any) => matchesProjectId(p, tp.id));
+          return { ...tp, github_url: tp.github_url || matchedRaw?.github_url };
+        });
+      }
+      if (docxProjects.length > 0) {
+        children.push(new Paragraph({ text: 'PROJECTS', heading: HeadingLevel.HEADING_1 }));
+        docxProjects.forEach((proj: any) => {
+          const tailored = (customTailoredProjects || []).find((tp: any) => matchesProjectId(tp, proj.id));
+          const techStack = tailored?.tech_stack || proj.tech_stack || '';
+          children.push(new Paragraph({
+            children: [
+              new TextRun({ text: proj.title || 'Project', bold: true }),
+              ...(techStack ? [new TextRun({ text: ` — ${techStack}` })] : [])
+            ]
+          }));
+          const bullets = tailored && Array.isArray(tailored.bullets) && tailored.bullets.length > 0
+            ? tailored.bullets
+            : splitBullets(proj.summary || proj.content || '');
+          bullets.forEach((bullet: string) => {
+            children.push(new Paragraph({ text: stripMarkdown(bullet), bullet: { level: 0 } }));
+          });
+        });
       }
 
       children.push(new Paragraph({ text: 'EDUCATION', heading: HeadingLevel.HEADING_1 }));
-      children.push(new Paragraph({ text: current.education || 'Farmingdale State College' }));
+      children.push(new Paragraph({ text: stripMarkdown(current.education || 'Farmingdale State College') }));
 
       const doc = new Document({
         sections: [{ properties: {}, children }]

@@ -109,7 +109,7 @@ const isCompact = config.compactMode ? 'compact-mode' : '';
     </div>
 
     <!-- Paper Sheet Container -->
-    <div class="d-flex justify-content-center mb-5">
+    <div class="resume-sheet-wrap d-flex justify-content-center mb-5 w-100">
       <div 
         id="public-resume-sheet" 
         class={`resume-sheet ${styleClass} ${isCompact} bg-white text-dark shadow-lg rounded-1`}
@@ -268,6 +268,21 @@ const isCompact = config.compactMode ? 'compact-mode' : '';
   .resume-sheet.compact-mode li {
     font-size: 0.76rem !important;
     line-height: 1.25 !important;
+  }
+
+  /* On narrow screens the fixed 816px sheet would be clipped by the global
+     `overflow-x: hidden`, making half the resume unreachable. Reflow instead. */
+  @media (max-width: 960px) {
+    .resume-sheet-wrap {
+      padding-inline: 0.25rem;
+    }
+
+    .resume-sheet {
+      width: 100% !important;
+      max-width: 100% !important;
+      min-height: auto !important;
+      padding: 24px 18px !important;
+    }
   }
 
   @media print {
