@@ -556,9 +556,18 @@ const techCount = splitCommaList(project?.tech_stack).length;
 
   @media (max-width: 768px) {
     .project-viewport-canvas {
-      min-height: 300px;
-      height: 360px;
-      aspect-ratio: 4 / 3;
+      min-height: 240px;
+      height: 300px;
+      aspect-ratio: 16 / 10;
+    }
+
+    .thumbnail-nav-btn {
+      width: 58px !important;
+      height: 42px !important;
+    }
+
+    .project-headline h1 {
+      font-size: 2rem !important;
     }
   }
 

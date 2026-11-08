@@ -249,6 +249,17 @@ const isCompact = config.compactMode ? 'compact-mode' : '';
       </div>
     </div>
 
+    <!-- Mobile Sticky Download Floating Button -->
+    <div class="mobile-resume-bar d-md-none position-fixed bottom-0 start-50 translate-middle-x mb-3 no-print">
+      <button type="button" id="mobile-print-btn" class="btn btn-primary btn-sm px-4 py-2 rounded-pill font-monospace d-flex align-items-center gap-2 shadow-lg">
+        <svg width="15" height="15" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+          <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+        </svg>
+        <span id="mobile-download-text">Download PDF</span>
+      </button>
+    </div>
+
   </div>
 </Layout>
 
@@ -283,6 +294,10 @@ const isCompact = config.compactMode ? 'compact-mode' : '';
       min-height: auto !important;
       padding: 24px 18px !important;
     }
+  }
+
+  .mobile-resume-bar {
+    z-index: 1040;
   }
 
   @media print {
@@ -320,12 +335,11 @@ const isCompact = config.compactMode ? 'compact-mode' : '';
 <script>
   import { downloadResumeDirectPdf } from '../utils/resumePdfGenerator';
 
-  document.getElementById('public-print-btn')?.addEventListener('click', async () => {
+  const triggerDownload = async (btnTextEl?: HTMLElement | null) => {
     const sheet = document.getElementById('public-resume-sheet');
-    const btnText = document.getElementById('public-download-text');
     if (!sheet) return;
 
-    if (btnText) btnText.textContent = 'Generating PDF...';
+    if (btnTextEl) btnTextEl.textContent = 'Generating...';
 
     try {
       const rawData = sheet.getAttribute('data-resume-data');
@@ -339,7 +353,15 @@ const isCompact = config.compactMode ? 'compact-mode' : '';
       console.error('PDF generation error, falling back to window.print():', e);
       window.print();
     } finally {
-      if (btnText) btnText.textContent = 'Download PDF';
+      if (btnTextEl) btnTextEl.textContent = 'Download PDF';
     }
+  };
+
+  document.getElementById('public-print-btn')?.addEventListener('click', () => {
+    triggerDownload(document.getElementById('public-download-text'));
+  });
+
+  document.getElementById('mobile-print-btn')?.addEventListener('click', () => {
+    triggerDownload(document.getElementById('mobile-download-text'));
   });
 </script>

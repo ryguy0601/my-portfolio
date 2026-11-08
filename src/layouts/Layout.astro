@@ -620,6 +620,24 @@ const socialImageUrl = image.startsWith('http') ? image : new URL(image, siteOri
 
     <!-- Bootstrap JS Bundle (kept in sync with the `bootstrap` dependency) -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+
+    <!-- Mobile Drawer Auto-Close on Link Click -->
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        const navLinks = document.querySelectorAll("#navbarNav .custom-nav-link, #navbarNav .custom-nav-btn");
+        const navCollapse = document.getElementById("navbarNav");
+        if (!navCollapse || !navLinks.length) return;
+
+        navLinks.forEach((link) => {
+          link.addEventListener("click", () => {
+            if (window.innerWidth < 992 && navCollapse.classList.contains("show")) {
+              const toggler = document.querySelector(".navbar-toggler") as HTMLButtonElement | null;
+              toggler?.click();
+            }
+          });
+        });
+      });
+    </script>
   </body>
 </html>
 

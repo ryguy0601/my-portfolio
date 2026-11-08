@@ -265,7 +265,7 @@ const baseUrl = getBaseUrl();
                     data-images={JSON.stringify(images)}
                   >
                     
-                    <!-- Full-Section Background Project Image -->
+                    <!-- Full-Section Background Project Image & Screenshots -->
                     <div class="featured-slide-bg position-absolute top-0 start-0 w-100 h-100">
                       {coverImage ? (
                         <img
@@ -278,46 +278,46 @@ const baseUrl = getBaseUrl();
                       ) : (
                         <NoImagePlaceholder title={project.title} size="lg" />
                       )}
-                    </div>
 
-                    <!-- Multi-Photo Switcher Controls (Bottom Right over Image) -->
-                    {images.length > 1 && (
-                      <div class="photo-switcher-bar position-absolute bottom-0 end-0 m-3 m-md-4 px-2 py-1 rounded-1 d-flex align-items-center gap-2 font-monospace">
-                        <button
-                          type="button"
-                          class="btn btn-sm p-0 photo-step-btn d-inline-flex align-items-center justify-content-center"
-                          data-photo-prev
-                          title="Previous screenshot"
-                          aria-label="Previous screenshot"
-                        >
-                          <i class="bi bi-chevron-left"></i>
-                        </button>
-                        <div class="d-flex align-items-center gap-1 px-1">
-                          {images.map((imgUrl: string, imgIdx: number) => (
-                            <button
-                              type="button"
-                              class={`photo-dot-btn ${imgIdx === 0 ? "active" : ""}`}
-                              data-photo-index={imgIdx}
-                              data-photo-src={imgUrl}
-                              title={`Screenshot ${imgIdx + 1} of ${images.length}`}
-                              aria-label={`View screenshot ${imgIdx + 1}`}
-                            ></button>
-                          ))}
+                      <!-- Multi-Photo Switcher Controls (Bottom Right over Image) -->
+                      {images.length > 1 && (
+                        <div class="photo-switcher-bar position-absolute bottom-0 end-0 m-3 m-md-4 px-2 py-1 rounded-1 d-flex align-items-center gap-2 font-monospace">
+                          <button
+                            type="button"
+                            class="btn btn-sm p-0 photo-step-btn d-inline-flex align-items-center justify-content-center"
+                            data-photo-prev
+                            title="Previous screenshot"
+                            aria-label="Previous screenshot"
+                          >
+                            <i class="bi bi-chevron-left"></i>
+                          </button>
+                          <div class="d-flex align-items-center gap-1 px-1">
+                            {images.map((imgUrl: string, imgIdx: number) => (
+                              <button
+                                type="button"
+                                class={`photo-dot-btn ${imgIdx === 0 ? "active" : ""}`}
+                                data-photo-index={imgIdx}
+                                data-photo-src={imgUrl}
+                                title={`Screenshot ${imgIdx + 1} of ${images.length}`}
+                                aria-label={`View screenshot ${imgIdx + 1}`}
+                              ></button>
+                            ))}
+                          </div>
+                          <span class="photo-counter-label text-muted px-1" data-photo-counter>
+                            1/{images.length}
+                          </span>
+                          <button
+                            type="button"
+                            class="btn btn-sm p-0 photo-step-btn d-inline-flex align-items-center justify-content-center"
+                            data-photo-next
+                            title="Next screenshot"
+                            aria-label="Next screenshot"
+                          >
+                            <i class="bi bi-chevron-right"></i>
+                          </button>
                         </div>
-                        <span class="photo-counter-label text-muted px-1" data-photo-counter>
-                          1/{images.length}
-                        </span>
-                        <button
-                          type="button"
-                          class="btn btn-sm p-0 photo-step-btn d-inline-flex align-items-center justify-content-center"
-                          data-photo-next
-                          title="Next screenshot"
-                          aria-label="Next screenshot"
-                        >
-                          <i class="bi bi-chevron-right"></i>
-                        </button>
-                      </div>
-                    )}
+                      )}
+                    </div>
 
                     <!-- Left-to-Right Gradient Overlay (Compact on Left -> Rapidly Transparent Towards Picture on Right) -->
                     <div class="featured-slide-gradient position-absolute top-0 start-0 w-100 h-100 pointer-events-none"></div>
@@ -660,20 +660,46 @@ const baseUrl = getBaseUrl();
 
   @media (max-width: 767.98px) {
     .featured-slide-frame {
-      min-height: 440px;
+      min-height: auto;
+      flex-direction: column !important;
+      align-items: stretch !important;
     }
 
+    .featured-slide-bg {
+      position: relative !important;
+      width: 100% !important;
+      height: 240px !important;
+      min-height: 240px;
+    }
+
+    .featured-slide-img {
+      object-fit: cover !important;
+      object-position: center center !important;
+    }
+
+    /* Remove full-bleed darkening overlay on mobile so picture is clear */
     .featured-slide-gradient {
-      background: linear-gradient(
-        90deg,
-        rgba(var(--body-bg-rgb, 12, 13, 16), 0.96) 0%,
-        rgba(var(--body-bg-rgb, 12, 13, 16), 0.88) 60%,
-        rgba(var(--body-bg-rgb, 12, 13, 16), 0.55) 100%
-      );
+      display: none !important;
+    }
+
+    /* Stack description below image instead of overlaying on top */
+    .featured-slide-content {
+      position: relative !important;
+      max-width: 100% !important;
+      padding: 1.5rem !important;
+      background-color: var(--card-bg, #111216);
+      border-top: 1px solid var(--card-border-color, #27272a);
+    }
+
+    /* Keep photo switcher neatly inside the image container on mobile */
+    .photo-switcher-bar {
+      margin: 0.75rem !important;
     }
 
     .featured-carousel-indicators {
-      margin-left: 1.5rem;
+      position: relative !important;
+      margin: 1rem 0 0 0 !important;
+      justify-content: center !important;
     }
   }
 

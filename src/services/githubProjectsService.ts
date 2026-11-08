@@ -163,6 +163,14 @@ export const REPO_PRESET_DESCRIPTIONS: Record<string, { summary: string; bullets
       'Collaborated on a modern enterprise web platform, implementing responsive UI layouts and component architectures.',
       'Engineered RESTful API integrations and database schema workflows to support scalable user operations.'
     ]
+  },
+  'tailscale-kvm': {
+    summary: 'Zero-overhead pure-Rust multi-directional software KVM switch bridging Windows, Linux (Wayland/Hyprland & X11), and macOS over Tailscale with drag-and-drop 2D topology routing and a synchronized dual-PC demo recorder.',
+    bullets: [
+      'Engineered a **Pure Rust** software KVM across **Windows**, **Linux (Wayland/Hyprland & X11)**, and **macOS** over an encrypted **Tailscale** mesh network (`100.x.y.z:9876`) with 4-way directional edge routing.',
+      'Implemented kernel-level virtual HID injection using **`/dev/uinput`** & **`evdev`** alongside low-level **`WH_MOUSE_LL` / `WH_KEYBOARD_LL`** Win32 hooks and **`CGEventTap`** for sub-millisecond input forwarding with zero ghost clicks.',
+      'Built an interactive **2D Spatial Web Dashboard (`localhost:9877`)**, cross-OS bitmap/text clipboard and 64 KB chunked file streaming, plus a synchronized **Dual-PC Screen Recorder** (**`gpu-screen-recorder`**, **Win32 GDI+ MJPEG**, & **FFmpeg**) generating side-by-side `.webp`/`.gif`/`.mp4` demos.'
+    ]
   }
 };
 

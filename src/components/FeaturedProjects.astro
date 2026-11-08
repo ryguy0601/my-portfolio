@@ -198,6 +198,34 @@ const totalProjects = projects ? projects.length : 0;
                     )}
                   </div>
 
+                  <!-- Mobile-Only Dedicated Description & Tech Stack Card Below Project Preview -->
+                  <div class="mobile-project-info d-block d-md-none w-100 mt-3 p-3 rounded-3 bg-dark border border-secondary border-opacity-50">
+                    <div class="small text-light mb-2">
+                      {summaryPoints.length > 1 ? (
+                        <ul class="mb-0 ps-3">
+                          {summaryPoints.map((point: string) => (
+                            <li class="mb-1 text-light opacity-90">{point}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p class="mb-0 text-light opacity-90">
+                          {summaryPoints[0] || ''}
+                        </p>
+                      )}
+                    </div>
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 pt-2 border-top border-secondary border-opacity-25">
+                      <TechBadgeList techStack={project.tech_stack} boxSize={28} iconSize={14} />
+                      <a
+                        href={`${baseUrl}projects/${project.id}`}
+                        class="btn btn-outline-light btn-sm font-monospace d-inline-flex align-items-center gap-1 px-2 py-1"
+                        style="font-size: 0.78rem;"
+                      >
+                        <span>Details</span>
+                        <i class="bi bi-arrow-right"></i>
+                      </a>
+                    </div>
+                  </div>
+
                 </div>
               </div>
             );
@@ -915,6 +943,11 @@ const totalProjects = projects ? projects.length : 0;
   }
 
   @media (max-width: 768px) {
+    /* Hide the hover/touch overlay on mobile so it never obscures the screenshot */
+    .card-overlay {
+      display: none !important;
+    }
+
     .outer-control-btn {
       width: 42px;
       height: 42px;
