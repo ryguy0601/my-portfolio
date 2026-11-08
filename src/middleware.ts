@@ -3,13 +3,20 @@ import { isAdminAuthenticated } from './utils/auth';
 
 /**
  * Routes that must stay reachable without an admin session.
- * Everything under /api is authenticated by default — new API routes are
- * protected automatically instead of silently shipping as public endpoints.
+ * Everything under /api is authenticated by default (e.g. /api/optimize-resume,
+ * /api/resume-config) — EXCEPT public project demo media assets (/api/project-demo/*).
  */
 const PUBLIC_PATHS = new Set<string>([
   '/admin/login',
   '/admin/logout'
 ]);
+
+function isPublicRoute(pathname: string): boolean {
+  if (PUBLIC_PATHS.has(pathname)) return true;
+  // Project demo screenshots and gifs are public assets
+  if (pathname.startsWith('/api/project-demo/')) return true;
+  return false;
+}
 
 export const onRequest = defineMiddleware((context, next) => {
   // The GitHub Pages build is fully static — there is no server to protect, and
@@ -25,7 +32,7 @@ export const onRequest = defineMiddleware((context, next) => {
   const isAdminRoute = pathname === '/admin' || pathname.startsWith('/admin/');
   const isApiRoute = pathname === '/api' || pathname.startsWith('/api/');
 
-  if (PUBLIC_PATHS.has(pathname)) {
+  if (isPublicRoute(pathname)) {
     // Already signed in? Skip the login form.
     if (pathname === '/admin/login' && authenticated && context.request.method === 'GET') {
       return context.redirect('/admin');
