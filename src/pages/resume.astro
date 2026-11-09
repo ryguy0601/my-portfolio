@@ -98,6 +98,22 @@ const isCompact = config.compactMode ? 'compact-mode' : '';
       </div>
 
       <div class="d-flex align-items-center gap-2">
+        {config.email && (
+          <button 
+            type="button" 
+            id="copy-email-btn" 
+            class="btn btn-outline-secondary btn-sm px-3 py-2 rounded-1 font-monospace d-flex align-items-center gap-2 text-light"
+            data-email={config.email}
+            title={`Copy ${config.email}`}
+          >
+            <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
+              <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
+            </svg>
+            <span id="copy-email-text">Copy Email</span>
+          </button>
+        )}
+
         <button type="button" id="public-print-btn" class="btn btn-primary btn-sm px-3 py-2 rounded-1 font-monospace d-flex align-items-center gap-2">
           <svg width="15" height="15" fill="currentColor" viewBox="0 0 16 16">
             <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
@@ -357,11 +373,40 @@ const isCompact = config.compactMode ? 'compact-mode' : '';
     }
   };
 
-  document.getElementById('public-print-btn')?.addEventListener('click', () => {
-    triggerDownload(document.getElementById('public-download-text'));
-  });
+  function setupResumeActions() {
+    const publicBtn = document.getElementById('public-print-btn');
+    const mobileBtn = document.getElementById('mobile-print-btn');
+    const copyEmailBtn = document.getElementById('copy-email-btn');
+    const copyEmailText = document.getElementById('copy-email-text');
 
-  document.getElementById('mobile-print-btn')?.addEventListener('click', () => {
-    triggerDownload(document.getElementById('mobile-download-text'));
-  });
+    publicBtn?.addEventListener('click', () => {
+      triggerDownload(document.getElementById('public-download-text'));
+    });
+
+    mobileBtn?.addEventListener('click', () => {
+      triggerDownload(document.getElementById('mobile-download-text'));
+    });
+
+    copyEmailBtn?.addEventListener('click', async () => {
+      const email = copyEmailBtn.getAttribute('data-email');
+      if (!email) return;
+
+      try {
+        await navigator.clipboard.writeText(email);
+        if (copyEmailText) copyEmailText.textContent = 'Copied!';
+        setTimeout(() => {
+          if (copyEmailText) copyEmailText.textContent = 'Copy Email';
+        }, 2000);
+      } catch (e) {
+        window.location.href = `mailto:${email}`;
+      }
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupResumeActions);
+  } else {
+    setupResumeActions();
+  }
+  document.addEventListener('astro:page-load', setupResumeActions);
 </script>

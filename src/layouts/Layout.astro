@@ -1,6 +1,7 @@
 ---
 import "../styles/main.scss";
 import { ClientRouter } from 'astro:transitions';
+import CommandPalette from '../components/CommandPalette.astro';
 import { supabase } from '../utils/supabase';
 import { ThemeService, themeStyle } from '../services/themeService';
 import { getBaseUrl, getAdminUrl } from '../utils/url';
@@ -59,6 +60,42 @@ const socialImageUrl = image.startsWith('http') ? image : new URL(image, siteOri
     <meta property="profile:username" content="ryguy0601" />
     <link rel="me" href="https://github.com/ryguy0601" />
     <link rel="me" href="https://www.linkedin.com/in/ryan-cuccurullo-48b242261/" />
+
+    <!-- Structured Data (Schema.org JSON-LD) -->
+    <script type="application/ld+json" set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Person",
+          "@id": `${siteOrigin}/#person`,
+          "name": "Ryan Cuccurullo",
+          "jobTitle": "Software Engineer",
+          "url": siteOrigin,
+          "image": socialImageUrl,
+          "sameAs": [
+            "https://github.com/ryguy0601",
+            "https://www.linkedin.com/in/ryan-cuccurullo-48b242261/"
+          ],
+          "knowsAbout": [
+            "C#",
+            ".NET",
+            "Blazor",
+            "Python",
+            "Rust",
+            "Full-Stack Web Engineering",
+            "Linux Systems",
+            "Distributed Systems"
+          ]
+        },
+        {
+          "@type": "WebSite",
+          "@id": `${siteOrigin}/#website`,
+          "url": siteOrigin,
+          "name": "Ryan Cuccurullo — Software Engineer Portfolio",
+          "author": { "@id": `${siteOrigin}/#person` }
+        }
+      ]
+    })} />
 
     <style set:html={themeStyle(persistedTheme)}></style>
 
@@ -133,6 +170,22 @@ const socialImageUrl = image.startsWith('http') ? image : new URL(image, siteOri
               </a>
             </li>
 
+            <li class="nav-item ms-lg-2">
+              <button 
+                type="button" 
+                class="btn btn-sm px-2 py-1 font-monospace custom-nav-btn d-inline-flex align-items-center gap-1 cmd-palette-trigger" 
+                data-open-cmd-palette 
+                title="Search & Quick Actions (Cmd + K)"
+                aria-label="Command palette"
+              >
+                <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <span class="d-none d-xl-inline opacity-75 small">Cmd K</span>
+              </button>
+            </li>
+
             <li class="nav-item mt-2 mt-lg-0 ms-lg-1">
               <a class="btn btn-sm px-2 py-1 font-monospace custom-nav-btn" href={adminUrl} style="font-size: 0.78rem;">
                 admin
@@ -147,6 +200,9 @@ const socialImageUrl = image.startsWith('http') ? image : new URL(image, siteOri
     <main class={`position-relative ${hasHero ? "" : "site-content-pad"}`} style="z-index: 1;">
       <slot />
     </main>
+
+    <!-- Global Command Palette Modal -->
+    <CommandPalette />
 
     <!-- Page-Specific Interactive Canvas Background Engine -->
     <script>

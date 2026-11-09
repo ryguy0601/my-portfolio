@@ -444,8 +444,10 @@ const skillList = mergedSkills;
 
         const url = new URL(window.location.href);
         if (currentSkill) {
+          url.searchParams.set('tech', currentSkill);
           url.searchParams.set('skill', currentSkill);
         } else {
+          url.searchParams.delete('tech');
           url.searchParams.delete('skill');
         }
         window.history.replaceState({}, '', url.toString());
@@ -456,6 +458,13 @@ const skillList = mergedSkills;
 
     searchInput?.addEventListener('input', () => {
       currentSearch = searchInput.value;
+      const url = new URL(window.location.href);
+      if (currentSearch.trim()) {
+        url.searchParams.set('q', currentSearch.trim());
+      } else {
+        url.searchParams.delete('q');
+      }
+      window.history.replaceState({}, '', url.toString());
       filterProjects();
     });
 
@@ -463,6 +472,9 @@ const skillList = mergedSkills;
       if (searchInput) {
         searchInput.value = '';
         currentSearch = '';
+        const url = new URL(window.location.href);
+        url.searchParams.delete('q');
+        window.history.replaceState({}, '', url.toString());
         filterProjects();
         searchInput.focus();
       }
@@ -476,12 +488,22 @@ const skillList = mergedSkills;
         p.classList.toggle('active', p.dataset.skill === '');
       });
       const url = new URL(window.location.href);
+      url.searchParams.delete('tech');
       url.searchParams.delete('skill');
+      url.searchParams.delete('q');
       window.history.replaceState({}, '', url.toString());
       filterProjects();
     });
 
-    const initialSkillParam = new URLSearchParams(window.location.search).get('skill');
+    const searchParams = new URLSearchParams(window.location.search);
+    const initialSkillParam = searchParams.get('tech') || searchParams.get('skill');
+    const initialQueryParam = searchParams.get('q');
+
+    if (initialQueryParam && searchInput) {
+      searchInput.value = initialQueryParam;
+      currentSearch = initialQueryParam;
+    }
+
     if (initialSkillParam) {
       const targetKey = normalizeSkillName(initialSkillParam);
       const matchingPill = Array.from(skillPills).find(
@@ -494,6 +516,9 @@ const skillList = mergedSkills;
       } else {
         currentSkill = initialSkillParam;
       }
+    }
+
+    if (initialSkillParam || initialQueryParam) {
       filterProjects();
     }
   }
@@ -503,4 +528,5 @@ const skillList = mergedSkills;
   } else {
     setupProjectsGridFilter();
   }
+  document.addEventListener('astro:page-load', setupProjectsGridFilter);
 </script>
