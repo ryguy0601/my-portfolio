@@ -677,7 +677,7 @@ const pageDescription = project?.summary ? project.summary.slice(0, 155) : 'Engi
     background: rgba(var(--body-bg-rgb), 0.92);
     border: 1px solid var(--card-border-color);
     border-radius: var(--radius-md);
-    padding: 1rem;
+    padding: 2.2rem 1.1rem 1rem 1.1rem;
     margin: 1.2rem 0;
     overflow-x: auto;
   }
@@ -689,6 +689,84 @@ const pageDescription = project?.summary ? project.summary.slice(0, 155) : 'Engi
     color: var(--body-color);
     font-size: 0.88rem;
     line-height: 1.5;
+  }
+
+  /* Badge / Shield Container & Badges */
+  .markdown-content p:has(> img[src*="shields.io"]),
+  .markdown-content p:has(> a > img[src*="shields.io"]),
+  .markdown-content p:has(> img[src*="badge"]),
+  .markdown-content p:has(> a > img[src*="badge"]),
+  .markdown-badge-ribbon {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 1.25rem 0 1.5rem 0;
+    padding: 0.75rem 1rem;
+    background: rgba(var(--card-bg-rgb), 0.4);
+    border: 1px solid var(--border-glass-card);
+    border-radius: var(--radius-md);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .markdown-content [align="center"] p:has(> img[src*="shields.io"]),
+  .markdown-content [align="center"] p:has(> a > img[src*="shields.io"]),
+  .markdown-content [align="center"] p:has(> img[src*="badge"]),
+  .markdown-content [align="center"] p:has(> a > img[src*="badge"]) {
+    justify-content: center;
+  }
+
+  /* Badges & Shields: Crisp height and smooth hover */
+  .markdown-content img[src*="shields.io"],
+  .markdown-content img[src*="badge"],
+  .markdown-content img[src*="badgen.net"] {
+    display: inline-block;
+    height: 24px !important;
+    max-height: 24px !important;
+    width: auto !important;
+    margin: 0 !important;
+    vertical-align: middle;
+    border-radius: 4px;
+    border: none !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    transition: transform 0.18s ease, filter 0.18s ease;
+  }
+
+  .markdown-content a:has(> img[src*="shields.io"]):hover img,
+  .markdown-content a:has(> img[src*="badge"]):hover img,
+  .markdown-content img[src*="shields.io"]:hover,
+  .markdown-content img[src*="badge"]:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.12);
+  }
+
+  .markdown-content a:has(> img[src*="shields.io"]),
+  .markdown-content a:has(> img[src*="badge"]) {
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    border: none;
+  }
+
+  /* Markdown Content Images (Screenshots, Diagrams, Demos) */
+  .markdown-content img:not([src*="shields.io"]):not([src*="badge"]):not([src*="badgen.net"]) {
+    display: block;
+    max-width: 100%;
+    width: auto;
+    max-height: 620px;
+    height: auto;
+    object-fit: contain;
+    margin: 1.8rem auto;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-glass-card);
+    background: rgba(0, 0, 0, 0.3);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .markdown-content img:not([src*="shields.io"]):not([src*="badge"]):not([src*="badgen.net"]):hover {
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.6);
   }
 
   .markdown-content table {
@@ -768,31 +846,40 @@ const pageDescription = project?.summary ? project.summary.slice(0, 155) : 'Engi
   /* Code Block Enhancements & Copy Button */
   .code-block-wrapper {
     position: relative;
-    margin: 1.4rem 0;
+    margin: 1.6rem 0;
   }
   .code-copy-btn {
     position: absolute;
-    top: 8px;
-    right: 8px;
-    background: rgba(var(--card-bg-rgb), 0.85);
-    border: 1px solid var(--card-border-color);
+    top: 10px;
+    right: 12px;
+    background: rgba(22, 27, 34, 0.82);
+    border: 1px solid var(--border-glass-card);
     color: var(--color-text-muted-mid);
-    padding: 3px 8px;
+    padding: 4px 10px;
     border-radius: var(--radius-sm);
     font-size: 0.75rem;
     font-family: var(--bs-font-monospace, monospace);
     cursor: pointer;
-    transition: all 0.2s ease;
-    z-index: 5;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 10;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
   }
   .code-copy-btn:hover {
     color: var(--color-primary);
-    border-color: var(--color-primary);
-    background: var(--card-bg);
+    border-color: rgba(var(--color-primary-rgb), 0.5);
+    background: rgba(30, 36, 46, 0.95);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(var(--color-primary-rgb), 0.15);
   }
   .code-copy-btn.copied {
     color: var(--color-success);
     border-color: var(--color-success);
+    background: rgba(35, 134, 54, 0.18);
   }
 
   /* Next & Previous Project Navigation Footer */
@@ -989,21 +1076,39 @@ const pageDescription = project?.summary ? project.summary.slice(0, 155) : 'Engi
       const copyBtn = document.createElement('button');
       copyBtn.type = 'button';
       copyBtn.className = 'code-copy-btn';
-      copyBtn.innerHTML = 'Copy';
+      copyBtn.innerHTML = `
+        <svg class="copy-icon" width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
+          <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
+        </svg>
+        <span class="copy-label">Copy</span>
+      `;
       copyBtn.setAttribute('aria-label', 'Copy code to clipboard');
 
       copyBtn.addEventListener('click', async () => {
         const codeText = pre.querySelector('code')?.innerText || pre.innerText;
+        const copyLabel = copyBtn.querySelector('.copy-label');
         try {
           await navigator.clipboard.writeText(codeText);
-          copyBtn.textContent = 'Copied!';
+          copyBtn.innerHTML = `
+            <svg class="check-icon" width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M12.736 3.97a.75.75 0 0 1 1.048 1.06l-7 7.5a.75.75 0 0 1-1.096.043l-3.5-3.5a.75.75 0 1 1 1.06-1.06L6.22 10.985l6.516-7.015z"/>
+            </svg>
+            <span class="copy-label">Copied!</span>
+          `;
           copyBtn.classList.add('copied');
           setTimeout(() => {
-            copyBtn.textContent = 'Copy';
+            copyBtn.innerHTML = `
+              <svg class="copy-icon" width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
+                <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
+              </svg>
+              <span class="copy-label">Copy</span>
+            `;
             copyBtn.classList.remove('copied');
           }, 2000);
         } catch {
-          copyBtn.textContent = 'Failed';
+          if (copyLabel) copyLabel.textContent = 'Failed';
         }
       });
 
