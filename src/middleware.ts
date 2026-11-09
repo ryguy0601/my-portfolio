@@ -52,6 +52,16 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   const response = await next();
 
+  // Baseline Security Headers on all HTTP responses:
+  // - Prevent MIME type sniffing
+  // - Prevent clickjacking / unauthorized iframe embedding
+  // - Strict referrer leakage policy
+  // - Restrict browser feature permissions (camera, microphone, geolocation)
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('X-Frame-Options', 'SAMEORIGIN');
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+
   // Edge and Browser Caching Optimization:
   // Public HTML routes (non-admin, non-API) can be cached by the Vercel Edge Network
   // for 10 minutes with stale-while-revalidate for instantaneous edge responses.
