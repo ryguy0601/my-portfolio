@@ -1,5 +1,7 @@
 ---
 // src/pages/projects/[slug].astro
+export const prerender = false;
+
 import Layout from '../../layouts/Layout.astro';
 import TechBadgeList from '../../components/TechBadgeList.astro';
 import NoImagePlaceholder from '../../components/NoImagePlaceholder.astro';
@@ -11,51 +13,6 @@ import { renderMarkdownSafe } from '../../utils/sanitize';
 import { GitHubProjectsService } from '../../services/githubProjectsService';
 import '../../styles/main.scss';
 
-// The GitHub Pages workflow builds a purely static site, so this route must be
-// prerendered there. The Vercel deployment keeps it on-demand so it always
-// serves the latest data without a rebuild.
-// NOTE: `prerender`/`getStaticPaths` are hoisted out of the frontmatter by the
-// Astro compiler, so the check must be written inline rather than via a local
-// const declared in the frontmatter.
-export const prerender = Boolean(process.env.GITHUB_PAGES_BASE);
-
-/**
- * Only runs for the static GitHub Pages build. Enumerates every routable
- * project — curated database rows plus GitHub-synced repositories — so each
- * `/projects/<slug>` page exists in the generated output.
- */
-export async function getStaticPaths() {
-  if (!process.env.GITHUB_PAGES_BASE) return [];
-
-  const paths: Array<{ params: { slug: string } }> = [];
-  const seen = new Set<string>();
-
-  const add = (value: string | number | null | undefined) => {
-    const slug = String(value ?? '').trim();
-    if (!slug || seen.has(slug)) return;
-    seen.add(slug);
-    paths.push({ params: { slug } });
-  };
-
-  try {
-    const { data: dbProjects } = await supabase.from('projects').select('id, slug');
-    for (const project of dbProjects || []) {
-      add(project.slug);
-      add(project.id);
-    }
-
-    const { projects: portfolioProjects } = await GitHubProjectsService.getPortfolioProjects(supabase);
-    for (const project of portfolioProjects || []) {
-      add((project as any).slug);
-      add((project as any).id);
-    }
-  } catch (err) {
-    console.error('[projects/[slug]] getStaticPaths enumeration failed:', err);
-  }
-
-  return paths;
-}
-
 const { slug } = Astro.params;
 
 let project: any = null;
@@ -64,27 +21,10 @@ let notFound = false;
 if (!slug) {
   notFound = true;
 } else {
-  const isNumeric = /^\d+$/.test(slug);
+  try {
+    const isNumeric = /^\d+$/.test(slug);
 
-  let query = supabase
-    .from('projects')
-    .select(`
-      *,
-      project_experience (
-        work_experience (*)
-      )
-    `);
-
-  if (isNumeric) {
-    query = query.eq('id', parseInt(slug, 10));
-  } else {
-    query = query.eq('slug', slug);
-  }
-
-  const { data, error } = await query.maybeSingle();
-
-  if (error || !data) {
-    const { data: allProjects } = await supabase
+    let query = supabase
       .from('projects')
       .select(`
         *,
@@ -93,27 +33,49 @@ if (!slug) {
         )
       `);
 
-    project = allProjects?.find(
-      (p) =>
-        String(p.id) === slug ||
-        p.slug?.toLowerCase() === slug.toLowerCase()
-    );
-
-    if (!project) {
-      // Fallback: check live public GitHub repositories if not in DB
-      const { projects: ghProjects } = await GitHubProjectsService.getPortfolioProjects(supabase, allProjects || []);
-      project = ghProjects.find(
-        (p) =>
-          String(p.id).toLowerCase() === slug.toLowerCase() ||
-          p.slug?.toLowerCase() === slug.toLowerCase() ||
-          p.repo_name?.toLowerCase() === slug.toLowerCase()
-      );
-      if (!project) {
-        notFound = true;
-      }
+    if (isNumeric) {
+      query = query.eq('id', parseInt(slug, 10));
+    } else {
+      query = query.eq('slug', slug);
     }
-  } else {
-    project = data;
+
+    const { data, error } = await query.maybeSingle();
+
+    if (error || !data) {
+      const { data: allProjects } = await supabase
+        .from('projects')
+        .select(`
+          *,
+          project_experience (
+            work_experience (*)
+          )
+        `);
+
+      project = allProjects?.find(
+        (p) =>
+          String(p.id) === slug ||
+          p.slug?.toLowerCase() === slug.toLowerCase()
+      );
+
+      if (!project) {
+        // Fallback: check live public GitHub repositories if not in DB
+        const { projects: ghProjects } = await GitHubProjectsService.getPortfolioProjects(supabase, allProjects || []);
+        project = ghProjects.find(
+          (p) =>
+            String(p.id).toLowerCase() === slug.toLowerCase() ||
+            p.slug?.toLowerCase() === slug.toLowerCase() ||
+            p.repo_name?.toLowerCase() === slug.toLowerCase()
+        );
+        if (!project) {
+          notFound = true;
+        }
+      }
+    } else {
+      project = data;
+    }
+  } catch (err) {
+    console.error(`[projects/[slug]] Error resolving project "${slug}":`, err);
+    notFound = true;
   }
 }
 
@@ -124,15 +86,20 @@ const rawContent = project?.content?.trim() || '';
 let parsedContentHtml = '';
 
 if (rawContent) {
-  if (isReadmeUrl(rawContent)) {
-    const fetchedMarkdown = await fetchReadmeMarkdown(rawContent);
-    if (fetchedMarkdown) {
-      parsedContentHtml = renderMarkdownSafe(fetchedMarkdown);
+  try {
+    if (isReadmeUrl(rawContent)) {
+      const fetchedMarkdown = await fetchReadmeMarkdown(rawContent);
+      if (fetchedMarkdown) {
+        parsedContentHtml = renderMarkdownSafe(fetchedMarkdown);
+      } else {
+        parsedContentHtml = renderMarkdownSafe(`> 📖 **Project Documentation**\n>\n> [View README on GitHub](${rawContent})`);
+      }
     } else {
-      parsedContentHtml = renderMarkdownSafe(`> 📖 **Project Documentation**\n>\n> [View README on GitHub](${rawContent})`);
+      parsedContentHtml = renderMarkdownSafe(rawContent);
     }
-  } else {
-    parsedContentHtml = renderMarkdownSafe(rawContent);
+  } catch (err) {
+    console.error(`[projects/[slug]] Error rendering markdown for "${slug}":`, err);
+    parsedContentHtml = '';
   }
 }
 

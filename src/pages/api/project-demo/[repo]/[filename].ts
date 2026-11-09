@@ -6,12 +6,7 @@ import path from 'node:path';
 // be prerendered (it needs no output) — and must not be server-rendered either
 // (no adapter in that build). Returning no paths skips it entirely.
 // The Vercel deployment keeps it on-demand.
-const IS_STATIC_BUILD = Boolean(process.env.GITHUB_PAGES_BASE);
-export const prerender = IS_STATIC_BUILD;
-
-export function getStaticPaths() {
-  return [];
-}
+export const prerender = false;
 
 const MIME_MAP: Record<string, string> = {
   '.png': 'image/png',
