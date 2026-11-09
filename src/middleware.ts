@@ -18,7 +18,7 @@ function isPublicRoute(pathname: string): boolean {
   return false;
 }
 
-export const onRequest = defineMiddleware((context, next) => {
+export const onRequest = defineMiddleware(async (context, next) => {
   // The GitHub Pages build is fully static — there is no server to protect, and
   // reading cookies there would touch `Astro.request.headers`, which is
   // unavailable on prerendered pages (and emit a build warning on every route).
@@ -50,5 +50,19 @@ export const onRequest = defineMiddleware((context, next) => {
     return context.redirect('/admin/login');
   }
 
-  return next();
+  const response = await next();
+
+  // Edge and Browser Caching Optimization:
+  // Public HTML routes (non-admin, non-API) can be cached by the Vercel Edge Network
+  // for 10 minutes with stale-while-revalidate for instantaneous edge responses.
+  if (!isAdminRoute && !isApiRoute && context.request.method === 'GET') {
+    if (response.status === 200 && !response.headers.has('Cache-Control')) {
+      response.headers.set(
+        'Cache-Control',
+        'public, max-age=60, s-maxage=600, stale-while-revalidate=86400'
+      );
+    }
+  }
+
+  return response;
 });

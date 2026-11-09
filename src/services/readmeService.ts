@@ -28,6 +28,14 @@ export interface ReadmeFetchResult {
 /** Default cap on a single README fetch so a slow host cannot hang a request. */
 const DEFAULT_README_TIMEOUT_MS = 8000;
 
+/** In-memory cache for fetched READMEs (10-minute TTL) to avoid redundant GitHub API requests. */
+interface ReadmeCacheEntry {
+  result: ReadmeFetchResult;
+  fetchedAt: number;
+}
+const README_CACHE = new Map<string, ReadmeCacheEntry>();
+const README_CACHE_TTL_MS = 10 * 60 * 1000;
+
 /**
  * Service for detecting, resolving, fetching, and sanitizing GitHub and remote README documents.
  */
@@ -122,6 +130,13 @@ export class ReadmeService {
    * with automatic branch fallback (HEAD -> main -> master).
    */
   static async fetchReadme(inputUrl: string, options: ReadmeFetchOptions = {}): Promise<ReadmeFetchResult> {
+    const cacheKey = inputUrl.trim().toLowerCase();
+    const now = Date.now();
+    const cached = README_CACHE.get(cacheKey);
+    if (cached && (now - cached.fetchedAt < README_CACHE_TTL_MS)) {
+      return cached.result;
+    }
+
     const resolution = this.resolveReadmeUrl(inputUrl);
     if (!resolution.rawUrl) {
       return {
@@ -151,13 +166,15 @@ export class ReadmeService {
         if (mainRes.ok) {
           const mainText = await mainRes.text();
           const cleanText = this.rewriteRelativeMarkdownPaths(mainText, resolution.rawBase.replace('/HEAD/', '/main/'));
-          return {
+          const result: ReadmeFetchResult = {
             success: true,
             markdown: cleanText,
             rawUrl: mainUrl,
             charCount: cleanText.length,
             sourceRepo
           };
+          README_CACHE.set(cacheKey, { result, fetchedAt: now });
+          return result;
         }
 
         const masterUrl = resolution.rawUrl.replace('/HEAD/README.md', '/master/README.md');
@@ -165,13 +182,15 @@ export class ReadmeService {
         if (masterRes.ok) {
           const masterText = await masterRes.text();
           const cleanText = this.rewriteRelativeMarkdownPaths(masterText, resolution.rawBase.replace('/HEAD/', '/master/'));
-          return {
+          const result: ReadmeFetchResult = {
             success: true,
             markdown: cleanText,
             rawUrl: masterUrl,
             charCount: cleanText.length,
             sourceRepo
           };
+          README_CACHE.set(cacheKey, { result, fetchedAt: now });
+          return result;
         }
       }
 
@@ -189,13 +208,15 @@ export class ReadmeService {
       const text = await res.text();
       const cleanMarkdown = this.rewriteRelativeMarkdownPaths(text, resolution.rawBase);
 
-      return {
+      const result: ReadmeFetchResult = {
         success: true,
         markdown: cleanMarkdown,
         rawUrl: resolution.rawUrl,
         charCount: cleanMarkdown.length,
         sourceRepo
       };
+      README_CACHE.set(cacheKey, { result, fetchedAt: now });
+      return result;
     } catch (err: any) {
       const isTimeout = err?.name === 'TimeoutError' || err?.name === 'AbortError';
       return {

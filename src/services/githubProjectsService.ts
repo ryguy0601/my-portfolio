@@ -58,9 +58,11 @@ interface RepoCacheEntry {
 }
 
 let repoCache: RepoCacheEntry | null = null;
+let githubConfigCache: { config: GitHubPortfolioConfig; fetchedAt: number } | null = null;
+let portfolioProjectsCache: { projects: any[]; config: GitHubPortfolioConfig; fetchedAt: number } | null = null;
 const demoPicsCache = new Map<string, { images: string[]; fetchedAt: number }>();
 const repoLanguagesCache = new Map<string, { languages: string[]; fetchedAt: number }>();
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg', '.avif']);
 
@@ -333,7 +335,12 @@ export class GitHubProjectsService {
   /**
    * Loads the GitHub integration configuration stored in site_theme (id = 'github_config').
    */
-  static async getConfig(supabaseClient: any): Promise<GitHubPortfolioConfig> {
+  static async getConfig(supabaseClient: any, forceRefresh = false): Promise<GitHubPortfolioConfig> {
+    const now = Date.now();
+    if (!forceRefresh && githubConfigCache && (now - githubConfigCache.fetchedAt < CACHE_TTL_MS)) {
+      return { ...githubConfigCache.config };
+    }
+
     try {
       const { data, error } = await supabaseClient
         .from('site_theme')
@@ -343,7 +350,7 @@ export class GitHubProjectsService {
 
       if (error) throw error;
       if (data && data.variables) {
-        return {
+        const config: GitHubPortfolioConfig = {
           ...DEFAULT_GITHUB_CONFIG,
           ...data.variables,
           excludedRepos: Array.isArray(data.variables.excludedRepos)
@@ -360,11 +367,15 @@ export class GitHubProjectsService {
             ? data.variables.customRepos
             : [],
         };
+        githubConfigCache = { config, fetchedAt: now };
+        return { ...config };
       }
     } catch (err) {
       console.error('Error loading github_config from Supabase:', err);
     }
-    return { ...DEFAULT_GITHUB_CONFIG };
+    const fallback = { ...DEFAULT_GITHUB_CONFIG };
+    githubConfigCache = { config: fallback, fetchedAt: now };
+    return fallback;
   }
 
   /**
@@ -374,8 +385,10 @@ export class GitHubProjectsService {
     supabaseClient: any,
     config: Partial<GitHubPortfolioConfig>
   ): Promise<{ success: boolean; config: GitHubPortfolioConfig; error?: any }> {
+    githubConfigCache = null;
+    portfolioProjectsCache = null;
     try {
-      const current = await this.getConfig(supabaseClient);
+      const current = await this.getConfig(supabaseClient, true);
       const merged: GitHubPortfolioConfig = {
         ...current,
         ...config,
@@ -752,6 +765,14 @@ export class GitHubProjectsService {
     projects: any[];
     config: GitHubPortfolioConfig;
   }> {
+    const now = Date.now();
+    if (!dbProjects && portfolioProjectsCache && (now - portfolioProjectsCache.fetchedAt < CACHE_TTL_MS)) {
+      return {
+        projects: portfolioProjectsCache.projects,
+        config: portfolioProjectsCache.config,
+      };
+    }
+
     const config = await this.getConfig(supabaseClient);
 
     let curated = dbProjects;
@@ -764,7 +785,11 @@ export class GitHubProjectsService {
     }
 
     if (config.mode === 'database') {
-      return { projects: curated, config };
+      const result = { projects: curated, config };
+      if (!dbProjects) {
+        portfolioProjectsCache = { ...result, fetchedAt: now };
+      }
+      return result;
     }
 
     const rawRepos = await this.fetchPublicRepos(config.username);
@@ -840,10 +865,14 @@ export class GitHubProjectsService {
         return !excludedSet.has(rName);
       });
 
-      return {
+      const result = {
         projects: [...visibleCurated, ...unlinkedGithubProjects],
         config,
       };
+      if (!dbProjects) {
+        portfolioProjectsCache = { ...result, fetchedAt: now };
+      }
+      return result;
     }
 
     // Mode === 'github': Pull all visible public GitHub repos, enriching with DB screenshots/summaries if linked
@@ -898,14 +927,20 @@ export class GitHubProjectsService {
       })
     );
 
-    return {
+    const result = {
       projects: githubModeProjects,
       config,
     };
+    if (!dbProjects) {
+      portfolioProjectsCache = { ...result, fetchedAt: now };
+    }
+    return result;
   }
 
   static clearCache(): void {
     repoCache = null;
+    githubConfigCache = null;
+    portfolioProjectsCache = null;
     demoPicsCache.clear();
     repoLanguagesCache.clear();
   }

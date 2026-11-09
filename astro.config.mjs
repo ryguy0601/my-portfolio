@@ -7,6 +7,10 @@ export default defineConfig({
   // Used for canonical URLs and og:* meta tags. Override with SITE_URL when the
   // deployment lives somewhere else.
   site: process.env.SITE_URL || 'https://www.ryancuccurullo.com',
+  prefetch: {
+    prefetchAll: true,
+    defaultStrategy: 'hover'
+  },
   security: {
     checkOrigin: true
   },
