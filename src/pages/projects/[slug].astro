@@ -17,6 +17,7 @@ const { slug } = Astro.params;
 
 let project: any = null;
 let notFound = false;
+let allProjectsList: any[] = [];
 
 if (!slug) {
   notFound = true;
@@ -41,34 +42,28 @@ if (!slug) {
 
     const { data, error } = await query.maybeSingle();
 
-    if (error || !data) {
-      const { data: allProjects } = await supabase
-        .from('projects')
-        .select(`
-          *,
-          project_experience (
-            work_experience (*)
-          )
-        `);
+    const { data: allDbProjects } = await supabase
+      .from('projects')
+      .select(`
+        *,
+        project_experience (
+          work_experience (*)
+        )
+      `);
 
-      project = allProjects?.find(
+    const { projects: ghProjects } = await GitHubProjectsService.getPortfolioProjects(supabase, allDbProjects || []);
+    allProjectsList = ghProjects || allDbProjects || [];
+
+    if (error || !data) {
+      project = allProjectsList.find(
         (p) =>
-          String(p.id) === slug ||
-          p.slug?.toLowerCase() === slug.toLowerCase()
+          String(p.id).toLowerCase() === slug.toLowerCase() ||
+          p.slug?.toLowerCase() === slug.toLowerCase() ||
+          p.repo_name?.toLowerCase() === slug.toLowerCase()
       );
 
       if (!project) {
-        // Fallback: check live public GitHub repositories if not in DB
-        const { projects: ghProjects } = await GitHubProjectsService.getPortfolioProjects(supabase, allProjects || []);
-        project = ghProjects.find(
-          (p) =>
-            String(p.id).toLowerCase() === slug.toLowerCase() ||
-            p.slug?.toLowerCase() === slug.toLowerCase() ||
-            p.repo_name?.toLowerCase() === slug.toLowerCase()
-        );
-        if (!project) {
-          notFound = true;
-        }
+        notFound = true;
       }
     } else {
       project = data;
@@ -76,6 +71,23 @@ if (!slug) {
   } catch (err) {
     console.error(`[projects/[slug]] Error resolving project "${slug}":`, err);
     notFound = true;
+  }
+}
+
+// Compute Previous and Next project links for bottom navigation
+let prevProject: any = null;
+let nextProject: any = null;
+if (project && allProjectsList.length > 1) {
+  const currentIndex = allProjectsList.findIndex(
+    (p) =>
+      p.slug === project.slug ||
+      String(p.id) === String(project.id) ||
+      (p.repo_name && p.repo_name === project.repo_name)
+  );
+
+  if (currentIndex !== -1) {
+    prevProject = currentIndex > 0 ? allProjectsList[currentIndex - 1] : allProjectsList[allProjectsList.length - 1];
+    nextProject = currentIndex < allProjectsList.length - 1 ? allProjectsList[currentIndex + 1] : allProjectsList[0];
   }
 }
 
@@ -109,9 +121,16 @@ const associatedExperiences = (project?.project_experience || [])
   .filter(Boolean);
 
 const techCount = splitCommaList(project?.tech_stack).length;
+const heroImage = images[0] || (project?.repo_name ? `https://opengraph.githubassets.com/1/ryguy0601/${project.repo_name}` : '/og-image.png');
+const pageDescription = project?.summary ? project.summary.slice(0, 155) : 'Engineering deep dive and architecture showcase.';
 ---
 
-<Layout hasHero={false} title={project ? `${project.title} — Ryan Cuccurullo` : 'Project Not Found'}>
+<Layout 
+  hasHero={false} 
+  title={project ? `${project.title} — Ryan Cuccurullo` : 'Project Not Found'}
+  description={pageDescription}
+  image={heroImage}
+>
   <div class="project-detail-wrapper position-relative overflow-hidden py-4 py-lg-5">
     
     <!-- Ambient Fluid Glow Background -->
@@ -219,9 +238,11 @@ const techCount = splitCommaList(project?.tech_stack).length;
                             <div class="h-100 w-100 d-flex align-items-center justify-content-center p-2 p-md-3">
                               <img 
                                 src={imgPath} 
-                                class="d-block w-100 h-100 object-fit-contain rounded-2" 
+                                class="d-block w-100 h-100 object-fit-contain rounded-2 carousel-zoom-img" 
                                 alt={`${project.title} screenshot ${idx + 1}`}
                                 loading={idx === 0 ? 'eager' : 'lazy'} 
+                                role="button"
+                                title="Click to enlarge"
                               />
                             </div>
                           </div>
@@ -343,7 +364,7 @@ const techCount = splitCommaList(project?.tech_stack).length;
 
               <!-- 5. Full-Width Deep Architecture & Case Notes (Markdown Rendered) -->
               {parsedContentHtml && (
-                <div class="card detail-glass-card p-4 p-md-5 rounded-4 shadow-lg">
+                <div class="card detail-glass-card p-4 p-md-5 rounded-4 shadow-lg mb-4">
                   <div class="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom border-secondary border-opacity-25">
                     <span class="text-accent fs-5">&#9881;</span>
                     <h2 class="fw-bold text-light mb-0 fs-4">Architecture & Engineering Notes</h2>
@@ -353,8 +374,59 @@ const techCount = splitCommaList(project?.tech_stack).length;
                 </div>
               )}
 
+              <!-- 6. Next & Previous Project Navigation Footer -->
+              {(prevProject || nextProject) && (
+                <nav class="project-pagination-row row g-3 mt-2" aria-label="Project Navigation">
+                  {prevProject && (
+                    <div class="col-12 col-md-6">
+                      <a 
+                        href={`${baseUrl}projects/${prevProject.slug || prevProject.id}`} 
+                        class="card detail-glass-card p-3 p-md-4 rounded-4 text-decoration-none project-nav-card h-100 d-flex flex-column justify-content-between"
+                      >
+                        <div class="d-flex align-items-center gap-2 text-muted font-monospace small mb-2">
+                          <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
+                          </svg>
+                          <span>PREVIOUS PROJECT</span>
+                        </div>
+                        <h4 class="fw-bold text-light mb-1 fs-5 project-nav-title">{prevProject.title}</h4>
+                        <p class="text-secondary small mb-0 text-truncate">{prevProject.summary || 'View showcase'}</p>
+                      </a>
+                    </div>
+                  )}
+
+                  {nextProject && (
+                    <div class="col-12 col-md-6 ms-auto">
+                      <a 
+                        href={`${baseUrl}projects/${nextProject.slug || nextProject.id}`} 
+                        class="card detail-glass-card p-3 p-md-4 rounded-4 text-decoration-none project-nav-card h-100 d-flex flex-column justify-content-between text-md-end"
+                      >
+                        <div class="d-flex align-items-center justify-content-md-end gap-2 text-muted font-monospace small mb-2">
+                          <span>NEXT PROJECT</span>
+                          <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd" d="M1 8a.5.5 0 0 1 .5-.5h11.793l-3.147-3.146a.5.5 0 0 1 .708-.708l4 4a.5.5 0 0 1 0 .708l-4 4a.5.5 0 0 1-.708-.708L13.293 8.5H1.5A.5.5 0 0 1 1 8z"/>
+                          </svg>
+                        </div>
+                        <h4 class="fw-bold text-light mb-1 fs-5 project-nav-title">{nextProject.title}</h4>
+                        <p class="text-secondary small mb-0 text-truncate">{nextProject.summary || 'View showcase'}</p>
+                      </a>
+                    </div>
+                  )}
+                </nav>
+              )}
+
             </article>
           )}
+
+          <!-- Image Lightbox Modal -->
+          <div id="imageLightboxModal" class="lightbox-modal" role="dialog" aria-modal="true" aria-hidden="true" tabindex="-1">
+            <div class="lightbox-backdrop"></div>
+            <div class="lightbox-content">
+              <button type="button" class="lightbox-close-btn" aria-label="Close fullscreen preview">&times;</button>
+              <img id="lightboxImage" src="" alt="Expanded preview" class="lightbox-img shadow-2xl" />
+              <div id="lightboxCaption" class="lightbox-caption font-monospace small text-center text-muted mt-2"></div>
+            </div>
+          </div>
 
         </div>
       </div>
@@ -654,6 +726,160 @@ const techCount = splitCommaList(project?.tech_stack).length;
     opacity: 0.5;
     margin: 2rem 0;
   }
+
+  /* GitHub Alert Cards in Markdown */
+  .gfm-alert {
+    background: rgba(var(--body-bg-rgb), 0.7);
+    border-left: 4px solid var(--color-secondary);
+    border-top: 1px solid var(--border-glass-card);
+    border-right: 1px solid var(--border-glass-card);
+    border-bottom: 1px solid var(--border-glass-card);
+  }
+  .gfm-alert-note {
+    border-left-color: var(--color-primary);
+  }
+  .gfm-alert-note .gfm-alert-header {
+    color: var(--color-primary);
+  }
+  .gfm-alert-tip {
+    border-left-color: var(--color-success);
+  }
+  .gfm-alert-tip .gfm-alert-header {
+    color: var(--color-success);
+  }
+  .gfm-alert-important {
+    border-left-color: var(--color-secondary);
+  }
+  .gfm-alert-important .gfm-alert-header {
+    color: var(--color-secondary);
+  }
+  .gfm-alert-warning,
+  .gfm-alert-caution {
+    border-left-color: var(--color-warning);
+  }
+  .gfm-alert-warning .gfm-alert-header,
+  .gfm-alert-caution .gfm-alert-header {
+    color: var(--color-warning);
+  }
+  .gfm-alert-body p:last-child {
+    margin-bottom: 0;
+  }
+
+  /* Code Block Enhancements & Copy Button */
+  .code-block-wrapper {
+    position: relative;
+    margin: 1.4rem 0;
+  }
+  .code-copy-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(var(--card-bg-rgb), 0.85);
+    border: 1px solid var(--card-border-color);
+    color: var(--color-text-muted-mid);
+    padding: 3px 8px;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-family: var(--bs-font-monospace, monospace);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    z-index: 5;
+  }
+  .code-copy-btn:hover {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+    background: var(--card-bg);
+  }
+  .code-copy-btn.copied {
+    color: var(--color-success);
+    border-color: var(--color-success);
+  }
+
+  /* Next & Previous Project Navigation Footer */
+  .project-nav-card {
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid var(--border-glass-card) !important;
+  }
+  .project-nav-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--color-secondary) !important;
+    box-shadow: 0 10px 24px rgba(var(--color-secondary-rgb), 0.15) !important;
+  }
+  .project-nav-card:hover .project-nav-title {
+    color: var(--color-secondary) !important;
+  }
+
+  /* Clickable Carousel Image Zoom Cursor */
+  .carousel-zoom-img {
+    cursor: zoom-in;
+    transition: transform 0.2s ease;
+  }
+  .carousel-zoom-img:hover {
+    transform: scale(1.015);
+  }
+
+  /* Image Lightbox Modal */
+  .lightbox-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+  .lightbox-modal.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .lightbox-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(5, 5, 10, 0.92);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .lightbox-content {
+    position: relative;
+    z-index: 2;
+    max-width: 92vw;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .lightbox-img {
+    max-width: 90vw;
+    max-height: 82vh;
+    object-fit: contain;
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+  }
+  .lightbox-close-btn {
+    position: absolute;
+    top: -42px;
+    right: 0;
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 2.2rem;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0.75;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+  }
+  .lightbox-close-btn:hover {
+    opacity: 1;
+    transform: scale(1.15);
+  }
 </style>
 
 <script>
@@ -701,11 +927,101 @@ const techCount = splitCommaList(project?.tech_stack).length;
     });
   }
 
+  function setupImageLightbox() {
+    const modal = document.getElementById('imageLightboxModal');
+    const modalImg = document.getElementById('lightboxImage') as HTMLImageElement | null;
+    const modalCaption = document.getElementById('lightboxCaption');
+    if (!modal || !modalImg) return;
+
+    const openLightbox = (src: string, alt: string) => {
+      modalImg.src = src;
+      modalImg.alt = alt;
+      if (modalCaption) modalCaption.textContent = alt || '';
+      modal.classList.add('active');
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden';
+    };
+
+    const closeLightbox = () => {
+      modal.classList.remove('active');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+      setTimeout(() => {
+        if (!modal.classList.contains('active')) {
+          modalImg.src = '';
+        }
+      }, 250);
+    };
+
+    // Close on backdrop or close button click
+    modal.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+      if (target.classList.contains('lightbox-backdrop') || target.classList.contains('lightbox-close-btn')) {
+        closeLightbox();
+      }
+    });
+
+    // Close on ESC key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && modal.classList.contains('active')) {
+        closeLightbox();
+      }
+    });
+
+    // Attach to all zoomable carousel images
+    document.querySelectorAll<HTMLImageElement>('.carousel-zoom-img').forEach((img) => {
+      img.addEventListener('click', () => {
+        openLightbox(img.src, img.alt);
+      });
+    });
+  }
+
+  function setupMarkdownCodeCopy() {
+    const markdownPres = document.querySelectorAll<HTMLPreElement>('.markdown-content pre');
+    markdownPres.forEach((pre) => {
+      if (pre.closest('.code-block-wrapper')) return;
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'code-block-wrapper';
+      pre.parentNode?.insertBefore(wrapper, pre);
+      wrapper.appendChild(pre);
+
+      const copyBtn = document.createElement('button');
+      copyBtn.type = 'button';
+      copyBtn.className = 'code-copy-btn';
+      copyBtn.innerHTML = 'Copy';
+      copyBtn.setAttribute('aria-label', 'Copy code to clipboard');
+
+      copyBtn.addEventListener('click', async () => {
+        const codeText = pre.querySelector('code')?.innerText || pre.innerText;
+        try {
+          await navigator.clipboard.writeText(codeText);
+          copyBtn.textContent = 'Copied!';
+          copyBtn.classList.add('copied');
+          setTimeout(() => {
+            copyBtn.textContent = 'Copy';
+            copyBtn.classList.remove('copied');
+          }, 2000);
+        } catch {
+          copyBtn.textContent = 'Failed';
+        }
+      });
+
+      wrapper.appendChild(copyBtn);
+    });
+  }
+
+  function initPage() {
+    setupProjectCarousel();
+    setupImageLightbox();
+    setupMarkdownCodeCopy();
+  }
+
   // Run on initial load and View Transitions page updates
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', setupProjectCarousel);
+    document.addEventListener('DOMContentLoaded', initPage);
   } else {
-    setupProjectCarousel();
+    initPage();
   }
-  document.addEventListener('astro:page-load', setupProjectCarousel);
+  document.addEventListener('astro:page-load', initPage);
 </script>

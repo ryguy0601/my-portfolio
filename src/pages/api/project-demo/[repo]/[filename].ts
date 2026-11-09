@@ -64,7 +64,7 @@ export const GET: APIRoute = async ({ params }) => {
     if (!isWithinRoot(candidate, root)) continue;
 
     try {
-      if (fs.statSync(candidate).isFile()) {
+      if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
         const fileBuffer = fs.readFileSync(candidate);
         return new Response(fileBuffer, {
           status: 200,
@@ -76,6 +76,28 @@ export const GET: APIRoute = async ({ params }) => {
       }
     } catch {
       // Missing file — keep looking at the next candidate.
+    }
+  }
+
+  // Fallback for production / serverless environments where local files are not on disk:
+  // Fetch directly from the repository's demoPics on GitHub (main or master branch)
+  const branches = ['main', 'master'];
+  for (const branch of branches) {
+    try {
+      const remoteUrl = `https://raw.githubusercontent.com/ryguy0601/${encodeURIComponent(repo)}/${branch}/demoPics/${encodeURIComponent(filename)}`;
+      const remoteRes = await fetch(remoteUrl);
+      if (remoteRes.ok) {
+        const arrayBuffer = await remoteRes.arrayBuffer();
+        return new Response(arrayBuffer, {
+          status: 200,
+          headers: {
+            'Content-Type': contentType,
+            'Cache-Control': 'public, max-age=86400, s-maxage=86400',
+          },
+        });
+      }
+    } catch {
+      // Continue to next branch
     }
   }
 
