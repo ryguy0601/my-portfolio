@@ -98,28 +98,6 @@ const isCompact = config.compactMode ? 'compact-mode' : '';
       </div>
 
       <div class="resume-header-actions d-flex align-items-center gap-2">
-        {config.email && (
-          <button 
-            type="button" 
-            id="copy-email-btn" 
-            class="resume-action-btn copy-email-btn btn btn-sm px-3 py-2 rounded-pill font-monospace d-inline-flex align-items-center gap-2"
-            data-email={config.email}
-            title={`Copy ${config.email}`}
-            aria-label="Copy email address"
-          >
-            <span class="btn-icon d-inline-flex align-items-center justify-content-center">
-              <svg class="copy-icon" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
-                <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
-              </svg>
-              <svg class="check-icon d-none" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M12.736 3.97a.75.75 0 0 1 1.048 1.06l-7 7.5a.75.75 0 0 1-1.096.043l-3.5-3.5a.75.75 0 1 1 1.06-1.06L6.22 10.985l6.516-7.015z"/>
-              </svg>
-            </span>
-            <span id="copy-email-text">Copy Email</span>
-          </button>
-        )}
-
         <button type="button" id="public-print-btn" class="resume-action-btn btn btn-primary btn-sm px-3 py-2 rounded-pill font-monospace d-inline-flex align-items-center gap-2">
           <svg width="15" height="15" fill="currentColor" viewBox="0 0 16 16">
             <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
@@ -291,25 +269,6 @@ const isCompact = config.compactMode ? 'compact-mode' : '';
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     font-weight: 500;
   }
-  .copy-email-btn {
-    background: rgba(var(--card-bg-rgb), 0.7);
-    border: 1px solid var(--border-glass-card);
-    color: var(--color-text-muted-light);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-  }
-  .copy-email-btn:hover {
-    background: rgba(var(--color-primary-rgb), 0.12);
-    border-color: rgba(var(--color-primary-rgb), 0.5);
-    color: var(--color-primary);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.15);
-  }
-  .copy-email-btn.is-copied {
-    background: rgba(var(--color-success-rgb), 0.15);
-    border-color: var(--color-success);
-    color: var(--color-success);
-  }
   #public-print-btn:hover {
     transform: translateY(-1px);
     box-shadow: 0 4px 14px rgba(var(--color-primary-rgb), 0.25);
@@ -411,8 +370,6 @@ const isCompact = config.compactMode ? 'compact-mode' : '';
   function setupResumeActions() {
     const publicBtn = document.getElementById('public-print-btn');
     const mobileBtn = document.getElementById('mobile-print-btn');
-    const copyEmailBtn = document.getElementById('copy-email-btn');
-    const copyEmailText = document.getElementById('copy-email-text');
 
     publicBtn?.addEventListener('click', () => {
       triggerDownload(document.getElementById('public-download-text'));
@@ -420,31 +377,6 @@ const isCompact = config.compactMode ? 'compact-mode' : '';
 
     mobileBtn?.addEventListener('click', () => {
       triggerDownload(document.getElementById('mobile-download-text'));
-    });
-
-    copyEmailBtn?.addEventListener('click', async () => {
-      const email = copyEmailBtn.getAttribute('data-email');
-      if (!email) return;
-
-      const copyIcon = copyEmailBtn.querySelector('.copy-icon');
-      const checkIcon = copyEmailBtn.querySelector('.check-icon');
-
-      try {
-        await navigator.clipboard.writeText(email);
-        copyEmailBtn.classList.add('is-copied');
-        copyIcon?.classList.add('d-none');
-        checkIcon?.classList.remove('d-none');
-        if (copyEmailText) copyEmailText.textContent = 'Copied!';
-
-        setTimeout(() => {
-          copyEmailBtn.classList.remove('is-copied');
-          copyIcon?.classList.remove('d-none');
-          checkIcon?.classList.add('d-none');
-          if (copyEmailText) copyEmailText.textContent = 'Copy Email';
-        }, 2200);
-      } catch (e) {
-        window.location.href = `mailto:${email}`;
-      }
     });
   }
 
